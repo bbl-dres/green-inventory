@@ -1383,6 +1383,7 @@
             document.getElementById('tasks-view').classList.remove('active');
             document.getElementById('dashboard-view').classList.remove('active');
             document.getElementById('settings-view').classList.remove('active');
+            document.getElementById('api-view').classList.remove('active');
 
             var viewElement = document.getElementById(view + '-view');
             if (viewElement) {
@@ -1465,9 +1466,43 @@
             container: 'map',
             style: mapStyles[currentMapStyle].url,
             center: startCenter,
-            zoom: startZoom
+            zoom: startZoom,
+            dragRotate: false
         });
-        
+
+        // Middle mouse button drag to rotate/pitch
+        (function setupMiddleMouseRotate() {
+            var dragging = false;
+            var lastX, lastY;
+            var mapCanvas = map.getCanvas();
+
+            mapCanvas.addEventListener('mousedown', function(e) {
+                if (e.button !== 1) return;
+                e.preventDefault();
+                dragging = true;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                mapCanvas.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var dx = e.clientX - lastX;
+                var dy = e.clientY - lastY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                var bearing = map.getBearing() + dx * 0.5;
+                var pitch = Math.max(0, Math.min(85, map.getPitch() - dy * 0.5));
+                map.jumpTo({ bearing: bearing, pitch: pitch });
+            });
+
+            window.addEventListener('mouseup', function(e) {
+                if (e.button !== 1) return;
+                dragging = false;
+                mapCanvas.style.cursor = '';
+            });
+        })();
+
         map.addControl(new mapboxgl.NavigationControl(), 'top-right');
         map.addControl(new mapboxgl.ScaleControl({ maxWidth: 200 }), 'bottom-left');
 
@@ -1500,6 +1535,41 @@
         };
 
         map.addControl(new HomeControl(), 'top-right');
+
+        // 3D toggle control
+        var Toggle3DControl = function() {};
+        Toggle3DControl.prototype.onAdd = function(map) {
+            this._map = map;
+            this._active = false;
+            this._container = document.createElement('div');
+            this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+
+            var button = document.createElement('button');
+            button.className = 'map-3d-btn';
+            button.type = 'button';
+            button.title = '3D-Ansicht umschalten';
+            button.textContent = '3D';
+            var self = this;
+            button.onclick = function() {
+                self._active = !self._active;
+                button.classList.toggle('active', self._active);
+                button.textContent = self._active ? '2D' : '3D';
+                if (self._active) {
+                    map.easeTo({ pitch: 60, duration: 600 });
+                } else {
+                    map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+                }
+            };
+
+            this._container.appendChild(button);
+            return this._container;
+        };
+        Toggle3DControl.prototype.onRemove = function() {
+            this._container.parentNode.removeChild(this._container);
+            this._map = undefined;
+        };
+
+        map.addControl(new Toggle3DControl(), 'top-right');
 
         // ===== DARGESTELLTE KARTEN (Layer Management in Accordion) =====
         (function setupDargestellteKarten() {
@@ -1682,6 +1752,38 @@
                 'trees': 'Bäume'
             };
 
+            // Tools allowed per geometry type
+            var toolsByGeometry = {
+                'Point': ['draw-point', 'edit-vertices', 'delete', 'undo', 'redo'],
+                'Polygon': ['draw-polygon', 'edit-vertices', 'split', 'merge', 'delete', 'undo', 'redo'],
+                'LineString': ['draw-line', 'edit-vertices', 'split', 'merge', 'delete', 'undo', 'redo']
+            };
+
+            // Show/hide toolbar buttons based on geometry type
+            function updateToolbarForGeometry(geometryType) {
+                var allowed = toolsByGeometry[geometryType] || Object.keys(toolsByGeometry).reduce(function(all, k) {
+                    return all.concat(toolsByGeometry[k]);
+                }, []);
+                editToolbar.querySelectorAll('.edit-tool-btn').forEach(function(btn) {
+                    var tool = btn.dataset.tool;
+                    btn.style.display = allowed.indexOf(tool) !== -1 ? '' : 'none';
+                });
+                // Hide empty dividers (when all tools in a group are hidden)
+                editToolbar.querySelectorAll('.edit-tool-group').forEach(function(group) {
+                    var hasVisible = Array.prototype.some.call(group.querySelectorAll('.edit-tool-btn'), function(btn) {
+                        return btn.style.display !== 'none';
+                    });
+                    group.style.display = hasVisible ? '' : 'none';
+                });
+                editToolbar.querySelectorAll('.edit-tool-divider').forEach(function(div) {
+                    var prev = div.previousElementSibling;
+                    var next = div.nextElementSibling;
+                    var prevVisible = prev && prev.style.display !== 'none';
+                    var nextVisible = next && next.style.display !== 'none';
+                    div.style.display = (prevVisible && nextVisible) ? '' : 'none';
+                });
+            }
+
             // Edit button click — toggle edit toolbar for that layer
             accordion.querySelectorAll('.layer-edit-btn').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
@@ -1704,6 +1806,12 @@
                     this.classList.add('active');
                     activeEditLayer = layerId;
                     activeEditTool = null;
+
+                    // Determine geometry type from layer data
+                    var dataFn = internalLayerData[layerId];
+                    var data = dataFn ? dataFn() : null;
+                    var geometryType = (data && data.layerInfo) ? data.layerInfo.geometryType : null;
+                    updateToolbarForGeometry(geometryType);
 
                     // Update banner and show toolbar + banner
                     editBannerLayerName.textContent = (layerDisplayNames[layerId] || layerId) + ' bearbeiten';
@@ -3095,7 +3203,7 @@
             });
         }
 
-        // Close modal on Escape key
+        // Close modals on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && layerInfoModal && layerInfoModal.classList.contains('show')) {
                 hideLayerInfo();
@@ -3104,6 +3212,15 @@
 
         // Make showLayerInfo globally accessible for onclick handlers
         window.showLayerInfo = showLayerInfo;
+
+        // ===== API DOCS LINK =====
+        var apiLink = document.getElementById('footer-api-link');
+        if (apiLink) {
+            apiLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                switchView('api');
+            });
+        }
 
         // ===== GEOKATALOG =====
         var geokatalogLoaded = false;

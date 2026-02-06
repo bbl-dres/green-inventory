@@ -123,18 +123,90 @@ Das Inventarmodul dient der Erfassung, Verwaltung und Geometrie-Bearbeitung alle
 
 ### 3.2 Geometrie-Editing im Web
 
+Das Editing-Modul stellt geometriespezifische Werkzeuge bereit. Die Werkzeugleiste passt sich dynamisch dem Geometrietyp des aktiven Layers an — Polygon-Werkzeuge erscheinen nur bei Polygon-Layern, Punkt-Werkzeuge nur bei Punkt-Layern usw. Immer nur ein Layer ist gleichzeitig editierbar.
+
+#### 3.2.1 Polygon-Operationen (Grünflächen, Standortperimeter, Belagsflächen)
+
 | ID | Prio | Anforderung | Beschreibung |
 |----|------|-------------|--------------|
-| I-010 | **Must** | Polygon erstellen | Zeichnen neuer Polygone direkt auf der Karte mit Snapping an bestehende Geometrien. |
-| I-011 | **Must** | Polygon bearbeiten | Verschieben, Hinzufügen und Löschen von Stützpunkten bestehender Polygone. |
-| I-012 | **Must** | Polygon Split | Teilen eines Polygons durch Zeichnen einer Schnittlinie. Attribute werden wahlweise kopiert oder aufgeteilt. |
-| I-013 | **Must** | Polygon Join/Merge | Zusammenführen von zwei oder mehr Polygonen zu einem einzelnen Polygon. Attribut-Konfliktlösung per Dialog. |
-| I-014 | **Must** | Punkt platzieren | Setzen von Punktobjekten (z.B. Bäume) per Klick auf die Karte mit sofortiger Attributerfassung. |
-| I-015 | Should | Snapping-Optionen | Konfigurierbare Fangoptionen: an Stützpunkte, Kanten, Gitter, AV-Grenzen. |
-| I-016 | Should | Undo/Redo | Mehrstufiges Rückgängigmachen und Wiederholen von Geometrie-Änderungen. |
+| I-010 | **Must** | Polygon erstellen | Zeichnen neuer Polygone direkt auf der Karte durch Klicken von Stützpunkten. Doppelklick oder Klick auf den ersten Punkt schliesst das Polygon. Snapping an bestehende Geometrien. |
+| I-011 | **Must** | Polygon bearbeiten | Verschieben, Hinzufügen und Löschen von Stützpunkten bestehender Polygone. Klick auf Mittelpunktgriffe fügt neue Stützpunkte ein. |
+| I-012 | **Must** | Polygon Split | Teilen eines Polygons durch Zeichnen einer Schnittlinie. Erzeugt zwei neue Polygone. Attribute werden wahlweise kopiert oder aufgeteilt (Dialog). |
+| I-013 | **Must** | Polygon Join/Merge | Zusammenführen von zwei oder mehr angrenzenden Polygonen zu einem einzelnen Polygon (Union). Attribut-Konfliktlösung per Dialog. |
+| I-040 | **Must** | Polygon verschieben | Verschieben eines kompletten Polygons per Drag-and-Drop im Selektionsmodus. |
+| I-041 | **Must** | Polygon löschen | Entfernen eines selektierten Polygons mit Bestätigungsdialog. |
+| I-042 | Should | Polygon-Loch schneiden | Erstellen eines inneren Rings (Loch) durch Zeichnen eines Polygons innerhalb eines bestehenden Polygons (Differenz). Anwendung: Teich innerhalb einer Wiese. |
+| I-043 | Should | Polygon umformen | Hinzufügen oder Entfernen von Fläche durch Zeichnen eines überlappenden Polygons (Union/Differenz). |
+| I-044 | Should | Polygon duplizieren | Kopieren eines Polygons inkl. Attribute an eine neue Position. |
+| I-045 | Should | Fläche automatisch berechnen | Automatische Berechnung von `areaM2` bei Erstellung und Bearbeitung. Anzeige der Fläche in m² während des Zeichnens. |
+| I-046 | Could | Polygon vereinfachen | Reduktion der Stützpunktanzahl unter Beibehaltung der Form (Douglas-Peucker). Nützlich nach GPS-Import. |
+| I-047 | Could | Puffer generieren | Erzeugung einer Pufferzone um ein Polygon mit definierbarem Abstand (z.B. Baumschutzzone). |
+
+#### 3.2.2 Punkt-Operationen (Bäume, Mobiliar, Strukturelemente)
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-014 | **Must** | Punkt platzieren | Setzen von Punktobjekten per Klick auf die Karte. Sofortige Öffnung des Attributformulars nach Platzierung. |
+| I-050 | **Must** | Punkt verschieben | Verschieben eines bestehenden Punktobjekts per Drag-and-Drop. Koordinaten-Feedback während des Verschiebens. |
+| I-051 | **Must** | Punkt löschen | Entfernen eines selektierten Punktobjekts mit Bestätigungsdialog. |
+| I-052 | Should | Punkt duplizieren | Kopieren eines Punktobjekts inkl. Attribute an eine neue Position. Nützlich bei Erfassung ähnlicher Objekte (z.B. mehrere Bänke). |
+
+#### 3.2.3 Linien-Operationen (Hecken, Wege, Mauern, Gewässerränder)
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-055 | **Must** | Linie erstellen | Zeichnen neuer Linienobjekte durch Klicken von Stützpunkten. Doppelklick oder Enter beendet die Linie. |
+| I-056 | **Must** | Linie bearbeiten | Verschieben, Hinzufügen und Löschen von Stützpunkten bestehender Linien. |
+| I-057 | **Must** | Linie verschieben | Verschieben einer kompletten Linie per Drag-and-Drop. |
+| I-058 | **Must** | Linie löschen | Entfernen einer selektierten Linie mit Bestätigungsdialog. |
+| I-059 | Should | Linie teilen | Aufteilen einer Linie an einem gewählten Punkt in zwei separate Linienobjekte. |
+| I-060 | Should | Linien verbinden | Zusammenführen zweier Linien mit gemeinsamem Endpunkt zu einer einzigen Linie. |
+| I-061 | Should | Linie verlängern | Anfügen weiterer Stützpunkte an einem Ende einer bestehenden Linie. |
+| I-062 | Should | Länge automatisch berechnen | Automatische Berechnung von `lengthM` bei Erstellung und Bearbeitung. Anzeige der Länge in Metern während des Zeichnens. |
+
+#### 3.2.4 Selektion
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-065 | **Must** | Klick-Selektion | Auswahl eines einzelnen Objekts per Klick auf der Karte. Visuelle Hervorhebung (Konturfarbe, Stützpunktanzeige). |
+| I-066 | **Must** | Multi-Selektion | Hinzufügen/Entfernen einzelner Objekte zur Selektion per Shift+Klick. |
+| I-067 | **Must** | Rechteck-Selektion | Aufziehen eines Auswahlrechtecks zur Selektion aller Objekte innerhalb des Rechtecks. |
+| I-068 | **Must** | Layer-Selektierbarkeit | Nur der aktiv bearbeitete Layer ist selektierbar. Andere Layer bleiben sichtbar, aber nicht interaktiv (verhindert Fehlselektion). |
+| I-069 | Should | Lasso-Selektion | Freihand-Selektion durch Zeichnen einer beliebigen Form. Nützlich für Selektion entlang irregulärer Zonen. |
+| I-070 | **Must** | Selektion aufheben | Aufheben der Selektion per Escape-Taste oder Klick in leeren Kartenbereich. |
+
+#### 3.2.5 Bearbeitungsworkflow
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-075 | **Must** | Expliziter Bearbeitungsmodus | Bearbeitung wird über eine Schaltfläche pro Layer aktiviert. Standardmodus ist schreibgeschützt (Kartennavigation). Banner zeigt den aktiv bearbeiteten Layer an. |
+| I-076 | **Must** | Explizites Speichern/Verwerfen | Geometrie-Änderungen werden lokal gesammelt. Speichern-Schaltfläche persistiert alle Änderungen, Abbrechen-Schaltfläche verwirft sie. Kein Auto-Save. |
+| I-077 | **Must** | Warnung bei ungesicherten Änderungen | Beim Verlassen des Bearbeitungsmodus oder Wechsel des Layers mit ungesicherten Änderungen erscheint ein Bestätigungsdialog. |
+| I-016 | Should | Undo/Redo | Mehrstufiges Rückgängigmachen (Ctrl+Z) und Wiederholen (Ctrl+Y) von Geometrie-Änderungen. Mindestens 30 Aktionen im Undo-Stack. Visueller Zustand der Undo/Redo-Schaltflächen (aktiv/inaktiv). |
 | I-017 | Should | Mutation History | Versionierung aller Geometrie-Änderungen mit Zeitstempel, Benutzer und Änderungsbeschreibung. |
+| I-078 | Should | Inline-Attributerfassung | Bei Erstellung eines neuen Objekts öffnet sich sofort das Attributformular im Seitenpanel. Geometrie und Attribute werden als eine Aktion gespeichert. |
+
+#### 3.2.6 Zeichenhilfen
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-015 | **Must** | Snapping an Stützpunkte | Fangen an bestehenden Stützpunkten mit konfigurierbarer Toleranz (Standard: 12px). Visueller Indikator bei aktivem Snapping. Ein-/Ausschalten per Tastenkürzel (S). |
+| I-080 | Should | Snapping an Kanten | Fangen an der nächsten Position auf einer bestehenden Kante (nicht nur Stützpunkte). |
+| I-081 | Should | Snapping über Layer hinweg | Fangen an Geometrien anderer Layer (z.B. Grünfläche an Standortperimeter ausrichten). |
+| I-082 | Should | Masslinie beim Zeichnen | Anzeige der Segmentlänge und Gesamtlänge/-fläche in Echtzeit während des Zeichnens. |
 | I-018 | Could | Sketching-Modus | Freihand-Zeichnungsmodus für schnelle Entwürfe, konvertierbar in saubere Polygone. |
-| I-019 | Could | Geometrie-Validierung | Automatische Prüfung auf topologische Fehler (Selbstüberschneidung, Gaps, Overlaps) mit Reparaturvorschlägen. |
+
+#### 3.2.7 Geometrie-Validierung
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-019 | **Must** | Selbstüberschneidung | Automatische Erkennung von Selbstüberschneidungen bei Polygonen. Warnung vor dem Speichern mit visueller Markierung der Problemstelle. |
+| I-085 | **Must** | Minimum-Stützpunkte | Polygone benötigen mindestens 3, Linien mindestens 2 eindeutige Stützpunkte. Verhinderung ungültiger Geometrien. |
+| I-086 | **Must** | Gültige Koordinaten | Koordinaten müssen innerhalb des Schweizer Bounding Box liegen (WGS84: 5.95°–10.49° E, 45.82°–47.81° N). |
+| I-087 | Should | Objekt innerhalb Standort | Warnung wenn ein Objekt (Baum, Grünfläche) ausserhalb des zugeordneten Standortperimeters liegt. |
+| I-088 | Should | Überlappungsprüfung | Warnung bei signifikanter Überlappung zweier Grünflächen innerhalb desselben Standorts. |
+| I-089 | Should | Minimum-Fläche/-Länge | Warnung bei unrealistisch kleinen Polygonen (<1 m²) oder kurzen Linien (<0.5 m). |
+| I-090 | Could | Winding Order | Automatische Korrektur der Umlaufrichtung (äusserer Ring gegen Uhrzeigersinn, innerer Ring im Uhrzeigersinn) gemäss RFC 7946. |
 
 ### 3.3 Attributverwaltung
 
@@ -415,7 +487,7 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | Modul | Must | Should | Could | Won't | Total |
 |-------|------|--------|-------|-------|-------|
 | 2. Kartenmodul | 8 | 6 | 4 | 0 | 18 |
-| 3. Inventarmodul | 7 | 9 | 4 | 0 | 20 |
+| 3. Inventarmodul | 29 | 26 | 6 | 0 | 61 |
 | 4. Pflegeprofil-Bibliothek | 7 | 7 | 2 | 0 | 16 |
 | 5. Massnahmenplanung | 4 | 7 | 2 | 0 | 13 |
 | 6. Mobile Erfassung | 6 | 6 | 1 | 0 | 13 |
@@ -425,7 +497,7 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | 10. Suche & Filter | 3 | 2 | 1 | 0 | 6 |
 | 11. Benutzerverwaltung | 2 | 2 | 1 | 0 | 5 |
 | 12. Nicht-funktionale Anf. | 5 | 7 | 0 | 0 | 12 |
-| **Total** | **49** | **58** | **22** | **1** | **130** |
+| **Total** | **71** | **75** | **24** | **1** | **171** |
 
 ---
 
@@ -461,4 +533,5 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 0.1 | Februar 2026 | Erster Entwurf, 106 Anforderungen |
-| 0.2 | Februar 2026 | Erweiterung um GSZ-Profilstruktur (31 Profile, Spannungsfeld Ökologie–Gestaltung–Nutzung, Massnahmen-Tabellen), Pflegeübersichtsplan-Modul, Mobile-Modul (Field Survey mit Offline-Fähigkeit), Neophyten-Erfassung, Jahrespflegeplaner-Ansicht, erweiterte Objekttypen (Strukturelemente, Beläge, Gewässer). Neu 130 Anforderungen. |
+| 0.2 | Februar 2026 | Erweiterung um GSZ-Profilstruktur (31 Profile, Spannungsfeld Ökologie–Gestaltung–Nutzung, Massnahmen-Tabellen), Pflegeübersichtsplan-Modul, Mobile-Modul (Field Survey mit Offline-Fähigkeit), Neophyten-Erfassung, Jahrespflegeplaner-Ansicht, erweiterte Objekttypen (Strukturelemente, Beläge, Gewässer). 130 Anforderungen. |
+| 0.3 | Februar 2026 | Umfassende Erweiterung des Geometrie-Editing-Moduls (Kap. 3.2): Aufgliederung nach Geometrietyp (Polygon, Punkt, Linie), neue Abschnitte für Selektion, Bearbeitungsworkflow, Zeichenhilfen und Geometrie-Validierung. +41 neue Anforderungen basierend auf Analyse von QGIS, ArcGIS Web Editor, Mapbox GL Draw und Leaflet-Geoman. Neu 171 Anforderungen. |

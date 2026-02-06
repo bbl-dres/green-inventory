@@ -444,7 +444,8 @@
         #wiki-view,
         #tasks-view,
         #dashboard-view,
-        #settings-view {
+        #settings-view,
+        #api-view {
             flex: 1;
             display: none;
             flex-direction: column;
@@ -458,7 +459,8 @@
         #wiki-view.active,
         #tasks-view.active,
         #dashboard-view.active,
-        #settings-view.active {
+        #settings-view.active,
+        #api-view.active {
             display: flex;
         }
 
@@ -2198,6 +2200,33 @@
         .map-home-btn .material-symbols-outlined {
             font-size: var(--icon-md);
             color: var(--grey-600);
+        }
+
+        /* 3D Toggle Button */
+        .map-3d-btn {
+            background: var(--white);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 29px;
+            height: 29px;
+            padding: 0;
+            box-shadow: 0 0 0 2px var(--overlay-dark-10);
+            font-size: var(--text-xs);
+            font-weight: var(--font-bold);
+            color: var(--grey-600);
+        }
+
+        .map-3d-btn:hover {
+            background: var(--grey-100);
+        }
+
+        .map-3d-btn.active {
+            background: var(--interactive-blue);
+            color: var(--white);
         }
 
         /* ===== LAYER CONTROLS (inside Dargestellte Karten accordion) ===== */
@@ -4451,6 +4480,48 @@
             font-weight: var(--font-medium);
             font-size: var(--text-sm);
         }
+
+        /* ===== API DOCS PLACEHOLDER ===== */
+        .api-placeholder-endpoints {
+            text-align: left;
+            display: inline-block;
+            margin-top: var(--space-4);
+        }
+
+        .api-endpoint-group h4 {
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+            color: var(--grey-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 0 0 var(--space-3);
+        }
+
+        .api-endpoint {
+            font-family: monospace;
+            font-size: var(--text-sm);
+            padding: var(--space-2) var(--space-3);
+            background: var(--grey-50);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-2);
+            color: var(--grey-700);
+        }
+
+        .api-method {
+            display: inline-block;
+            font-size: var(--text-xs);
+            font-weight: var(--font-bold);
+            padding: 1px 6px;
+            border-radius: var(--radius-sm);
+            margin-right: var(--space-2);
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .api-method.get { background: var(--status-active-bg); color: var(--status-active-text); }
+        .api-method.post { background: var(--status-planning-bg); color: var(--status-planning-text); }
+        .api-method.put { background: var(--status-renovation-bg); color: var(--status-renovation-text); }
+        .api-method.delete { background: var(--status-error-bg); color: var(--status-error-text); }
 
         /* ===== MAP CONTEXT MENU ===== */
         .map-context-menu {

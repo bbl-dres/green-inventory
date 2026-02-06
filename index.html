@@ -563,6 +563,26 @@
             </div>
         </div>
 
+        <div id="api-view">
+            <div class="placeholder-view">
+                <span class="material-symbols-outlined placeholder-icon">api</span>
+                <h2>Groundskeeper API</h2>
+                <p>Die REST-API-Dokumentation (OpenAPI / Swagger) wird hier verfügbar sein, sobald das Backend implementiert ist.</p>
+                <div class="api-placeholder-endpoints">
+                    <div class="api-endpoint-group">
+                        <h4>Geplante Endpunkte</h4>
+                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/sites</div>
+                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/green-areas</div>
+                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/trees</div>
+                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/furniture</div>
+                        <div class="api-endpoint"><span class="api-method post">POST</span> /api/v1/trees</div>
+                        <div class="api-endpoint"><span class="api-method put">PUT</span> /api/v1/trees/:id</div>
+                        <div class="api-endpoint"><span class="api-method delete">DEL</span> /api/v1/trees/:id</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         </div><!-- /.main-content -->
 
         <!-- Smart Drawer (merged Filter + AI Assistant) -->
@@ -652,6 +672,7 @@
     <footer id="footer">
         <div id="coordinates">WGS 84 | Koordinaten: --</div>
         <div id="footer-links">
+            <a href="#" id="footer-api-link">API</a>
             <a href="https://github.com/davras5/gis-immo" target="_blank">Quellcode</a>
             <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
             <a href="https://www.bbl.admin.ch/de/hilfe" target="_blank">Hilfe</a>
