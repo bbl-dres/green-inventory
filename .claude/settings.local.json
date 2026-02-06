@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo view:*)",
+      "Bash(git clone:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

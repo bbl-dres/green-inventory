@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grünflächeninventar GIS</title>
+    
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <!-- Loading overlay (shown during initial data fetch) -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Daten werden geladen...</div>
+    </div>
+
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container" role="alert" aria-live="polite"></div>
+
+    <!-- Layer info modal -->
+    <div id="layer-info-modal" class="layer-info-modal" role="dialog" aria-modal="true" aria-labelledby="layer-info-title">
+        <div class="layer-info-modal-content">
+            <button class="layer-info-modal-close" aria-label="Schliessen">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <div id="layer-info-content" class="layer-info-body">
+                <div class="layer-info-loading">Lade Informationen...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skip link for keyboard navigation -->
+    <a href="#main" class="skip-link">Zum Hauptinhalt springen</a>
+
+    <header id="header" role="banner">
+        <div class="header-main">
+            <div id="logo-area">
+                <img id="logo-flag" src="https://www.swisstopo.admin.ch/images/swiss-logo-flag.svg" alt="Schweizer Flagge">
+                <img id="logo-text-img" src="https://prod-swisstopoch-hcms-sdweb.imgix.net/2023/12/16/26d017bc-3987-4322-aa29-18052c11eac5.png" alt="Schweizerische Eidgenossenschaft">
+            </div>
+
+            <div id="search-area" role="search">
+                <div id="search-wrapper">
+                    <div id="search-container">
+                        <button id="search-icon-btn" aria-label="Suche starten" type="button">
+                            <span class="material-symbols-outlined" aria-hidden="true">search</span>
+                        </button>
+                        <input type="search" id="search-input" placeholder="Suche nach Objekten, Orten oder Karten" aria-label="Suchbegriff eingeben" autocomplete="off">
+                        <button id="search-clear-btn" title="Suche löschen" aria-label="Suche löschen" type="button">
+                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                        </button>
+                        <div id="search-spinner" class="spinner" role="status" aria-label="Suche läuft"></div>
+                    </div>
+                    <div id="search-results" role="listbox" aria-label="Suchergebnisse"></div>
+                </div>
+
+                <div class="view-toggle" role="tablist" aria-label="Ansicht wählen">
+                    <button class="view-toggle-btn active" data-view="map" title="Karte" aria-label="Kartenansicht" role="tab" aria-selected="true">
+                        <span class="material-symbols-outlined" aria-hidden="true">map</span>
+                        <span class="view-label">Karte</span>
+                    </button>
+                    <button class="view-toggle-btn" data-view="wiki" title="Wiki" aria-label="Pflegeprofile Wiki" role="tab" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+                        <span class="view-label">Wiki</span>
+                    </button>
+                    <button class="view-toggle-btn" data-view="tasks" title="Aufgaben" aria-label="Aufgabenverwaltung" role="tab" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
+                        <span class="view-label">Aufgaben</span>
+                    </button>
+                    <button class="view-toggle-btn" data-view="dashboard" title="Dashboard" aria-label="Dashboard" role="tab" aria-selected="false">
+                        <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+                        <span class="view-label">Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="header-right">
+                <span id="object-count" aria-live="polite">10 Objekte</span>
+                <button class="header-btn" id="smart-drawer-btn" title="Standorte filtern" aria-label="Standorte filtern" aria-expanded="false" aria-controls="smart-drawer">
+                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+                    Standorte filtern
+                </button>
+                <button class="header-btn" id="project-settings-btn" title="Projekteinstellungen" aria-label="Projekteinstellungen">
+                    <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+                </button>
+                <div id="login-area">
+                    <button id="login-btn" title="Anmelden" aria-label="Anmelden">
+                        <span class="material-symbols-outlined" aria-hidden="true">person</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </header>
+
+    <main id="main">
+        <div class="main-content">
+            <div id="map-view" class="active">
+            <div id="map"></div>
+
+            <!-- Layer Visibility Widget -->
+            <div class="layer-widget collapsed" id="layer-widget">
+                <button class="layer-widget-trigger" id="layer-widget-trigger" title="Kartenebenen">
+                    <span class="material-symbols-outlined">layers</span>
+                </button>
+                <div class="layer-widget-panel" id="layer-widget-panel">
+                    <div class="layer-widget-header" id="layer-widget-header" title="Einklappen">
+                        <span class="material-symbols-outlined">layers</span>
+                        <span>Kartenebenen</span>
+                        <span class="material-symbols-outlined">expand_less</span>
+                    </div>
+                    <div class="layer-widget-content">
+                        <label class="layer-item">
+                            <input type="checkbox" id="layer-portfolio" data-layer="portfolio" checked>
+                            <span class="layer-name">Standorte</span>
+                            <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
+                                <span class="material-symbols-outlined">info</span>
+                            </button>
+                        </label>
+                        <div class="layer-divider"></div>
+                        <label class="layer-item">
+                            <input type="checkbox" id="layer-oereb" data-layer="ch.swisstopo-vd.stand-oerebkataster">
+                            <span class="layer-name">ÖREB Verfügbarkeit</span>
+                            <button class="layer-info-btn" data-layer="ch.swisstopo-vd.stand-oerebkataster" title="Layer-Info">
+                                <span class="material-symbols-outlined">info</span>
+                            </button>
+                        </label>
+                        <label class="layer-item">
+                            <input type="checkbox" id="layer-av" data-layer="ch.swisstopo-vd.geometa-grundbuch">
+                            <span class="layer-name">Amtliche Vermessung</span>
+                            <button class="layer-info-btn" data-layer="ch.swisstopo-vd.geometa-grundbuch" title="Layer-Info">
+                                <span class="material-symbols-outlined">info</span>
+                            </button>
+                        </label>
+                        <label class="layer-item">
+                            <input type="checkbox" id="layer-vegetation" data-layer="ch.bafu.landesforstinventar-vegetationshoehenmodell">
+                            <span class="layer-name">Vegetationshöhe</span>
+                            <button class="layer-info-btn" data-layer="ch.bafu.landesforstinventar-vegetationshoehenmodell" title="Layer-Info">
+                                <span class="material-symbols-outlined">info</span>
+                            </button>
+                        </label>
+                    </div>
+                    <div class="layer-widget-footer">
+                        <span>&copy; swisstopo</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav id="accordion-panel">
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Teilen</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="share-panel">
+                            <div class="share-icons" role="group" aria-label="Teilen über soziale Medien">
+                                <!-- Email -->
+                                <button class="share-icon-btn" onclick="shareViaEmail()" title="Per E-Mail teilen" aria-label="Per E-Mail teilen">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                                    </svg>
+                                </button>
+                                <!-- Facebook -->
+                                <button class="share-icon-btn" onclick="shareViaFacebook()" title="Auf Facebook teilen" aria-label="Auf Facebook teilen">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/>
+                                    </svg>
+                                </button>
+                                <!-- LinkedIn -->
+                                <button class="share-icon-btn" onclick="shareViaLinkedIn()" title="Auf LinkedIn teilen" aria-label="Auf LinkedIn teilen">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                                    </svg>
+                                </button>
+                                <!-- X (Twitter) -->
+                                <button class="share-icon-btn" onclick="shareViaX()" title="Auf X teilen" aria-label="Auf X teilen">
+                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="share-link-section">
+                                <span class="share-link-label">Link zum Teilen:</span>
+                                <div class="share-link-row">
+                                    <input type="text" id="share-link-input" class="share-link-input" readonly aria-label="Link zum Teilen">
+                                    <button class="share-copy-btn" onclick="copyShareLink()" aria-label="Link in die Zwischenablage kopieren">Link kopieren</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Drucken</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="print-panel">
+                            <div class="print-form-row">
+                                <label for="print-orientation" class="print-label">Orientierung</label>
+                                <select id="print-orientation" class="print-select">
+                                    <option value="landscape-a4">A4 landscape</option>
+                                    <option value="portrait-a4">A4 portrait</option>
+                                    <option value="landscape-a3">A3 landscape</option>
+                                    <option value="portrait-a3">A3 portrait</option>
+                                </select>
+                            </div>
+                            <div class="print-form-row">
+                                <label for="print-scale" class="print-label">Massstab</label>
+                                <select id="print-scale" class="print-select">
+                                    <option value="auto">Automatisch</option>
+                                    <option value="500">1:500</option>
+                                    <option value="1000">1:1'000</option>
+                                    <option value="2500">1:2'500</option>
+                                    <option value="5000">1:5'000</option>
+                                    <option value="10000">1:10'000</option>
+                                    <option value="25000">1:25'000</option>
+                                    <option value="50000">1:50'000</option>
+                                    <option value="100000">1:100'000</option>
+                                    <option value="200000">1:200'000</option>
+                                    <option value="500000">1:500'000</option>
+                                    <option value="1000000">1:1'000'000</option>
+                                    <option value="2500000">1:2'500'000</option>
+                                </select>
+                            </div>
+                            <div class="print-checkboxes">
+                                <label class="print-checkbox-label">
+                                    <input type="checkbox" id="print-legend" checked>
+                                    <span>Legende</span>
+                                </label>
+                                <label class="print-checkbox-label">
+                                    <input type="checkbox" id="print-grid">
+                                    <span>Koordinatennetz</span>
+                                </label>
+                            </div>
+                            <button id="print-pdf-btn" class="print-btn" onclick="generatePrintPDF()">
+                                Erstelle PDF für Druck
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Zeichnen & Messen auf der Karte</span>
+                    </div>
+                    <div class="accordion-content">
+                        Zeichnen Sie Punkte, Linien und Polygone direkt auf der Karte. Messen Sie Distanzen in Metern oder Kilometern und berechnen Sie Flächen in Quadratmetern.
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <div class="accordion-header">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Export</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="export-panel">
+                            <div class="export-section">
+                                <label class="export-section-label">Datenauswahl</label>
+                                <select id="export-data-selection" class="export-select">
+                                    <option value="filtered">Aktuelle Ansicht</option>
+                                    <option value="all">Alle Objekte</option>
+                                    <option value="selected">Nur ausgewähltes Objekt</option>
+                                </select>
+                                <span class="export-count" id="export-count"></span>
+                            </div>
+
+                            <div class="export-section">
+                                <label class="export-section-label">Format wählen</label>
+                                <div class="export-format-grid">
+                                    <button class="export-format-card active" data-format="geojson">
+                                        <span class="export-format-icon">{ }</span>
+                                        <span class="export-format-name">GeoJSON</span>
+                                        <span class="export-format-desc">Web-Anwendungen</span>
+                                    </button>
+                                    <button class="export-format-card" data-format="csv">
+                                        <span class="export-format-icon"><span class="material-symbols-outlined">table_view</span></span>
+                                        <span class="export-format-name">CSV</span>
+                                        <span class="export-format-desc">Excel / Tabellen</span>
+                                    </button>
+                                    <button class="export-format-card" data-format="kml">
+                                        <span class="export-format-icon"><span class="material-symbols-outlined">location_on</span></span>
+                                        <span class="export-format-name">KML</span>
+                                        <span class="export-format-desc">Google Earth</span>
+                                    </button>
+                                    <button class="export-format-card" data-format="shapefile">
+                                        <span class="export-format-icon"><span class="material-symbols-outlined">hexagon</span></span>
+                                        <span class="export-format-name">Shapefile</span>
+                                        <span class="export-format-desc">GIS-Software</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="export-section">
+                                <label class="export-section-label">Optionen</label>
+                                <div class="export-options">
+                                    <label class="export-checkbox-label">
+                                        <input type="checkbox" id="export-coords" checked>
+                                        <span>Koordinaten einschliessen</span>
+                                    </label>
+                                    <label class="export-checkbox-label">
+                                        <input type="checkbox" id="export-all-fields" checked>
+                                        <span>Alle Attribute exportieren</span>
+                                    </label>
+                                    <label class="export-checkbox-label">
+                                        <input type="checkbox" id="export-visible-only">
+                                        <span>Nur sichtbare Spalten</span>
+                                    </label>
+                                    <label class="export-checkbox-label">
+                                        <input type="checkbox" id="export-parcels">
+                                        <span>Parzellen einschliessen</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="export-section">
+                                <label class="export-section-label">Koordinatensystem</label>
+                                <select id="export-crs" class="export-select">
+                                    <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
+                                    <option value="EPSG:2056">CH1903+ / LV95 (EPSG:2056)</option>
+                                    <option value="EPSG:21781">CH1903 / LV03 (EPSG:21781)</option>
+                                </select>
+                            </div>
+
+                            <button id="export-btn" class="export-btn">
+                                <span class="material-symbols-outlined">download</span>
+                                <span>Exportieren</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" id="geokatalog-accordion">
+                    <div class="accordion-header geokatalog-header">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Geokatalog</span>
+                        <span class="geokatalog-theme-switch">Thema wechseln</span>
+                    </div>
+                    <div class="accordion-content geokatalog-content">
+                        <div id="geokatalog-tree" class="geokatalog-tree">
+                            <div class="geokatalog-loading">Lade Katalog...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item" id="active-layers-accordion">
+                    <div class="accordion-header active">
+                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
+                        <span>Dargestellte Karten</span>
+                    </div>
+                    <div class="accordion-content show">
+                        <div id="active-layers-list" class="active-layers-list">
+                            <div class="active-layers-empty">Keine Hintergrundkarten aktiv. Suchen Sie nach Karten über das Suchfeld.</div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+            
+            <div id="menu-toggle">
+                <span class="material-symbols-outlined">expand_less</span>
+                <span id="menu-toggle-text">Menü schliessen</span>
+            </div>
+            
+            <aside id="info-panel" role="complementary" aria-label="Objektinformation">
+                <div id="info-header">
+                    <span id="info-header-title">Objekt-Information</span>
+                    <div id="info-header-actions">
+                        <button id="info-zoom-to" title="Hinzoomen" aria-label="Zum Objekt zoomen"><span class="material-symbols-outlined" aria-hidden="true">center_focus_strong</span></button>
+                        <button id="info-share" title="Teilen" aria-label="Objekt teilen"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
+                        <button id="info-close" title="Schliessen" aria-label="Informationspanel schliessen"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+                    </div>
+                </div>
+                <div id="info-preview-image" role="img" aria-label="Vorschaubild des Objekts"></div>
+                <div id="info-body"></div>
+            </aside>
+
+            <!-- Style Switcher (visible only in map view) -->
+            <div class="style-switcher" id="style-switcher">
+                <div class="style-switcher-panel" id="style-panel">
+                    <button class="style-option active" data-style="light-v11" title="Light">
+                        <img id="thumb-light-v11" src="" alt="Light">
+                        <span>Light</span>
+                    </button>
+                    <button class="style-option" data-style="streets-v12" title="Standard">
+                        <img id="thumb-streets-v12" src="" alt="Standard">
+                        <span>Standard</span>
+                    </button>
+                    <button class="style-option" data-style="satellite-v9" title="Luftbild">
+                        <img id="thumb-satellite-v9" src="" alt="Luftbild">
+                        <span>Luftbild</span>
+                    </button>
+                    <button class="style-option" data-style="satellite-streets-v12" title="Luftbild + Strassen">
+                        <img id="thumb-satellite-streets-v12" src="" alt="Luftbild + Strassen">
+                        <span>Hybrid</span>
+                    </button>
+                </div>
+                <button class="style-switcher-btn" id="style-switcher-btn" title="Hintergrund wechseln">
+                    <img id="current-style-thumb" src="" alt="Aktueller Stil">
+                    <span>Hintergrund</span>
+                </button>
+            </div>
+
+            <!-- Map Context Menu (Right-Click) -->
+            <div id="map-context-menu" class="map-context-menu">
+                <div class="context-menu-item context-menu-coords" id="context-menu-coords" title="Klicken zum Kopieren">
+                    <span id="context-menu-coords-text">47.37623, 8.53048</span>
+                </div>
+                <div class="context-menu-item" id="context-menu-share">
+                    <span>Teilen</span>
+                </div>
+                <div class="context-menu-item" id="context-menu-measure">
+                    <span id="context-menu-measure-text">Distanz messen</span>
+                </div>
+                <div class="context-menu-item" id="context-menu-print">
+                    <span>Drucken</span>
+                </div>
+                <div class="context-menu-item" id="context-menu-report">
+                    <span>Problem melden</span>
+                </div>
+            </div>
+
+            <!-- Measure Distance Display -->
+            <div id="measure-distance-display" class="measure-distance-display">
+                <div class="measure-distance-header">
+                    <span class="material-symbols-outlined">straighten</span>
+                    <span>Distanz messen</span>
+                    <button id="measure-distance-close" class="measure-distance-close" title="Schliessen">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                <div class="measure-distance-info">
+                    Klicken Sie auf die Karte, um einen Pfad zu zeichnen.
+                </div>
+                <div class="measure-distance-result" id="measure-distance-result">
+                    <div class="measure-result-row">
+                        <span class="measure-result-label">Gesamtdistanz:</span>
+                        <span class="measure-result-value" id="measure-total-distance">0 m</span>
+                    </div>
+                    <div class="measure-result-row" id="measure-area-row" style="display: none;">
+                        <span class="measure-result-label">Fläche:</span>
+                        <span class="measure-result-value" id="measure-total-area">0 m²</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="wiki-view">
+            <div class="placeholder-view">
+                <span class="material-symbols-outlined placeholder-icon">menu_book</span>
+                <h2>Pflegeprofil-Wiki</h2>
+                <p>Hier werden die Pflegeprofile gemäss Profilkatalog dargestellt.</p>
+            </div>
+        </div>
+
+        <div id="tasks-view">
+            <div class="placeholder-view">
+                <span class="material-symbols-outlined placeholder-icon">task_alt</span>
+                <h2>Aufgaben</h2>
+                <p>Hier wird die Massnahmenplanung und Aufgabenverwaltung dargestellt.</p>
+            </div>
+        </div>
+
+        <div id="dashboard-view">
+            <div class="placeholder-view">
+                <span class="material-symbols-outlined placeholder-icon">dashboard</span>
+                <h2>Dashboard</h2>
+                <p>Hier werden die wichtigsten KPIs und Kennzahlen dargestellt.</p>
+            </div>
+        </div>
+        
+        </div><!-- /.main-content -->
+
+        <!-- Smart Drawer (merged Filter + AI Assistant) -->
+        <aside id="smart-drawer" role="complementary" aria-label="Smart Drawer">
+            <div class="smart-drawer-resize-handle" title="Grösse ändern"></div>
+            <div class="smart-drawer-header">
+                <div class="smart-drawer-title">
+                    <span class="material-symbols-outlined">filter_list</span>
+                    Standorte filtern
+                </div>
+                <div class="smart-drawer-actions">
+                    <button class="smart-drawer-btn" id="drawer-reset-btn" title="Filter zurücksetzen">
+                        <span class="material-symbols-outlined">replay</span>
+                    </button>
+                    <button class="smart-drawer-btn" id="drawer-close-btn" title="Schliessen">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Content -->
+            <div class="smart-drawer-content" id="drawer-filter-content" data-drawer-content="filter" role="tabpanel">
+                <div class="filter-section open" data-filter="status">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Status</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-status-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="filter-section open" data-filter="eigentum">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Art Eigentum</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-eigentum-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="filter-section open" data-filter="teilportfolio">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Teilportfolio</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-teilportfolio-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="filter-section open" data-filter="gebaeudeart">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Gebäudeart</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-gebaeudeart-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="filter-section open" data-filter="land">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Land</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-land-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+
+                <div class="filter-section open" data-filter="region">
+                    <div class="filter-section-header">
+                        <span class="filter-section-title">Region</span>
+                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
+                    </div>
+                    <div class="filter-section-content" id="filter-region-options">
+                        <!-- Options populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <footer id="footer">
+        <div id="coordinates">WGS 84 | Koordinaten: --</div>
+        <div id="footer-links">
+            <a href="https://github.com/davras5/gis-immo" target="_blank">Quellcode</a>
+            <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
+            <a href="https://www.bbl.admin.ch/de/hilfe" target="_blank">Hilfe</a>
+            <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank">Kontakt</a>
+        </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
