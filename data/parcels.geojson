@@ -1,6 +1,13 @@
 {
   "type": "FeatureCollection",
   "name": "BBL_Parzellen",
+  "layerInfo": {
+    "name": "Grundstücke",
+    "description": "Parzellengrenzen der verwalteten Liegenschaften mit Katasterinformationen.",
+    "icon": "crop_free",
+    "geometryType": "Polygon",
+    "source": "Groundskeeper Intern"
+  },
   "features": [
     {
       "type": "Feature",

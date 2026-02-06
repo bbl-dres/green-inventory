@@ -1,5 +1,12 @@
 {
   "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Bäume",
+    "description": "Baumkataster der verwalteten Standorte. Enthält Baumarten, Zustand, Stamm- und Kronenmasse, Pflanzjahr und Schutzkategorien.",
+    "icon": "forest",
+    "geometryType": "Point",
+    "source": "Groundskeeper Intern"
+  },
   "features": [
     {
       "type": "Feature",

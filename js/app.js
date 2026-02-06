@@ -15,6 +15,9 @@
         // Variables
         var portfolioData = null;
         var parcelData = null;
+        var furnitureData = null;
+        var treeData = null;
+        var greenAreaData = null;
         var filteredData = null;
         var selectedBuildingId = null;
         var selectedParcelId = null;
@@ -1274,11 +1277,17 @@
 
             Promise.all([
                 fetchWithErrorHandling('data/buildings.geojson'),
-                fetchWithErrorHandling('data/parcels.geojson')
+                fetchWithErrorHandling('data/parcels.geojson'),
+                fetchWithErrorHandling('data/furniture.geojson'),
+                fetchWithErrorHandling('data/trees.geojson'),
+                fetchWithErrorHandling('data/green-areas.geojson')
             ])
                 .then(function(results) {
                     portfolioData = results[0];
                     parcelData = results[1];
+                    furnitureData = results[2];
+                    treeData = results[3];
+                    greenAreaData = results[4];
 
                     // Validate portfolio data
                     if (!portfolioData || !portfolioData.features) {
@@ -1499,10 +1508,10 @@
 
             // Reference layer configuration (recommended swisstopo layers)
             var referenceLayerConfig = [
-                { id: 'ch.swisstopo-vd.stand-oerebkataster', name: 'ÖREB Verfügbarkeit' },
-                { id: 'ch.swisstopo-vd.geometa-grundbuch', name: 'Amtliche Vermessung' },
-                { id: 'ch.bav.kataster-belasteter-standorte-oev', name: 'Altlastenkataster' },
-                { id: 'ch.bafu.landesforstinventar-vegetationshoehenmodell', name: 'Vegetationshöhe' }
+                { id: 'ch.swisstopo-vd.stand-oerebkataster', name: 'Verfügbarkeit ÖREB-Kataster' },
+                { id: 'ch.swisstopo-vd.amtliche-vermessung', name: 'Amtliche Vermessung' },
+                { id: 'ch.bav.kataster-belasteter-standorte-oev', name: 'Kataster der belasteten Standorte' },
+                { id: 'ch.bafu.landesforstinventar-vegetationshoehenmodell', name: 'Vegetationshöhe LFI' }
             ];
             var referenceLayerIds = referenceLayerConfig.map(function(r) { return r.id; });
 
@@ -1510,7 +1519,9 @@
             var projectLayerMap = {
                 'portfolio': ['portfolio-points', 'portfolio-labels', 'portfolio-cluster', 'portfolio-cluster-count'],
                 'gruenflaechen': ['gruenflaechen-fill', 'gruenflaechen-outline'],
-                'parcels': ['parcels-fill', 'parcels-outline']
+                'parcels': ['parcels-fill', 'parcels-outline'],
+                'furniture': ['furniture-points'],
+                'trees': ['trees-points']
             };
 
             // --- Project layer checkbox handlers ---
@@ -1666,7 +1677,9 @@
             var layerDisplayNames = {
                 'portfolio': 'Standorte',
                 'gruenflaechen': 'Grünflächen',
-                'parcels': 'Grundstücke'
+                'parcels': 'Grundstücke',
+                'furniture': 'Möbel',
+                'trees': 'Bäume'
             };
 
             // Edit button click — toggle edit toolbar for that layer
@@ -2261,6 +2274,75 @@
                     paint: {
                         'fill-color': '#1976d2',
                         'fill-opacity': 0.35
+                    }
+                });
+            }
+
+            // Add green areas source and layers
+            if (greenAreaData && greenAreaData.features) {
+                map.addSource('gruenflaechen', {
+                    type: 'geojson',
+                    data: greenAreaData
+                });
+
+                map.addLayer({
+                    id: 'gruenflaechen-fill',
+                    type: 'fill',
+                    source: 'gruenflaechen',
+                    paint: {
+                        'fill-color': '#4caf50',
+                        'fill-opacity': 0.2
+                    }
+                });
+
+                map.addLayer({
+                    id: 'gruenflaechen-outline',
+                    type: 'line',
+                    source: 'gruenflaechen',
+                    paint: {
+                        'line-color': '#4caf50',
+                        'line-width': 2,
+                        'line-opacity': 0.6
+                    }
+                });
+            }
+
+            // Add trees source and layers
+            if (treeData && treeData.features) {
+                map.addSource('trees', {
+                    type: 'geojson',
+                    data: treeData
+                });
+
+                map.addLayer({
+                    id: 'trees-points',
+                    type: 'circle',
+                    source: 'trees',
+                    paint: {
+                        'circle-radius': 7,
+                        'circle-color': '#2e7d32',
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
+            }
+
+            // Add furniture source and layers
+            if (furnitureData && furnitureData.features) {
+                map.addSource('furniture', {
+                    type: 'geojson',
+                    data: furnitureData
+                });
+
+                map.addLayer({
+                    id: 'furniture-points',
+                    type: 'circle',
+                    source: 'furniture',
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#8d6e63',
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff'
                     }
                 });
             }
@@ -2927,6 +3009,15 @@
         var layerInfoContent = document.getElementById('layer-info-content');
         var layerInfoCloseBtn = layerInfoModal ? layerInfoModal.querySelector('.layer-info-modal-close') : null;
 
+        // Map internal layer keys to their loaded data objects
+        var internalLayerData = {
+            'portfolio': function() { return portfolioData; },
+            'gruenflaechen': function() { return greenAreaData; },
+            'parcels': function() { return parcelData; },
+            'furniture': function() { return furnitureData; },
+            'trees': function() { return treeData; }
+        };
+
         function showLayerInfo(layerId) {
             if (!layerInfoModal || !layerInfoContent || !layerId) return;
 
@@ -2934,7 +3025,42 @@
             layerInfoContent.innerHTML = '<div class="layer-info-loading">Lade Informationen...</div>';
             layerInfoModal.classList.add('show');
 
-            // Fetch layer legend/info
+            // Check if this is an internal layer
+            var dataFn = internalLayerData[layerId];
+            if (dataFn) {
+                var data = dataFn();
+                var info = data && data.layerInfo;
+                if (info) {
+                    var count = data.features ? data.features.length : 0;
+                    layerInfoContent.innerHTML =
+                        '<div class="layer-info-internal">' +
+                            '<div class="layer-info-internal-header">' +
+                                '<span class="material-symbols-outlined">' + (info.icon || 'layers') + '</span>' +
+                                '<h3>' + escapeHtml(info.name) + '</h3>' +
+                            '</div>' +
+                            '<p class="layer-info-internal-desc">' + escapeHtml(info.description) + '</p>' +
+                            '<div class="layer-info-internal-meta">' +
+                                '<div class="layer-info-meta-item">' +
+                                    '<span class="layer-info-meta-label">Objekte</span>' +
+                                    '<span class="layer-info-meta-value">' + count + '</span>' +
+                                '</div>' +
+                                '<div class="layer-info-meta-item">' +
+                                    '<span class="layer-info-meta-label">Geometrie</span>' +
+                                    '<span class="layer-info-meta-value">' + escapeHtml(info.geometryType || '—') + '</span>' +
+                                '</div>' +
+                                '<div class="layer-info-meta-item">' +
+                                    '<span class="layer-info-meta-label">Quelle</span>' +
+                                    '<span class="layer-info-meta-value">' + escapeHtml(info.source || '—') + '</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                } else {
+                    layerInfoContent.innerHTML = '<div class="layer-info-loading">Keine Informationen verfügbar.</div>';
+                }
+                return;
+            }
+
+            // External layer — fetch from swisstopo API
             fetch('https://api3.geo.admin.ch/rest/services/api/MapServer/' + layerId + '/legend?lang=de')
                 .then(function(response) {
                     if (!response.ok) throw new Error('Layer-Informationen nicht verfügbar');

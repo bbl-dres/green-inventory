@@ -1,6 +1,13 @@
 {
   "type": "FeatureCollection",
   "name": "BBL_Immobilienportfolio",
+  "layerInfo": {
+    "name": "Standorte",
+    "description": "Standortübersicht aller verwalteten Anlagen. Enthält Adress- und Flächendaten, Eigentumsverhältnisse und Betriebsstatus.",
+    "icon": "location_on",
+    "geometryType": "Point",
+    "source": "Groundskeeper Intern"
+  },
   "features": [
     {
       "type": "Feature",

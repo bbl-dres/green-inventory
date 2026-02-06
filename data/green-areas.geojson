@@ -1,5 +1,12 @@
 {
   "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Grünflächen",
+    "description": "Grünflächeninventar mit Vegetationstypen, Pflegeprofilen, Bodenarten und Nutzungsintensitäten.",
+    "icon": "grass",
+    "geometryType": "Polygon",
+    "source": "Groundskeeper Intern"
+  },
   "features": [
     {
       "type": "Feature",

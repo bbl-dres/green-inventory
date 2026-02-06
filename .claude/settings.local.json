@@ -5,7 +5,9 @@
       "Bash(git clone:*)",
       "Bash(python -m http.server:*)",
       "Bash(python:*)",
-      "Bash(start \"\" \"C:\\\\Users\\\\DAVIDR~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-DavidRasner-Documents-GitHub-groundskeeper\\\\3a5790ef-4a53-4e79-806b-315ff8770d19\\\\scratchpad\\\\wireframe-dargestellte-karten.html\")"
+      "Bash(start \"\" \"C:\\\\Users\\\\DAVIDR~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-DavidRasner-Documents-GitHub-groundskeeper\\\\3a5790ef-4a53-4e79-806b-315ff8770d19\\\\scratchpad\\\\wireframe-dargestellte-karten.html\")",
+      "Bash(start \"\" \"c:\\\\Users\\\\DavidRasner\\\\Documents\\\\GitHub\\\\groundskeeper\\\\index.html\")",
+      "WebFetch(domain:api3.geo.admin.ch)"
     ]
   }
 }
