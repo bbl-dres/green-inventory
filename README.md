@@ -1,10 +1,10 @@
 # Green Area Inventory / Grünflächeninventar GIS
 
-A single-page web application for the inventory, management, and maintenance of municipal green spaces. This proof-of-concept demonstrates GIS capabilities for Swiss green space management based on the Grün Stadt Zürich (GSZ) "Mehr als Grün" Profilkatalog, with an interactive map-based interface plus complementary wiki, task, and dashboard views.
-
 > [!CAUTION]
 > **This is an unofficial mockup for demonstration purposes only.**
 > All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.
+
+Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
 
 **Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
 
