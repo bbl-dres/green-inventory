@@ -40,8 +40,14 @@
     <header id="header" role="banner">
         <div class="header-main">
             <div id="logo-area">
-                <img id="logo-flag" src="https://www.swisstopo.admin.ch/images/swiss-logo-flag.svg" alt="Schweizer Flagge">
-                <img id="logo-text-img" src="https://prod-swisstopoch-hcms-sdweb.imgix.net/2023/12/16/26d017bc-3987-4322-aa29-18052c11eac5.png" alt="Schweizerische Eidgenossenschaft">
+                <img id="logo-flag" src="assets/swiss-logo-flag.svg" alt="Schweizer Flagge">
+                <img id="logo-name" src="assets/swiss-logo-name.svg" alt="Schweizerische Eidgenossenschaft">
+                <div id="logo-divider"></div>
+                <div id="logo-text">
+                    <span class="logo-line-bold">Bundesamt für Bauten und Logistik</span>
+                    <span class="logo-line">Abteilung für Objektmanagement</span>
+                    <span class="logo-line">Grünflächen Inventar</span>
+                </div>
             </div>
 
             <div id="search-area" role="search">
@@ -73,14 +79,14 @@
                         <span class="view-label">Aufgaben</span>
                     </button>
                     <button class="view-toggle-btn" data-view="dashboard" title="Dashboard" aria-label="Dashboard" role="tab" aria-selected="false">
-                        <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">bar_chart_4_bars</span>
                         <span class="view-label">Dashboard</span>
                     </button>
                 </div>
             </div>
 
             <div id="header-right">
-                <span id="object-count" aria-live="polite">10 Objekte</span>
+                <span id="object-count" aria-live="polite">10 Standorte</span>
                 <button class="header-btn" id="smart-drawer-btn" title="Standorte filtern" aria-label="Standorte filtern" aria-expanded="false" aria-controls="smart-drawer">
                     <span class="material-symbols-outlined" aria-hidden="true">tune</span>
                     Standorte filtern
@@ -115,38 +121,131 @@
                         <span class="material-symbols-outlined">expand_less</span>
                     </div>
                     <div class="layer-widget-content">
-                        <label class="layer-item">
+                        <!-- Editable project layers -->
+                        <div class="layer-group-label">Projektdaten</div>
+                        <div class="layer-item" data-layer="portfolio">
                             <input type="checkbox" id="layer-portfolio" data-layer="portfolio" checked>
                             <span class="layer-name">Standorte</span>
-                            <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
-                                <span class="material-symbols-outlined">info</span>
-                            </button>
-                        </label>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="portfolio" title="Standorte bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="gruenflaechen">
+                            <input type="checkbox" id="layer-gruenflaechen" data-layer="gruenflaechen" checked>
+                            <span class="layer-name">Grünflächen</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="gruenflaechen" title="Grünflächen bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="gruenflaechen" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="parcels">
+                            <input type="checkbox" id="layer-parcels" data-layer="parcels" checked>
+                            <span class="layer-name">Grundstücke</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="parcels" title="Grundstücke bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="parcels" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
                         <div class="layer-divider"></div>
-                        <label class="layer-item">
+                        <!-- Reference layers (read-only) -->
+                        <div class="layer-group-label">Referenzdaten</div>
+                        <div class="layer-item" data-layer="ch.swisstopo-vd.stand-oerebkataster">
                             <input type="checkbox" id="layer-oereb" data-layer="ch.swisstopo-vd.stand-oerebkataster">
                             <span class="layer-name">ÖREB Verfügbarkeit</span>
                             <button class="layer-info-btn" data-layer="ch.swisstopo-vd.stand-oerebkataster" title="Layer-Info">
                                 <span class="material-symbols-outlined">info</span>
                             </button>
-                        </label>
-                        <label class="layer-item">
+                        </div>
+                        <div class="layer-item" data-layer="ch.swisstopo-vd.geometa-grundbuch">
                             <input type="checkbox" id="layer-av" data-layer="ch.swisstopo-vd.geometa-grundbuch">
                             <span class="layer-name">Amtliche Vermessung</span>
                             <button class="layer-info-btn" data-layer="ch.swisstopo-vd.geometa-grundbuch" title="Layer-Info">
                                 <span class="material-symbols-outlined">info</span>
                             </button>
-                        </label>
-                        <label class="layer-item">
+                        </div>
+                        <div class="layer-item" data-layer="ch.bafu.landesforstinventar-vegetationshoehenmodell">
                             <input type="checkbox" id="layer-vegetation" data-layer="ch.bafu.landesforstinventar-vegetationshoehenmodell">
                             <span class="layer-name">Vegetationshöhe</span>
                             <button class="layer-info-btn" data-layer="ch.bafu.landesforstinventar-vegetationshoehenmodell" title="Layer-Info">
                                 <span class="material-symbols-outlined">info</span>
                             </button>
-                        </label>
+                        </div>
                     </div>
                     <div class="layer-widget-footer">
                         <span>&copy; swisstopo</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Banner (top-center warning when editing) -->
+            <div class="edit-banner" id="edit-banner">
+                <span class="material-symbols-outlined">edit</span>
+                <span id="edit-banner-layer-name">Grünflächen bearbeiten</span>
+                <div class="edit-banner-actions">
+                    <button class="edit-banner-btn edit-banner-cancel" id="edit-banner-cancel">Abbrechen</button>
+                    <button class="edit-banner-btn edit-banner-save" id="edit-banner-save">Speichern</button>
+                </div>
+            </div>
+
+            <!-- Edit Toolbar (shown when editing a layer) -->
+            <div class="edit-toolbar" id="edit-toolbar">
+                <div class="edit-toolbar-tools">
+                    <div class="edit-tool-group">
+                        <button class="edit-tool-btn" data-tool="draw-polygon" title="Polygon zeichnen">
+                            <span class="material-symbols-outlined">pentagon</span>
+                            <span class="edit-tool-label">Polygon</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="draw-point" title="Punkt setzen">
+                            <span class="material-symbols-outlined">location_on</span>
+                            <span class="edit-tool-label">Punkt</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="draw-line" title="Linie zeichnen">
+                            <span class="material-symbols-outlined">timeline</span>
+                            <span class="edit-tool-label">Linie</span>
+                        </button>
+                    </div>
+                    <div class="edit-tool-divider"></div>
+                    <div class="edit-tool-group">
+                        <button class="edit-tool-btn" data-tool="edit-vertices" title="Stützpunkte bearbeiten">
+                            <span class="material-symbols-outlined">edit</span>
+                            <span class="edit-tool-label">Bearbeiten</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="split" title="Polygon teilen">
+                            <span class="material-symbols-outlined">content_cut</span>
+                            <span class="edit-tool-label">Teilen</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="merge" title="Zusammenführen">
+                            <span class="material-symbols-outlined">join</span>
+                            <span class="edit-tool-label">Verbinden</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="delete" title="Löschen">
+                            <span class="material-symbols-outlined">delete</span>
+                            <span class="edit-tool-label">Löschen</span>
+                        </button>
+                    </div>
+                    <div class="edit-tool-divider"></div>
+                    <div class="edit-tool-group">
+                        <button class="edit-tool-btn" data-tool="undo" title="Rückgängig">
+                            <span class="material-symbols-outlined">undo</span>
+                            <span class="edit-tool-label">Undo</span>
+                        </button>
+                        <button class="edit-tool-btn" data-tool="redo" title="Wiederholen">
+                            <span class="material-symbols-outlined">redo</span>
+                            <span class="edit-tool-label">Redo</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -471,12 +570,20 @@
 
         <div id="dashboard-view">
             <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">dashboard</span>
+                <span class="material-symbols-outlined placeholder-icon">bar_chart_4_bars</span>
                 <h2>Dashboard</h2>
                 <p>Hier werden die wichtigsten KPIs und Kennzahlen dargestellt.</p>
             </div>
         </div>
-        
+
+        <div id="settings-view">
+            <div class="placeholder-view">
+                <span class="material-symbols-outlined placeholder-icon">settings</span>
+                <h2>Einstellungen</h2>
+                <p>Hier werden die Projekteinstellungen und Konfigurationen verwaltet.</p>
+            </div>
+        </div>
+
         </div><!-- /.main-content -->
 
         <!-- Smart Drawer (merged Filter + AI Assistant) -->

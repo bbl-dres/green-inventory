@@ -12,30 +12,10 @@
             'Ausser Betrieb': '#6C757D'   // --status-inactive
         };
         
-        // Placeholder images
-        var placeholderImages = [
-            'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1554435493-93422e8220c8?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop'
-        ];
-        
         // Variables
         var portfolioData = null;
         var parcelData = null;
         var filteredData = null;
-        var currentDetailBuilding = null;
-
-        // Entity data stores (loaded from separate JSON files)
-        var allAreaMeasurements = [];
-        var allDocuments = [];
-        var allContacts = [];
-        var allContracts = [];
-        var allAssets = [];
-        var allCosts = [];
-        var currentCarouselIndex = 0;
-        var miniMap = null;
-        var previousView = 'gallery';
         var selectedBuildingId = null;
         var selectedParcelId = null;
         var searchMarker = null;
@@ -44,15 +24,6 @@
         var activeSwisstopoLayers = [];
         // Track pending layer fetch requests for cancellation
         var pendingLayerFetches = {};
-
-        // View dirty flags - track if view needs re-render after filter change
-        var listViewDirty = false;
-        var galleryViewDirty = false;
-
-        // List View Pagination State
-        var listCurrentPage = 1;
-        var listRowsPerPage = 50;
-        var listSearchTerm = '';
 
         // ===== UTILITY FUNCTIONS =====
 
@@ -317,9 +288,6 @@
         function applyFilters() {
             if (!portfolioData) return;
 
-            // Reset list pagination to page 1 when filters change
-            listCurrentPage = 1;
-
             // Filter the data
             filteredData = {
                 type: portfolioData.type,
@@ -433,61 +401,19 @@
                 region: []
             };
 
-            // Uncheck all checkboxes
-            document.querySelectorAll('#filter-pane input[type="checkbox"]').forEach(function(cb) {
+            // Uncheck all filter checkboxes
+            document.querySelectorAll('#drawer-filter-content input[type="checkbox"]').forEach(function(cb) {
                 cb.checked = false;
             });
 
             applyFilters();
         }
 
-        // Global alias for empty state buttons
-        window.resetAllFilters = resetFilters;
-
-        function navigateToAllObjects() {
-            resetFilters();
-            switchView(previousView || 'map');
-        }
-
-        function navigateWithLandFilter() {
-            if (!currentDetailBuilding) return;
-            var land = currentDetailBuilding.properties.country;
-            if (!land) return;
-
-            // Reset all filters and set only land filter
-            resetFilters();
-            activeFilters.land = [land];
-
-            // Update checkbox state
-            var checkbox = document.querySelector('#filter-pane input[data-filter="land"][data-value="' + land + '"]');
-            if (checkbox) checkbox.checked = true;
-
-            applyFilters();
-            switchView(previousView || 'map');
-        }
-
-        function navigateWithRegionFilter() {
-            if (!currentDetailBuilding) return;
-            var region = currentDetailBuilding.properties.stateProvincePrefecture;
-            if (!region) return;
-
-            // Reset all filters and set only region filter
-            resetFilters();
-            activeFilters.region = [region];
-
-            // Update checkbox state
-            var checkbox = document.querySelector('#filter-pane input[data-filter="region"][data-value="' + region + '"]');
-            if (checkbox) checkbox.checked = true;
-
-            applyFilters();
-            switchView(previousView || 'map');
-        }
-
         function updateObjectCount() {
             var count = filteredData ? filteredData.features.length : (portfolioData ? portfolioData.features.length : 0);
             var countEl = document.getElementById('object-count');
             if (countEl) {
-                countEl.textContent = count + ' Objekte';
+                countEl.textContent = count + ' Standorte';
             }
         }
 
@@ -520,29 +446,12 @@
         }
 
         function renderCurrentView() {
-            // Mark non-current views as dirty (they'll re-render when switched to)
-            if (currentView !== 'list') {
-                listViewDirty = true;
-            }
-            if (currentView !== 'gallery') {
-                galleryViewDirty = true;
-            }
-
-            // Render current view and clear its dirty flag
-            if (currentView === 'list') {
-                renderListView();
-                listViewDirty = false;
-            } else if (currentView === 'gallery') {
-                renderGalleryView();
-                galleryViewDirty = false;
-            }
             // Map view updates via updateMapFilter()
         }
 
         // ===== SMART DRAWER =====
-        var smartDrawerActiveTab = 'filter';
 
-        function toggleSmartDrawer(open, tab) {
+        function toggleSmartDrawer(open) {
             var drawer = document.getElementById('smart-drawer');
             var drawerBtn = document.getElementById('smart-drawer-btn');
 
@@ -554,9 +463,6 @@
                 drawer.classList.add('open');
                 drawerBtn.classList.add('panel-open');
                 drawerBtn.setAttribute('aria-expanded', 'true');
-                if (tab) {
-                    switchDrawerTab(tab);
-                }
             } else {
                 drawer.classList.remove('open');
                 drawerBtn.classList.remove('panel-open');
@@ -569,26 +475,6 @@
                     map.resize();
                 }, 350);
             }
-        }
-
-        function switchDrawerTab(tab) {
-            smartDrawerActiveTab = tab;
-            var drawer = document.getElementById('smart-drawer');
-
-            // Update tab buttons
-            document.querySelectorAll('.smart-drawer-tab').forEach(function(tabBtn) {
-                var isActive = tabBtn.dataset.drawerTab === tab;
-                tabBtn.classList.toggle('active', isActive);
-                tabBtn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-            });
-
-            // Update content visibility
-            document.querySelectorAll('.smart-drawer-content').forEach(function(content) {
-                content.style.display = content.dataset.drawerContent === tab ? '' : 'none';
-            });
-
-            // Update data attribute for CSS
-            drawer.setAttribute('data-active-tab', tab);
         }
 
         // ===== DRAWER RESIZE =====
@@ -724,6 +610,11 @@
                 toggleSmartDrawer();
             });
 
+            // Project settings button
+            document.getElementById('project-settings-btn').addEventListener('click', function() {
+                switchView('settings');
+            });
+
             // Close smart drawer
             document.getElementById('drawer-close-btn').addEventListener('click', function() {
                 toggleSmartDrawer(false);
@@ -750,38 +641,12 @@
                 }
             });
 
-            // Logo click - navigate to main page
+            // Logo click - navigate to map view
             document.getElementById('logo-area').addEventListener('click', function() {
-                navigateToAllObjects();
+                resetFilters();
+                switchView('map');
             });
         }
-
-        // ===== LIST VIEW TOOLBAR FUNCTIONS =====
-
-        // Dropdown Toggle Function
-        function toggleDropdown(dropdownId) {
-            var menu = document.getElementById(dropdownId);
-            var isOpen = menu.classList.contains('show');
-
-            // Close all dropdowns first
-            document.querySelectorAll('.dropdown-menu').forEach(function(dropdown) {
-                dropdown.classList.remove('show');
-            });
-
-            // Toggle the clicked one
-            if (!isOpen) {
-                menu.classList.add('show');
-            }
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.dropdown-container')) {
-                document.querySelectorAll('.dropdown-menu').forEach(function(dropdown) {
-                    dropdown.classList.remove('show');
-                });
-            }
-        });
 
         // ===== EXPORT PANEL FUNCTIONS =====
         var selectedExportFormat = 'geojson';
@@ -905,9 +770,9 @@
             };
 
             // Add parcels if requested
-            if (includeParcels && parcelsData && parcelsData.features) {
+            if (includeParcels && parcelData && parcelData.features) {
                 featureCollection.features = featureCollection.features.concat(
-                    parcelsData.features.map(function(f) {
+                    parcelData.features.map(function(f) {
                         return JSON.parse(JSON.stringify(f));
                     })
                 );
@@ -1402,69 +1267,6 @@
             }
         }
 
-        // Column Toggle Handler
-        function handleColumnToggle(checkbox) {
-            var columnClass = checkbox.getAttribute('data-column');
-            var isVisible = checkbox.checked;
-
-            // Toggle visibility of header and body cells
-            document.querySelectorAll('.' + columnClass).forEach(function(cell) {
-                cell.style.display = isVisible ? '' : 'none';
-            });
-        }
-
-        // Toggle All Columns (Alle/Keine)
-        function toggleAllColumns(showAll) {
-            var checkboxes = document.querySelectorAll('#columns-dropdown-menu input[type="checkbox"]');
-
-            checkboxes.forEach(function(checkbox) {
-                checkbox.checked = showAll;
-                handleColumnToggle(checkbox);
-            });
-        }
-
-        // List Search Handler
-        function handleListSearch(query) {
-            listSearchTerm = query.toLowerCase().trim();
-            listCurrentPage = 1; // Reset to first page when searching
-            renderListView();
-        }
-
-        // Initialize List View Toolbar Event Listeners
-        function initListToolbar() {
-            // Dropdown buttons
-            var exportBtn = document.getElementById('export-dropdown-btn');
-            var columnsBtn = document.getElementById('columns-dropdown-btn');
-
-            if (exportBtn) {
-                exportBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleDropdown('export-dropdown-menu');
-                });
-            }
-
-            if (columnsBtn) {
-                columnsBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleDropdown('columns-dropdown-menu');
-                });
-            }
-
-            // Column checkboxes
-            document.querySelectorAll('#columns-dropdown-menu input[type="checkbox"]').forEach(function(checkbox) {
-                checkbox.addEventListener('change', function() {
-                    handleColumnToggle(this);
-                });
-            });
-
-            // Search input
-            var searchInput = document.getElementById('list-search-input');
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    handleListSearch(this.value);
-                });
-            }
-        }
 
         // Daten laden (parallel fetch of all entity files with error handling)
         function loadAllData() {
@@ -1472,26 +1274,11 @@
 
             Promise.all([
                 fetchWithErrorHandling('data/buildings.geojson'),
-                fetchWithErrorHandling('data/area-measurements.json'),
-                fetchWithErrorHandling('data/documents.json'),
-                fetchWithErrorHandling('data/contacts.json'),
-                fetchWithErrorHandling('data/contracts.json'),
-                fetchWithErrorHandling('data/assets.json'),
-                fetchWithErrorHandling('data/costs.json'),
                 fetchWithErrorHandling('data/parcels.geojson')
             ])
                 .then(function(results) {
-                    // Validate and destructure results
                     portfolioData = results[0];
-
-                    // Safely access nested arrays with fallbacks
-                    allAreaMeasurements = (results[1] && results[1].areaMeasurements) || [];
-                    allDocuments = (results[2] && results[2].documents) || [];
-                    allContacts = (results[3] && results[3].contacts) || [];
-                    allContracts = (results[4] && results[4].contracts) || [];
-                    allAssets = (results[5] && results[5].assets) || [];
-                    allCosts = (results[6] && results[6].costs) || [];
-                    parcelData = results[7];
+                    parcelData = results[1];
 
                     // Validate portfolio data
                     if (!portfolioData || !portfolioData.features) {
@@ -1509,11 +1296,6 @@
 
                     // Apply initial filters (this sets filteredData and updates count)
                     applyFilters();
-
-                    renderListView();
-                    renderGalleryView();
-                    initListToolbar();
-                    initListPagination();
 
                     // Always use the load event to avoid race conditions
                     // If already loaded, the callback fires immediately
@@ -1564,44 +1346,15 @@
             return params.get('view') || 'map';
         }
         
-        function getBuildingIdFromURL() {
-            var params = new URLSearchParams(window.location.search);
-            return params.get('id');
-        }
-
-        function getTabFromURL() {
-            var params = new URLSearchParams(window.location.search);
-            return params.get('tab') || 'overview';
-        }
-
-        function setViewInURL(view, buildingId, tab) {
+        function setViewInURL(view) {
             var url = new URL(window.location);
             url.searchParams.set('view', view);
-            if (buildingId) {
-                url.searchParams.set('id', buildingId);
-            } else {
-                url.searchParams.delete('id');
-            }
-            if (view === 'detail' && tab && tab !== 'overview') {
-                url.searchParams.set('tab', tab);
-            } else {
-                url.searchParams.delete('tab');
-            }
+            url.searchParams.delete('id');
+            url.searchParams.delete('tab');
             window.history.pushState({}, '', url);
-        }
-
-        function setTabInURL(tab) {
-            var url = new URL(window.location);
-            if (tab && tab !== 'overview') {
-                url.searchParams.set('tab', tab);
-            } else {
-                url.searchParams.delete('tab');
-            }
-            window.history.replaceState({}, '', url);
         }
         
         function switchView(view) {
-            previousView = currentView;
             currentView = view;
             setViewInURL(view);
             
@@ -1620,10 +1373,17 @@
             document.getElementById('wiki-view').classList.remove('active');
             document.getElementById('tasks-view').classList.remove('active');
             document.getElementById('dashboard-view').classList.remove('active');
+            document.getElementById('settings-view').classList.remove('active');
 
             var viewElement = document.getElementById(view + '-view');
             if (viewElement) {
                 viewElement.classList.add('active');
+            }
+
+            // Toggle settings button active state
+            var settingsBtn = document.getElementById('project-settings-btn');
+            if (settingsBtn) {
+                settingsBtn.classList.toggle('panel-open', view === 'settings');
             }
 
             // Show/hide style switcher based on view (only visible in map view)
@@ -1644,257 +1404,6 @@
             }
         }
 
-        // Detail view removed
-        
-        function populateDetailView(building) {
-            var props = building.properties;
-            var coords = building.geometry.coordinates;
-            
-            // Helper to access extensionData safely
-            var ext = props.extensionData || {};
-
-            // Breadcrumb
-            document.getElementById('breadcrumb-name').textContent = props.name;
-            document.getElementById('breadcrumb-country').textContent = props.country || '—';
-            document.getElementById('breadcrumb-region').textContent = props.stateProvincePrefecture || '—';
-
-            // Objekt Stammdaten
-            document.getElementById('detail-name').textContent = props.name;
-            document.getElementById('detail-id').textContent = props.buildingId;
-            document.getElementById('detail-teilportfolio').textContent = ext.portfolio || '—';
-            document.getElementById('detail-baujahr').textContent = extractYear(props.constructionYear) || '—';
-
-            // Address
-            document.getElementById('detail-country').textContent = props.country;
-            document.getElementById('detail-region').textContent = props.stateProvincePrefecture || '—';
-            document.getElementById('detail-city').textContent = props.city;
-
-            // Read address parts directly from properties, parse street from address
-            var addressParts = parseAddress(props.streetName);
-            document.getElementById('detail-plz').textContent = props.postalCode || '—';
-            document.getElementById('detail-street').textContent = addressParts.street || '—';
-            document.getElementById('detail-housenumber').textContent = props.houseNumber || '—';
-
-            // Gebäudedaten
-            document.getElementById('detail-sanierung').textContent = extractYear(props.yearOfLastRefurbishment) || '—';
-            document.getElementById('detail-ladestationen').textContent = props.electricVehicleChargingStations !== undefined ? props.electricVehicleChargingStations : '—';
-            document.getElementById('detail-denkmalschutz').textContent = formatBoolean(props.monumentProtection);
-            document.getElementById('detail-parkplaetze').textContent = props.parkingSpaces !== undefined ? props.parkingSpaces : '—';
-            document.getElementById('detail-geschosse').textContent = ext.numberOfFloors !== undefined ? ext.numberOfFloors : '—';
-            document.getElementById('detail-baubewilligung').textContent = formatDate(props.buildingPermitDate) || '—';
-
-            // Energie
-            document.getElementById('detail-energieklasse').textContent = props.energyEfficiencyClass || '—';
-            document.getElementById('detail-waermeerzeuger').textContent = ext.heatingGenerator || '—';
-            document.getElementById('detail-waermequelle').textContent = ext.heatingSource || '—';
-            document.getElementById('detail-warmwasser').textContent = ext.hotWater || '—';
-
-            // Grundstück
-            document.getElementById('detail-grundstueck-name').textContent = ext.plotName || '—';
-            document.getElementById('detail-grundstueck-id').textContent = ext.plotId || '—';
-            document.getElementById('detail-egid').textContent = ext.egid || '—';
-            document.getElementById('detail-egrid').textContent = ext.egrid || '—';
-            document.getElementById('detail-gueltig-von').textContent = formatDate(props.validFrom) || '—';
-            document.getElementById('detail-gueltig-bis').textContent = formatDate(props.validUntil) || 'Keine Angabe';
-
-            // Klassifizierung
-            document.getElementById('detail-objektart1').textContent = props.primaryTypeOfBuilding || '—';
-            document.getElementById('detail-teilportfolio-gruppe').textContent = ext.portfolioGroup || '—';
-            document.getElementById('detail-objektart2').textContent = props.secondaryTypeOfBuilding || '—';
-            document.getElementById('detail-eigentum').textContent = props.typeOfOwnership || '—';
-
-            // Load measurements for this building
-            loadMeasurementsForBuilding(building);
-
-            // Load documents for this building
-            loadDocumentsForBuilding(building);
-
-            // Load contacts for this building
-            loadContactsForBuilding(building);
-
-            // Load costs for this building
-            loadCostsForBuilding(building);
-
-            // Load contracts for this building
-            loadContractsForBuilding(building);
-
-            // Load assets for this building
-            loadAssetsForBuilding(building);
-
-            // Initialize carousel
-            initCarousel();
-
-            // Initialize mini map
-            initMiniMap(coords);
-        }
-        
-        // Helper: Extract year from ISO 8601 date string (e.g., "1902-01-01T00:00:00Z" → "1902")
-        function extractYear(isoDate) {
-            if (!isoDate) return null;
-            var match = isoDate.match(/^(\d{4})/);
-            return match ? match[1] : null;
-        }
-
-        // Helper: Format ISO 8601 date to DD.MM.YYYY
-        function formatDate(isoDate) {
-            if (!isoDate) return null;
-            var match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-            return match ? match[3] + '.' + match[2] + '.' + match[1] : null;
-        }
-
-        // Helper: Format boolean for display (true → "Ja", false → "Nein")
-        function formatBoolean(value) {
-            if (value === true) return 'Ja';
-            if (value === false) return 'Nein';
-            return '—';
-        }
-
-        function parseAddress(address) {
-            // Parse address into street, house number, and PLZ
-            // Expected formats: "Strasse Nr, PLZ Stadt" or "Nr Strasse, Stadt, State PLZ"
-            var street = '';
-            var number = '';
-            var plz = '';
-
-            if (!address) {
-                return { street: street, number: number, plz: plz };
-            }
-
-            // Split by comma to separate street+number from PLZ+city
-            var commaParts = address.split(',');
-            var streetPart = commaParts[0].trim();
-
-            // Extract PLZ from the part after the comma
-            if (commaParts.length > 1) {
-                var restPart = commaParts.slice(1).join(',').trim();
-                // Look for PLZ patterns: Swiss (4 digits), German (5 digits), US (5 digits), etc.
-                var plzMatch = restPart.match(/\b(\d{4,5})\b/);
-                if (plzMatch) {
-                    plz = plzMatch[1];
-                }
-            }
-
-            // Parse street and house number from the first part
-            // Check for number at the end (European style: "Strasse 123")
-            var endNumberMatch = streetPart.match(/^(.+?)\s+(\d+[A-Za-z]?)$/);
-            if (endNumberMatch) {
-                street = endNumberMatch[1];
-                number = endNumberMatch[2];
-            } else {
-                // Check for number at the beginning (US/UK style: "123 Street")
-                var startNumberMatch = streetPart.match(/^(\d+[A-Za-z]?)\s+(.+)$/);
-                if (startNumberMatch) {
-                    number = startNumberMatch[1];
-                    street = startNumberMatch[2];
-                } else {
-                    // No clear number found, use entire part as street
-                    street = streetPart;
-                }
-            }
-
-            return { street: street, number: number, plz: plz };
-        }
-        
-        function initCarousel() {
-            currentCarouselIndex = 0;
-            updateCarouselImage();
-            
-            // Create dots
-            var dotsContainer = document.getElementById('carousel-dots');
-            dotsContainer.innerHTML = '';
-            placeholderImages.forEach(function(_, index) {
-                var dot = document.createElement('div');
-                dot.className = 'carousel-dot' + (index === 0 ? ' active' : '');
-                dot.onclick = function() {
-                    currentCarouselIndex = index;
-                    updateCarouselImage();
-                };
-                dotsContainer.appendChild(dot);
-            });
-        }
-        
-        function updateCarouselImage() {
-            var imageEl = document.getElementById('carousel-image');
-            imageEl.style.backgroundImage = 'url(' + placeholderImages[currentCarouselIndex] + ')';
-            
-            // Update dots
-            document.querySelectorAll('.carousel-dot').forEach(function(dot, index) {
-                dot.classList.toggle('active', index === currentCarouselIndex);
-            });
-        }
-        
-        function carouselPrev() {
-            currentCarouselIndex = (currentCarouselIndex - 1 + placeholderImages.length) % placeholderImages.length;
-            updateCarouselImage();
-        }
-        
-        function carouselNext() {
-            currentCarouselIndex = (currentCarouselIndex + 1) % placeholderImages.length;
-            updateCarouselImage();
-        }
-        
-        function initMiniMap(coords) {
-            // Destroy existing map if any
-            if (miniMap) {
-                miniMap.remove();
-                miniMap = null;
-            }
-            
-            // Create new mini map
-            miniMap = new mapboxgl.Map({
-                container: 'mini-map',
-                style: 'mapbox://styles/mapbox/light-v11',
-                center: coords,
-                zoom: 17,
-                pitch: 50,
-                bearing: -17
-            });
-            
-            // Add 3D buildings layer
-            miniMap.on('load', function() {
-                // Add 3D buildings
-                var layers = miniMap.getStyle().layers;
-                var labelLayerId;
-                for (var i = 0; i < layers.length; i++) {
-                    if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
-                        labelLayerId = layers[i].id;
-                        break;
-                    }
-                }
-                
-                miniMap.addLayer({
-                    'id': '3d-buildings',
-                    'source': 'composite',
-                    'source-layer': 'building',
-                    'filter': ['==', 'extrude', 'true'],
-                    'type': 'fill-extrusion',
-                    'minzoom': 15,
-                    'paint': {
-                        'fill-extrusion-color': '#A8B0B7',
-                        'fill-extrusion-height': [
-                            'interpolate', ['linear'], ['zoom'],
-                            15, 0,
-                            15.05, ['get', 'height']
-                        ],
-                        'fill-extrusion-base': [
-                            'interpolate', ['linear'], ['zoom'],
-                            15, 0,
-                            15.05, ['get', 'min_height']
-                        ],
-                        'fill-extrusion-opacity': 0.6
-                    }
-                }, labelLayerId);
-                
-                // Add marker
-                new mapboxgl.Marker({ color: '#c00' })
-                    .setLngLat(coords)
-                    .addTo(miniMap);
-            });
-            
-            // Add navigation controls
-            miniMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-        }
-        
         // View toggle click handlers
         document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -1909,238 +1418,6 @@
                 switchView(view);
             }
         });
-        
-        // ===== RENDER LIST VIEW =====
-        function renderListView() {
-            if (!portfolioData) return;
-
-            var dataToRender = filteredData || portfolioData;
-            var listBody = document.getElementById('list-body');
-            var tableWrapper = document.querySelector('#list-view .list-table-wrapper');
-            var html = '';
-
-            // Apply list search filter if active
-            if (listSearchTerm) {
-                dataToRender = {
-                    type: dataToRender.type,
-                    features: dataToRender.features.filter(function(feature) {
-                        var props = feature.properties;
-                        var ext = props.extensionData || {};
-                        var searchableText = [
-                            props.buildingId,
-                            props.name,
-                            props.country,
-                            props.city,
-                            props.streetName,
-                            ext.portfolio,
-                            props.status
-                        ].join(' ').toLowerCase();
-                        return searchableText.includes(listSearchTerm);
-                    })
-                };
-            }
-
-            // Handle empty state
-            if (dataToRender.features.length === 0) {
-                listBody.innerHTML = '';
-                // Check if empty state already exists
-                var existingEmpty = document.querySelector('#list-view .empty-state');
-                if (!existingEmpty) {
-                    var emptyHtml = '<div class="empty-state">' +
-                        '<span class="material-symbols-outlined">search_off</span>' +
-                        '<div class="empty-state-title">Keine Objekte gefunden</div>' +
-                        '<div class="empty-state-description">Die aktuellen Filter ergeben keine Treffer. Passen Sie die Filterkriterien an oder setzen Sie die Filter zurück.</div>' +
-                        '<div class="empty-state-action"><button class="btn-secondary" onclick="resetAllFilters()">Filter zurücksetzen</button></div>' +
-                    '</div>';
-                    tableWrapper.insertAdjacentHTML('afterend', emptyHtml);
-                }
-                updateListPaginationInfo(0, 0, 0);
-                return;
-            } else {
-                // Remove empty state if it exists
-                var existingEmpty = document.querySelector('#list-view .empty-state');
-                if (existingEmpty) existingEmpty.remove();
-            }
-
-            // Pagination calculations
-            var totalItems = dataToRender.features.length;
-            var totalPages = Math.ceil(totalItems / listRowsPerPage);
-
-            // Ensure current page is valid
-            if (listCurrentPage > totalPages) {
-                listCurrentPage = totalPages;
-            }
-            if (listCurrentPage < 1) {
-                listCurrentPage = 1;
-            }
-
-            var startIndex = (listCurrentPage - 1) * listRowsPerPage;
-            var endIndex = Math.min(startIndex + listRowsPerPage, totalItems);
-
-            // Get paginated slice of data
-            var paginatedFeatures = dataToRender.features.slice(startIndex, endIndex);
-
-            paginatedFeatures.forEach(function(feature) {
-                var props = feature.properties;
-                var ext = props.extensionData || {};
-                var statusClass = props.status === 'In Betrieb' ? 'status-active' :
-                                  props.status === 'In Renovation' ? 'status-renovation' :
-                                  props.status === 'In Planung' ? 'status-planning' : 'status-inactive';
-                var flaeche = Number(ext.netFloorArea || 0).toLocaleString('de-CH');
-
-                html += '<tr data-id="' + props.buildingId + '" tabindex="0" role="row">' +
-                    '<td class="col-id">' + props.buildingId + '</td>' +
-                    '<td class="col-name">' + props.name + '</td>' +
-                    '<td class="col-land">' + props.country + '</td>' +
-                    '<td class="col-ort">' + props.city + '</td>' +
-                    '<td class="col-adresse">' + props.streetName + '</td>' +
-                    '<td class="col-portfolio">' + (ext.portfolio || '—') + '</td>' +
-                    '<td class="col-flaeche">' + flaeche + ' m²</td>' +
-                    '<td class="col-status"><span class="status-badge ' + statusClass + '">' + props.status + '</span></td>' +
-                '</tr>';
-            });
-
-            listBody.innerHTML = html;
-
-            // Update pagination info
-            updateListPaginationInfo(listCurrentPage, totalPages, totalItems);
-
-            // Add click and keyboard handlers
-            document.querySelectorAll('#list-body tr').forEach(function(row) {
-                row.addEventListener('click', function() {
-                    var buildingId = this.dataset.id;
-                    showDetailView(buildingId);
-                });
-                row.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        var buildingId = this.dataset.id;
-                        showDetailView(buildingId);
-                    }
-                });
-            });
-        }
-
-        // Update list pagination UI
-        function updateListPaginationInfo(currentPage, totalPages, totalItems) {
-            var infoEl = document.getElementById('list-pagination-info');
-            var prevBtn = document.getElementById('list-prev-btn');
-            var nextBtn = document.getElementById('list-next-btn');
-
-            if (infoEl) {
-                if (totalItems === 0) {
-                    infoEl.textContent = 'Keine Einträge';
-                } else {
-                    infoEl.textContent = 'Seite ' + currentPage + ' von ' + totalPages;
-                }
-            }
-
-            if (prevBtn) {
-                prevBtn.disabled = currentPage <= 1;
-            }
-
-            if (nextBtn) {
-                nextBtn.disabled = currentPage >= totalPages;
-            }
-        }
-
-        // Initialize list pagination event listeners
-        function initListPagination() {
-            var rowsSelect = document.getElementById('list-rows-per-page');
-            var prevBtn = document.getElementById('list-prev-btn');
-            var nextBtn = document.getElementById('list-next-btn');
-
-            if (rowsSelect) {
-                rowsSelect.addEventListener('change', function() {
-                    listRowsPerPage = parseInt(this.value, 10);
-                    listCurrentPage = 1; // Reset to first page when changing rows per page
-                    renderListView();
-                });
-            }
-
-            if (prevBtn) {
-                prevBtn.addEventListener('click', function() {
-                    if (listCurrentPage > 1) {
-                        listCurrentPage--;
-                        renderListView();
-                    }
-                });
-            }
-
-            if (nextBtn) {
-                nextBtn.addEventListener('click', function() {
-                    var dataToRender = filteredData || portfolioData;
-                    var totalPages = Math.ceil(dataToRender.features.length / listRowsPerPage);
-                    if (listCurrentPage < totalPages) {
-                        listCurrentPage++;
-                        renderListView();
-                    }
-                });
-            }
-        }
-        
-        // ===== RENDER GALLERY VIEW =====
-        function renderGalleryView() {
-            if (!portfolioData) return;
-
-            var dataToRender = filteredData || portfolioData;
-            var galleryGrid = document.getElementById('gallery-grid');
-            var html = '';
-
-            // Handle empty state
-            if (dataToRender.features.length === 0) {
-                galleryGrid.innerHTML = '<div class="empty-state">' +
-                    '<span class="material-symbols-outlined">search_off</span>' +
-                    '<div class="empty-state-title">Keine Objekte gefunden</div>' +
-                    '<div class="empty-state-description">Die aktuellen Filter ergeben keine Treffer. Passen Sie die Filterkriterien an oder setzen Sie die Filter zurück.</div>' +
-                    '<div class="empty-state-action"><button class="btn-secondary" onclick="resetAllFilters()">Filter zurücksetzen</button></div>' +
-                '</div>';
-                return;
-            }
-
-            dataToRender.features.forEach(function(feature, index) {
-                var props = feature.properties;
-                var ext = props.extensionData || {};
-                var flaeche = Number(ext.netFloorArea || 0).toLocaleString('de-CH');
-                var statusClass = props.status === 'In Betrieb' ? 'status-active' :
-                                  props.status === 'In Renovation' ? 'status-renovation' :
-                                  props.status === 'In Planung' ? 'status-planning' : 'status-inactive';
-                // Use placeholder images
-                var imageUrl = placeholderImages[index % placeholderImages.length];
-
-                html += '<div class="gallery-card" data-id="' + props.buildingId + '" tabindex="0" role="article" aria-label="' + props.name + '">' +
-                    '<div class="gallery-image" style="background-image: url(' + imageUrl + ')" role="img" aria-label="Bild von ' + props.name + '">' +
-                        '<div class="gallery-image-label">' + props.country + '</div>' +
-                    '</div>' +
-                    '<div class="gallery-content">' +
-                        '<div class="gallery-title">' + props.name + '</div>' +
-                        '<div class="gallery-subtitle">' + props.streetName + '</div>' +
-                        '<div class="gallery-meta">' +
-                            '<span class="gallery-tag">' + (ext.portfolio || '—') + '</span>' +
-                            '<span class="gallery-tag">' + flaeche + ' m²</span>' +
-                            '<span class="status-badge ' + statusClass + '">' + props.status + '</span>' +
-                        '</div>' +
-                    '</div>' +
-                '</div>';
-            });
-
-            galleryGrid.innerHTML = html;
-
-            // Add click and keyboard handlers
-            document.querySelectorAll('.gallery-card').forEach(function(card) {
-                card.addEventListener('click', function() {
-                    var buildingId = this.dataset.id;
-                    showDetailView(buildingId);
-                });
-                card.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        var buildingId = this.dataset.id;
-                        showDetailView(buildingId);
-                    }
-                });
-            });
-        }
         
         // ===== INITIALIZE MAP =====
 
@@ -2222,55 +1499,12 @@
             var header = document.getElementById('layer-widget-header');
             if (!widget || !trigger) return;
 
-            // WMS overlay layer configs
-            var layerConfigs = {
-                'ch.swisstopo-vd.stand-oerebkataster': {
-                    name: 'ÖREB Verfügbarkeit',
-                    sourceId: 'oereb-wms',
-                    layerId: 'oereb-layer'
-                },
-                'ch.swisstopo-vd.geometa-grundbuch': {
-                    name: 'Amtliche Vermessung',
-                    sourceId: 'av-wms',
-                    layerId: 'av-layer'
-                },
-                'ch.bafu.landesforstinventar-vegetationshoehenmodell': {
-                    name: 'Vegetationshöhe',
-                    sourceId: 'veg-wms',
-                    layerId: 'veg-layer'
-                }
+            // Reference layer display names (for addSwisstopoLayer title)
+            var referenceLayerNames = {
+                'ch.swisstopo-vd.stand-oerebkataster': 'ÖREB Verfügbarkeit',
+                'ch.swisstopo-vd.geometa-grundbuch': 'Amtliche Vermessung',
+                'ch.bafu.landesforstinventar-vegetationshoehenmodell': 'Vegetationshöhe'
             };
-
-            function getWmsTileUrl(wmLayerId) {
-                return 'https://wms.geo.admin.ch/?' +
-                    'SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap' +
-                    '&LAYERS=' + wmLayerId +
-                    '&CRS=EPSG:3857&BBOX={bbox-epsg-3857}' +
-                    '&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=true';
-            }
-
-            function addOverlayLayer(wmLayerId) {
-                var config = layerConfigs[wmLayerId];
-                if (!config || map.getSource(config.sourceId)) return;
-                map.addSource(config.sourceId, {
-                    type: 'raster',
-                    tiles: [getWmsTileUrl(wmLayerId)],
-                    tileSize: 256
-                });
-                map.addLayer({
-                    id: config.layerId,
-                    type: 'raster',
-                    source: config.sourceId,
-                    paint: { 'raster-opacity': 0.7 }
-                });
-            }
-
-            function removeOverlayLayer(wmLayerId) {
-                var config = layerConfigs[wmLayerId];
-                if (!config) return;
-                if (map.getLayer(config.layerId)) map.removeLayer(config.layerId);
-                if (map.getSource(config.sourceId)) map.removeSource(config.sourceId);
-            }
 
             // Toggle expand/collapse
             trigger.addEventListener('click', function(e) {
@@ -2291,15 +1525,22 @@
                 }
             });
 
+            // Built-in project layer IDs for toggling
+            var projectLayerMap = {
+                'portfolio': ['portfolio-points', 'portfolio-labels', 'portfolio-cluster', 'portfolio-cluster-count'],
+                'gruenflaechen': ['gruenflaechen-fill', 'gruenflaechen-outline'],
+                'parcels': ['parcels-fill', 'parcels-outline']
+            };
+
             // Checkbox handlers
             widget.querySelectorAll('.layer-item input[type="checkbox"]').forEach(function(cb) {
                 cb.addEventListener('change', function() {
                     var layerId = this.dataset.layer;
 
-                    // Portfolio/Standorte layer — toggle built-in map layers
-                    if (layerId === 'portfolio') {
+                    // Project layers — toggle built-in map layers
+                    if (projectLayerMap[layerId]) {
                         var visibility = this.checked ? 'visible' : 'none';
-                        ['portfolio-points', 'portfolio-labels', 'portfolio-cluster', 'portfolio-cluster-count'].forEach(function(id) {
+                        projectLayerMap[layerId].forEach(function(id) {
                             if (map.getLayer(id)) {
                                 map.setLayoutProperty(id, 'visibility', visibility);
                             }
@@ -2307,11 +1548,11 @@
                         return;
                     }
 
-                    // WMS overlay layers
+                    // Reference layers — route through swisstopo system for URL/UI sync
                     if (this.checked) {
-                        addOverlayLayer(layerId);
+                        addSwisstopoLayer(layerId, referenceLayerNames[layerId] || layerId, true);
                     } else {
-                        removeOverlayLayer(layerId);
+                        removeSwisstopoLayer(layerId);
                     }
                 });
             });
@@ -2321,18 +1562,13 @@
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    var layerId = this.dataset.layer;
+                    var layerId = btn.dataset.layer;
                     var modal = document.getElementById('layer-info-modal');
                     var body = document.getElementById('layer-info-content');
                     if (!modal || !body) return;
 
                     modal.classList.add('visible');
                     body.innerHTML = '<div class="layer-info-loading">Lade Informationen...</div>';
-
-                    if (layerId === 'portfolio') {
-                        body.innerHTML = '<h3>Standorte</h3><p>Alle erfassten Grünflächen-Standorte aus dem Inventar.</p>';
-                        return;
-                    }
 
                     fetch('https://api3.geo.admin.ch/rest/services/api/MapServer/' + layerId + '/legend?lang=de')
                         .then(function(resp) {
@@ -2346,6 +1582,102 @@
                             body.innerHTML = '<p>Fehler beim Laden der Layer-Informationen.</p>';
                         });
                 });
+            });
+
+            // ===== EDIT MODE =====
+            var editToolbar = document.getElementById('edit-toolbar');
+            var editBanner = document.getElementById('edit-banner');
+            var editBannerLayerName = document.getElementById('edit-banner-layer-name');
+            var activeEditLayer = null;
+            var activeEditTool = null;
+
+            // Layer display names
+            var layerDisplayNames = {
+                'portfolio': 'Standorte',
+                'gruenflaechen': 'Grünflächen',
+                'parcels': 'Grundstücke'
+            };
+
+            // Edit button click — toggle edit toolbar for that layer
+            widget.querySelectorAll('.layer-edit-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var layerId = this.dataset.layer;
+
+                    // If already editing this layer, close
+                    if (activeEditLayer === layerId) {
+                        closeEditMode();
+                        return;
+                    }
+
+                    // Clear previous active state
+                    widget.querySelectorAll('.layer-edit-btn').forEach(function(b) {
+                        b.classList.remove('active');
+                    });
+
+                    // Activate this edit button
+                    this.classList.add('active');
+                    activeEditLayer = layerId;
+                    activeEditTool = null;
+
+                    // Update banner and show toolbar + banner
+                    editBannerLayerName.textContent = (layerDisplayNames[layerId] || layerId) + ' bearbeiten';
+                    editBanner.classList.add('visible');
+                    editToolbar.classList.add('visible');
+
+                    // Clear active tool states
+                    editToolbar.querySelectorAll('.edit-tool-btn').forEach(function(t) {
+                        t.classList.remove('active');
+                    });
+                });
+            });
+
+            // Edit tool selection
+            editToolbar.querySelectorAll('.edit-tool-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var tool = this.dataset.tool;
+
+                    // Undo/Redo are instant actions, don't toggle
+                    if (tool === 'undo' || tool === 'redo') {
+                        // Placeholder for undo/redo logic
+                        return;
+                    }
+
+                    // Toggle tool selection
+                    if (activeEditTool === tool) {
+                        this.classList.remove('active');
+                        activeEditTool = null;
+                    } else {
+                        editToolbar.querySelectorAll('.edit-tool-btn').forEach(function(t) {
+                            t.classList.remove('active');
+                        });
+                        this.classList.add('active');
+                        activeEditTool = tool;
+                    }
+                });
+            });
+
+            // Close edit mode
+            function closeEditMode() {
+                activeEditLayer = null;
+                activeEditTool = null;
+                editToolbar.classList.remove('visible');
+                editBanner.classList.remove('visible');
+                widget.querySelectorAll('.layer-edit-btn').forEach(function(b) {
+                    b.classList.remove('active');
+                });
+            }
+
+            // Banner cancel button
+            document.getElementById('edit-banner-cancel').addEventListener('click', function() {
+                closeEditMode();
+            });
+
+            // Banner save button
+            document.getElementById('edit-banner-save').addEventListener('click', function() {
+                // Placeholder: save logic will go here
+                closeEditMode();
             });
         })();
 
@@ -2601,8 +1933,9 @@
 
             container.innerHTML = html;
 
-            // Sync Geokatalog checkboxes with active layers
+            // Sync checkboxes across all UIs
             updateGeokatalogCheckboxes();
+            updateLayerWidgetCheckboxes();
         }
 
         function readdSwisstopoLayers() {
@@ -3121,17 +2454,8 @@
             // Update header title
             document.getElementById('info-header-title').textContent = 'Gebäude';
 
-            // Show preview image for buildings
-            document.getElementById('info-preview-image').style.display = 'block';
-
-            // Find building index for placeholder image
-            var buildingIndex = portfolioData.features.findIndex(function(f) {
-                return f.properties.buildingId === buildingId;
-            });
-            var imageUrl = placeholderImages[buildingIndex % placeholderImages.length];
-
-            // Set preview image
-            document.getElementById('info-preview-image').style.backgroundImage = 'url(' + imageUrl + ')';
+            // Hide preview image (no longer used)
+            document.getElementById('info-preview-image').style.display = 'none';
 
             var infoHtml =
                 '<div class="info-row"><span class="info-label">Objekt-ID</span><span class="info-value">' + props.buildingId + '</span></div>' +
@@ -3632,6 +2956,20 @@
             });
         }
 
+        // Sync layer widget checkboxes with active layers
+        function updateLayerWidgetCheckboxes() {
+            var widget = document.getElementById('layer-widget');
+            if (!widget) return;
+            widget.querySelectorAll('.layer-item input[type="checkbox"]').forEach(function(cb) {
+                var layerId = cb.dataset.layer;
+                // Only sync reference layers (not project layers like portfolio/parcels)
+                if (layerId && layerId.indexOf('ch.') === 0) {
+                    var isActive = activeSwisstopoLayers.some(function(l) { return l.id === layerId; });
+                    cb.checked = isActive;
+                }
+            });
+        }
+
         function loadGeokatalog() {
             if (geokatalogLoaded) return;
 
@@ -3978,591 +3316,6 @@
         // Initialize thumbnails after a short delay to ensure token is available
         setTimeout(initStyleThumbnails, 100);
         updateActiveStyleButton();
-
-        // ===== SHARED TABLE UTILITIES =====
-
-        // Generic sort function for table data
-        function sortTableData(data, column, direction) {
-            return data.sort(function(a, b) {
-                var valA = a[column];
-                var valB = b[column];
-                if (typeof valA === 'string') {
-                    valA = valA.toLowerCase();
-                    valB = valB.toLowerCase();
-                }
-                if (valA < valB) return direction === 'asc' ? -1 : 1;
-                if (valA > valB) return direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-
-        // Generic selection update for detail tables
-        function updateTableSelection(config) {
-            var checkboxes = document.querySelectorAll('.' + config.checkboxClass);
-            var checkedCount = document.querySelectorAll('.' + config.checkboxClass + ':checked').length;
-            var selectAll = document.getElementById(config.selectAllId);
-
-            if (selectAll) {
-                selectAll.checked = checkedCount === checkboxes.length && checkboxes.length > 0;
-                selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
-            }
-
-            document.querySelectorAll('#' + config.tableId + ' tbody tr').forEach(function(row) {
-                var cb = row.querySelector('.' + config.checkboxClass);
-                row.classList.toggle('selected', cb && cb.checked);
-            });
-
-            document.querySelectorAll('.' + config.actionClass).forEach(function(btn) {
-                btn.disabled = checkedCount === 0;
-            });
-        }
-
-        // Generic sort column click handler setup
-        function initTableSorting(config) {
-            document.querySelectorAll('#' + config.tableId + ' th.sortable').forEach(function(th) {
-                th.addEventListener('click', function() {
-                    var column = this.dataset.sort;
-
-                    if (column === config.state.column) {
-                        config.state.direction = config.state.direction === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        config.state.column = column;
-                        config.state.direction = 'asc';
-                    }
-
-                    document.querySelectorAll('#' + config.tableId + ' th.sortable').forEach(function(header) {
-                        header.classList.remove('sort-asc', 'sort-desc');
-                        var icon = header.querySelector('.sort-icon');
-                        if (icon) icon.textContent = 'unfold_more';
-                    });
-
-                    this.classList.add('sort-' + config.state.direction);
-                    var sortIcon = this.querySelector('.sort-icon');
-                    if (sortIcon) {
-                        sortIcon.textContent = config.state.direction === 'asc' ? 'arrow_upward' : 'arrow_downward';
-                    }
-
-                    config.onSort();
-                });
-            });
-        }
-
-        // Generic select-all checkbox setup
-        function initSelectAll(config) {
-            var selectAll = document.getElementById(config.selectAllId);
-            if (selectAll) {
-                selectAll.addEventListener('change', function() {
-                    var isChecked = this.checked;
-                    document.querySelectorAll('.' + config.checkboxClass).forEach(function(cb) {
-                        cb.checked = isChecked;
-                    });
-                    config.onUpdate();
-                });
-            }
-        }
-
-        // ===== GENERIC ENTITY TABLE FACTORY =====
-        // Eliminates code duplication across 6 entity tables
-
-        function createEntityTable(config) {
-            // Extract table name from tableId (e.g., 'measurements-table' -> 'measurements')
-            var tableName = config.tableId.replace('-table', '');
-
-            var table = {
-                data: [],
-                filteredData: [],
-                sort: { column: config.defaultSort || 'id', direction: 'asc' },
-                pagination: {
-                    currentPage: 1,
-                    rowsPerPage: 50
-                },
-                tableConfig: {
-                    tableId: config.tableId,
-                    checkboxClass: config.checkboxClass,
-                    selectAllId: config.selectAllId,
-                    actionClass: config.actionClass,
-                    state: null, // Will be set below
-                    onSort: null,
-                    onUpdate: null
-                }
-            };
-
-            // Set up circular references
-            table.tableConfig.state = table.sort;
-            table.tableConfig.onSort = function() {
-                sortTableData(table.filteredData, table.sort.column, table.sort.direction);
-                table.render();
-            };
-            table.tableConfig.onUpdate = function() {
-                updateTableSelection(table.tableConfig);
-            };
-
-            // Load data for a building
-            table.load = function(building) {
-                if (building && building.properties) {
-                    var buildingId = building.properties.buildingId;
-                    table.data = config.dataSource()
-                        .filter(function(item) {
-                            return item.buildingIds && item.buildingIds.includes(buildingId);
-                        })
-                        .map(config.transform);
-                } else {
-                    table.data = [];
-                }
-                table.filteredData = table.data.slice();
-                // Reset pagination when loading new data
-                table.pagination.currentPage = 1;
-            };
-
-            // Render table rows with empty state and pagination support
-            table.render = function() {
-                var tbody = document.getElementById(config.tbodyId);
-                if (!tbody) return;
-
-                // Check for empty state
-                if (table.filteredData.length === 0) {
-                    var colCount = config.columns.length + 1; // +1 for checkbox column
-                    var emptyMessage = table.data.length === 0
-                        ? 'Keine Einträge vorhanden'
-                        : 'Keine Treffer für die Suche';
-                    var emptyIcon = table.data.length === 0 ? 'inbox' : 'search_off';
-
-                    tbody.innerHTML = '<tr class="empty-row"><td colspan="' + colCount + '">' +
-                        '<div class="table-empty-state">' +
-                        '<span class="material-symbols-outlined">' + emptyIcon + '</span>' +
-                        '<div class="table-empty-message">' + emptyMessage + '</div>' +
-                        '</div></td></tr>';
-                    table.updatePagination(0, 0);
-                    return;
-                }
-
-                // Pagination calculations
-                var totalItems = table.filteredData.length;
-                var totalPages = Math.ceil(totalItems / table.pagination.rowsPerPage);
-
-                // Ensure current page is valid
-                if (table.pagination.currentPage > totalPages) {
-                    table.pagination.currentPage = totalPages;
-                }
-                if (table.pagination.currentPage < 1) {
-                    table.pagination.currentPage = 1;
-                }
-
-                var startIndex = (table.pagination.currentPage - 1) * table.pagination.rowsPerPage;
-                var endIndex = Math.min(startIndex + table.pagination.rowsPerPage, totalItems);
-
-                // Get paginated slice of data
-                var paginatedData = table.filteredData.slice(startIndex, endIndex);
-
-                var html = '';
-                paginatedData.forEach(function(item) {
-                    html += '<tr data-id="' + item.id + '">';
-                    html += '<td class="col-checkbox"><input type="checkbox" class="' + config.checkboxClass + '"></td>';
-                    config.columns.forEach(function(col) {
-                        var value = col.render ? col.render(item) : (item[col.key] || '—');
-                        html += '<td class="' + col.className + '">' + value + '</td>';
-                    });
-                    html += '</tr>';
-                });
-                tbody.innerHTML = html;
-
-                // Update pagination UI
-                table.updatePagination(table.pagination.currentPage, totalPages);
-
-                document.querySelectorAll('.' + config.checkboxClass).forEach(function(cb) {
-                    cb.addEventListener('change', function() {
-                        updateTableSelection(table.tableConfig);
-                    });
-                });
-            };
-
-            // Update pagination UI
-            table.updatePagination = function(currentPage, totalPages) {
-                var paginationFooter = document.getElementById(tableName + '-pagination');
-                if (!paginationFooter) return;
-
-                var infoEl = paginationFooter.querySelector('.pagination-info');
-                var prevBtn = paginationFooter.querySelector('.pagination-prev');
-                var nextBtn = paginationFooter.querySelector('.pagination-next');
-
-                if (infoEl) {
-                    if (totalPages === 0) {
-                        infoEl.textContent = 'Keine Einträge';
-                    } else {
-                        infoEl.textContent = 'Seite ' + currentPage + ' von ' + totalPages;
-                    }
-                }
-
-                if (prevBtn) {
-                    prevBtn.disabled = currentPage <= 1;
-                }
-
-                if (nextBtn) {
-                    nextBtn.disabled = currentPage >= totalPages || totalPages === 0;
-                }
-            };
-
-            // Filter data based on search term
-            table.filter = function(term) {
-                term = term.toLowerCase().trim();
-                if (term === '') {
-                    table.filteredData = table.data.slice();
-                } else {
-                    table.filteredData = table.data.filter(function(item) {
-                        return config.searchFields.some(function(field) {
-                            var val = item[field];
-                            if (val == null) return false;
-                            return String(val).toLowerCase().includes(term);
-                        });
-                    });
-                }
-                // Reset to first page when filtering
-                table.pagination.currentPage = 1;
-                sortTableData(table.filteredData, table.sort.column, table.sort.direction);
-                table.render();
-            };
-
-            // Initialize event handlers
-            table.init = function() {
-                initTableSorting(table.tableConfig);
-                initSelectAll(table.tableConfig);
-
-                var filterInput = document.getElementById(config.filterId);
-                if (filterInput) {
-                    filterInput.addEventListener('input', function() {
-                        table.filter(this.value);
-                    });
-                }
-
-                var addBtn = document.getElementById(config.addBtnId);
-                if (addBtn) {
-                    addBtn.addEventListener('click', function() {
-                        alert(config.addBtnMessage);
-                    });
-                }
-
-                // Initialize pagination event listeners
-                var paginationFooter = document.getElementById(tableName + '-pagination');
-                if (paginationFooter) {
-                    var rowsSelect = paginationFooter.querySelector('.pagination-rows-select');
-                    var prevBtn = paginationFooter.querySelector('.pagination-prev');
-                    var nextBtn = paginationFooter.querySelector('.pagination-next');
-
-                    if (rowsSelect) {
-                        rowsSelect.addEventListener('change', function() {
-                            table.pagination.rowsPerPage = parseInt(this.value, 10);
-                            table.pagination.currentPage = 1;
-                            table.render();
-                        });
-                    }
-
-                    if (prevBtn) {
-                        prevBtn.addEventListener('click', function() {
-                            if (table.pagination.currentPage > 1) {
-                                table.pagination.currentPage--;
-                                table.render();
-                            }
-                        });
-                    }
-
-                    if (nextBtn) {
-                        nextBtn.addEventListener('click', function() {
-                            var totalPages = Math.ceil(table.filteredData.length / table.pagination.rowsPerPage);
-                            if (table.pagination.currentPage < totalPages) {
-                                table.pagination.currentPage++;
-                                table.render();
-                            }
-                        });
-                    }
-                }
-            };
-
-            return table;
-        }
-
-        // ===== SHARED FORMATTERS =====
-
-        function formatCurrency(amount) {
-            if (amount == null) return '—';
-            return new Intl.NumberFormat('de-CH', {
-                style: 'currency',
-                currency: 'CHF',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(amount);
-        }
-
-        function formatCurrencyWithUnit(amount, einheit) {
-            if (amount == null) return '—';
-            var currency = 'CHF';
-            if (einheit) {
-                var parts = einheit.split('/');
-                if (parts.length > 0) currency = parts[0].trim();
-            }
-            return new Intl.NumberFormat('de-CH', {
-                style: 'currency',
-                currency: currency,
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(amount);
-        }
-
-        function getContractStatusClassName(status) {
-            if (!status) return '';
-            var s = status.toLowerCase();
-            if (s === 'aktiv') return 'status-active';
-            if (s === 'gekündigt') return 'status-terminated';
-            if (s === 'ausgelaufen') return 'status-expired';
-            return '';
-        }
-
-        // ===== ENTITY TABLE DEFINITIONS =====
-
-        var measurementsTable = createEntityTable({
-            tableId: 'measurements-table',
-            tbodyId: 'measurements-tbody',
-            checkboxClass: 'measurement-checkbox',
-            selectAllId: 'select-all-measurements',
-            actionClass: 'measurements-action',
-            filterId: 'measurements-filter',
-            addBtnId: 'btn-add-measurement',
-            addBtnMessage: 'Bemessung hinzufügen - kommt bald...',
-            defaultSort: 'id',
-            dataSource: function() { return allAreaMeasurements; },
-            transform: function(m) {
-                return {
-                    id: m.areaMeasurementId,
-                    areaType: m.type,
-                    value: m.value,
-                    unit: m.unit,
-                    source: (m.extensionData && m.extensionData.source) || 'Manuell',
-                    accuracy: m.accuracy,
-                    standard: m.standard,
-                    validFrom: m.validFrom,
-                    validUntil: m.validUntil || '—'
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-id' },
-                { key: 'areaType', className: 'col-type' },
-                { key: 'value', className: 'col-area', render: function(m) {
-                    return Number(m.value).toLocaleString('de-CH') + ' ' + m.unit;
-                }},
-                { key: 'source', className: 'col-source' },
-                { key: 'accuracy', className: 'col-accuracy' },
-                { key: 'standard', className: 'col-standard' },
-                { key: 'validFrom', className: 'col-from' },
-                { key: 'validUntil', className: 'col-until' }
-            ],
-            searchFields: ['id', 'areaType', 'accuracy', 'standard', 'unit', 'value']
-        });
-
-        var documentsTable = createEntityTable({
-            tableId: 'documents-table',
-            tbodyId: 'documents-tbody',
-            checkboxClass: 'document-checkbox',
-            selectAllId: 'select-all-documents',
-            actionClass: 'documents-action',
-            filterId: 'documents-filter',
-            addBtnId: 'btn-add-document',
-            addBtnMessage: 'Dokument hinzufügen - kommt bald...',
-            defaultSort: 'id',
-            dataSource: function() { return allDocuments; },
-            transform: function(d) {
-                return {
-                    id: d.documentId,
-                    titel: d.name,
-                    dokumentTyp: d.type,
-                    dateiformat: d.fileFormat,
-                    datum: d.validFrom,
-                    dateigroesse: d.fileSize,
-                    url: d.url || '#'
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-id' },
-                { key: 'titel', className: 'col-title' },
-                { key: 'dokumentTyp', className: 'col-type' },
-                { key: 'dateiformat', className: 'col-format' },
-                { key: 'datum', className: 'col-date' },
-                { key: 'dateigroesse', className: 'col-size' }
-            ],
-            searchFields: ['id', 'titel', 'dokumentTyp', 'dateiformat', 'datum', 'dateigroesse']
-        });
-
-        var contactsTable = createEntityTable({
-            tableId: 'contacts-table',
-            tbodyId: 'contacts-tbody',
-            checkboxClass: 'contact-checkbox',
-            selectAllId: 'select-all-contacts',
-            actionClass: 'contacts-action',
-            filterId: 'contacts-filter',
-            addBtnId: 'btn-add-contact',
-            addBtnMessage: 'Kontakt hinzufügen - kommt bald...',
-            defaultSort: 'name',
-            dataSource: function() { return allContacts; },
-            transform: function(contact) {
-                return {
-                    id: contact.contactId,
-                    name: contact.name,
-                    rolle: contact.role,
-                    organisation: contact.organisation,
-                    telefon: contact.phone,
-                    email: contact.email
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-contact-id' },
-                { key: 'name', className: 'col-contact-name' },
-                { key: 'rolle', className: 'col-contact-role' },
-                { key: 'organisation', className: 'col-contact-org' },
-                { key: 'telefon', className: 'col-contact-phone', render: function(contact) {
-                    return '<a href="tel:' + contact.telefon + '">' + contact.telefon + '</a>';
-                }},
-                { key: 'email', className: 'col-contact-email', render: function(contact) {
-                    return '<a href="mailto:' + contact.email + '">' + contact.email + '</a>';
-                }}
-            ],
-            searchFields: ['id', 'name', 'rolle', 'organisation', 'telefon', 'email']
-        });
-
-        var costsTable = createEntityTable({
-            tableId: 'costs-table',
-            tbodyId: 'costs-tbody',
-            checkboxClass: 'cost-checkbox',
-            selectAllId: 'select-all-costs',
-            actionClass: 'costs-action',
-            filterId: 'costs-filter',
-            addBtnId: 'btn-add-cost',
-            addBtnMessage: 'Kosten hinzufügen - kommt bald...',
-            defaultSort: 'kostengruppe',
-            dataSource: function() { return allCosts; },
-            transform: function(cost) {
-                return {
-                    id: cost.costId,
-                    kostengruppe: cost.costGroup,
-                    kostenart: cost.costType,
-                    betrag: cost.amount,
-                    einheit: cost.unit,
-                    stichtag: cost.referenceDate
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-cost-id' },
-                { key: 'kostengruppe', className: 'col-cost-group' },
-                { key: 'kostenart', className: 'col-cost-type' },
-                { key: 'betrag', className: 'col-cost-amount', render: function(cost) {
-                    return formatCurrencyWithUnit(cost.betrag, cost.einheit);
-                }},
-                { key: 'einheit', className: 'col-cost-unit', render: function(cost) {
-                    return cost.einheit || '—';
-                }},
-                { key: 'stichtag', className: 'col-cost-date', render: function(cost) {
-                    return cost.stichtag || '—';
-                }}
-            ],
-            searchFields: ['id', 'kostengruppe', 'kostenart', 'betrag', 'einheit', 'stichtag']
-        });
-
-        var contractsTable = createEntityTable({
-            tableId: 'contracts-table',
-            tbodyId: 'contracts-tbody',
-            checkboxClass: 'contract-checkbox',
-            selectAllId: 'select-all-contracts',
-            actionClass: 'contracts-action',
-            filterId: 'contracts-filter',
-            addBtnId: 'btn-add-contract',
-            addBtnMessage: 'Vertrag hinzufügen - kommt bald...',
-            defaultSort: 'vertragsart',
-            dataSource: function() { return allContracts; },
-            transform: function(contract) {
-                return {
-                    id: contract.contractId,
-                    vertragsart: contract.type,
-                    vertragspartner: contract.contractPartner,
-                    vertragsbeginn: contract.validFrom,
-                    vertragsende: contract.validUntil,
-                    betrag: contract.amount,
-                    status: contract.status
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-contract-id' },
-                { key: 'vertragsart', className: 'col-contract-type' },
-                { key: 'vertragspartner', className: 'col-contract-partner' },
-                { key: 'vertragsbeginn', className: 'col-contract-start', render: function(contract) {
-                    return contract.vertragsbeginn || '—';
-                }},
-                { key: 'vertragsende', className: 'col-contract-end', render: function(contract) {
-                    return contract.vertragsende || 'unbefristet';
-                }},
-                { key: 'betrag', className: 'col-contract-amount', render: function(contract) {
-                    return formatCurrency(contract.betrag);
-                }},
-                { key: 'status', className: 'col-contract-status', render: function(contract) {
-                    return '<span class="status-badge ' + getContractStatusClassName(contract.status) + '">' + contract.status + '</span>';
-                }}
-            ],
-            searchFields: ['id', 'vertragsart', 'vertragspartner', 'vertragsbeginn', 'vertragsende', 'betrag', 'status']
-        });
-
-        var assetsTable = createEntityTable({
-            tableId: 'assets-table',
-            tbodyId: 'assets-tbody',
-            checkboxClass: 'asset-checkbox',
-            selectAllId: 'select-all-assets',
-            actionClass: 'assets-action',
-            filterId: 'assets-filter',
-            addBtnId: 'btn-add-asset',
-            addBtnMessage: 'Ausstattung hinzufügen - kommt bald...',
-            defaultSort: 'bezeichnung',
-            dataSource: function() { return allAssets; },
-            transform: function(asset) {
-                return {
-                    id: asset.assetId,
-                    bezeichnung: asset.name,
-                    kategorie: asset.category,
-                    hersteller: asset.manufacturer,
-                    baujahr: asset.installationYear,
-                    standort: asset.location
-                };
-            },
-            columns: [
-                { key: 'id', className: 'col-asset-id' },
-                { key: 'bezeichnung', className: 'col-asset-name' },
-                { key: 'kategorie', className: 'col-asset-category', render: function(asset) {
-                    return '<span class="kategorie-badge">' + asset.kategorie + '</span>';
-                }},
-                { key: 'hersteller', className: 'col-asset-manufacturer' },
-                { key: 'baujahr', className: 'col-asset-year' },
-                { key: 'standort', className: 'col-asset-location' }
-            ],
-            searchFields: ['id', 'bezeichnung', 'kategorie', 'hersteller', 'baujahr', 'standort']
-        });
-
-        // Initialize all entity tables
-        measurementsTable.init();
-        documentsTable.init();
-        contactsTable.init();
-        costsTable.init();
-        contractsTable.init();
-        assetsTable.init();
-
-        // ===== ENTITY TABLE LOADER AND RENDER FUNCTIONS =====
-
-        function loadMeasurementsForBuilding(building) { measurementsTable.load(building); }
-        function loadDocumentsForBuilding(building) { documentsTable.load(building); }
-        function loadContactsForBuilding(building) { contactsTable.load(building); }
-        function loadCostsForBuilding(building) { costsTable.load(building); }
-        function loadContractsForBuilding(building) { contractsTable.load(building); }
-        function loadAssetsForBuilding(building) { assetsTable.load(building); }
-
-        function renderMeasurementsTable() { measurementsTable.render(); }
-        function renderDocumentsTable() { documentsTable.render(); }
-        function renderContactsTable() { contactsTable.render(); }
-        function renderCostsTable() { costsTable.render(); }
-        function renderContractsTable() { contractsTable.render(); }
-        function renderAssetsTable() { assetsTable.render(); }
 
         // ===== MAP CONTEXT MENU =====
 
