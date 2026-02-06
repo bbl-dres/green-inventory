@@ -1,4 +1,4 @@
-# Grünflächeninventar GIS
+# Green Area Inventory / Grünflächeninventar GIS
 
 A single-page web application for the inventory, management, and maintenance of municipal green spaces. This proof-of-concept demonstrates GIS capabilities for Swiss green space management based on the Grün Stadt Zürich (GSZ) "Mehr als Grün" Profilkatalog, with an interactive map-based interface plus complementary wiki, task, and dashboard views.
 
