@@ -1492,38 +1492,19 @@
 
         map.addControl(new HomeControl(), 'top-right');
 
-        // ===== LAYER WIDGET =====
-        (function setupLayerWidget() {
-            var widget = document.getElementById('layer-widget');
-            var trigger = document.getElementById('layer-widget-trigger');
-            var header = document.getElementById('layer-widget-header');
-            if (!widget || !trigger) return;
+        // ===== DARGESTELLTE KARTEN (Layer Management in Accordion) =====
+        (function setupDargestellteKarten() {
+            var accordion = document.getElementById('dargestellte-karten-content');
+            if (!accordion) return;
 
-            // Reference layer display names (for addSwisstopoLayer title)
-            var referenceLayerNames = {
-                'ch.swisstopo-vd.stand-oerebkataster': 'ÖREB Verfügbarkeit',
-                'ch.swisstopo-vd.geometa-grundbuch': 'Amtliche Vermessung',
-                'ch.bafu.landesforstinventar-vegetationshoehenmodell': 'Vegetationshöhe'
-            };
-
-            // Toggle expand/collapse
-            trigger.addEventListener('click', function(e) {
-                e.stopPropagation();
-                widget.classList.remove('collapsed');
-            });
-            if (header) {
-                header.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    widget.classList.add('collapsed');
-                });
-            }
-
-            // Close when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!widget.contains(e.target)) {
-                    widget.classList.add('collapsed');
-                }
-            });
+            // Reference layer configuration (recommended swisstopo layers)
+            var referenceLayerConfig = [
+                { id: 'ch.swisstopo-vd.stand-oerebkataster', name: 'ÖREB Verfügbarkeit' },
+                { id: 'ch.swisstopo-vd.geometa-grundbuch', name: 'Amtliche Vermessung' },
+                { id: 'ch.bav.kataster-belasteter-standorte-oev', name: 'Altlastenkataster' },
+                { id: 'ch.bafu.landesforstinventar-vegetationshoehenmodell', name: 'Vegetationshöhe' }
+            ];
+            var referenceLayerIds = referenceLayerConfig.map(function(r) { return r.id; });
 
             // Built-in project layer IDs for toggling
             var projectLayerMap = {
@@ -1532,57 +1513,147 @@
                 'parcels': ['parcels-fill', 'parcels-outline']
             };
 
-            // Checkbox handlers
-            widget.querySelectorAll('.layer-item input[type="checkbox"]').forEach(function(cb) {
+            // --- Project layer checkbox handlers ---
+            accordion.querySelectorAll('.layer-item[data-layer] input[type="checkbox"]').forEach(function(cb) {
                 cb.addEventListener('change', function() {
-                    var layerId = this.dataset.layer;
+                    var layerId = this.closest('.layer-item').dataset.layer;
+                    if (!projectLayerMap[layerId]) return;
 
-                    // Project layers — toggle built-in map layers
-                    if (projectLayerMap[layerId]) {
-                        var visibility = this.checked ? 'visible' : 'none';
-                        projectLayerMap[layerId].forEach(function(id) {
-                            if (map.getLayer(id)) {
-                                map.setLayoutProperty(id, 'visibility', visibility);
-                            }
-                        });
-                        return;
-                    }
-
-                    // Reference layers — route through swisstopo system for URL/UI sync
-                    if (this.checked) {
-                        addSwisstopoLayer(layerId, referenceLayerNames[layerId] || layerId, true);
-                    } else {
-                        removeSwisstopoLayer(layerId);
-                    }
+                    var visibility = this.checked ? 'visible' : 'none';
+                    projectLayerMap[layerId].forEach(function(id) {
+                        if (map.getLayer(id)) {
+                            map.setLayoutProperty(id, 'visibility', visibility);
+                        }
+                    });
                 });
             });
 
-            // Layer info buttons
-            widget.querySelectorAll('.layer-info-btn').forEach(function(btn) {
+            // --- Project layer info buttons ---
+            accordion.querySelectorAll('.layer-info-btn[data-layer]').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    var layerId = btn.dataset.layer;
-                    var modal = document.getElementById('layer-info-modal');
-                    var body = document.getElementById('layer-info-content');
-                    if (!modal || !body) return;
-
-                    modal.classList.add('visible');
-                    body.innerHTML = '<div class="layer-info-loading">Lade Informationen...</div>';
-
-                    fetch('https://api3.geo.admin.ch/rest/services/api/MapServer/' + layerId + '/legend?lang=de')
-                        .then(function(resp) {
-                            if (resp.ok) return resp.text();
-                            throw new Error('Fetch failed');
-                        })
-                        .then(function(html) {
-                            body.innerHTML = html || '<p>Keine Informationen verfügbar.</p>';
-                        })
-                        .catch(function() {
-                            body.innerHTML = '<p>Fehler beim Laden der Layer-Informationen.</p>';
-                        });
+                    showLayerInfo(btn.dataset.layer);
                 });
             });
+
+            // --- Render reference layers list ---
+            window.renderReferenceLayersList = function() {
+                var container = document.getElementById('reference-layers-list');
+                if (!container) return;
+
+                var html = '';
+
+                // 1. Render recommended reference layers (always shown)
+                referenceLayerConfig.forEach(function(ref) {
+                    var activeLayer = activeSwisstopoLayers.find(function(l) { return l.id === ref.id; });
+                    var isActive = !!activeLayer;
+                    var isVisible = isActive && activeLayer.visible !== false;
+                    if (isActive && map.getLayer(activeLayer.mapLayerId)) {
+                        var vis = map.getLayoutProperty(activeLayer.mapLayerId, 'visibility');
+                        isVisible = vis !== 'none';
+                    }
+                    var escapedId = ref.id.replace(/'/g, "\\'");
+
+                    html += '<div class="layer-item" data-layer="' + ref.id + '">';
+
+                    // X remove button (only when active)
+                    if (isActive) {
+                        html += '<button class="layer-remove-btn" data-layer="' + ref.id + '" title="Entfernen">' +
+                            '<span class="material-symbols-outlined">close</span></button>';
+                    }
+
+                    // Checkbox
+                    html += '<input type="checkbox" ' + (isActive && isVisible ? 'checked' : '') +
+                        ' data-layer="' + ref.id + '" data-ref="true">';
+
+                    // Name
+                    html += '<span class="layer-name">' + ref.name + '</span>';
+
+                    // Info button
+                    html += '<div class="layer-actions">' +
+                        '<button class="layer-info-btn" data-layer="' + ref.id + '" title="Layer-Info">' +
+                        '<span class="material-symbols-outlined">info</span></button></div>';
+
+                    html += '</div>';
+                });
+
+                // 2. Render additional active layers from Geokatalog (not in recommended list)
+                activeSwisstopoLayers.forEach(function(layer) {
+                    if (referenceLayerIds.indexOf(layer.id) !== -1) return; // Skip recommended layers
+
+                    var isVisible;
+                    if (map.getLayer(layer.mapLayerId)) {
+                        var vis = map.getLayoutProperty(layer.mapLayerId, 'visibility');
+                        isVisible = vis !== 'none';
+                    } else {
+                        isVisible = layer.visible !== false;
+                    }
+
+                    html += '<div class="layer-item" data-layer="' + layer.id + '">';
+                    html += '<button class="layer-remove-btn" data-layer="' + layer.id + '" title="Entfernen">' +
+                        '<span class="material-symbols-outlined">close</span></button>';
+                    html += '<input type="checkbox" ' + (isVisible ? 'checked' : '') +
+                        ' data-layer="' + layer.id + '" data-ref="true" data-extra="true">';
+                    html += '<span class="layer-name">' + escapeHtml(layer.title) + '</span>';
+                    html += '<div class="layer-actions">' +
+                        '<button class="layer-info-btn" data-layer="' + layer.id + '" title="Layer-Info">' +
+                        '<span class="material-symbols-outlined">info</span></button></div>';
+                    html += '</div>';
+                });
+
+                container.innerHTML = html;
+
+                // Bind event handlers for dynamically rendered elements
+
+                // Remove buttons
+                container.querySelectorAll('.layer-remove-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var layerId = this.dataset.layer;
+                        removeSwisstopoLayer(layerId);
+                    });
+                });
+
+                // Checkboxes
+                container.querySelectorAll('input[type="checkbox"][data-ref]').forEach(function(cb) {
+                    cb.addEventListener('change', function() {
+                        var layerId = this.dataset.layer;
+                        var activeLayer = activeSwisstopoLayers.find(function(l) { return l.id === layerId; });
+
+                        if (this.checked) {
+                            if (!activeLayer) {
+                                // Layer not yet loaded — add it
+                                var config = referenceLayerConfig.find(function(r) { return r.id === layerId; });
+                                addSwisstopoLayer(layerId, config ? config.name : layerId, true);
+                            } else {
+                                // Layer loaded but hidden — show it
+                                toggleSwisstopoLayerVisibility(layerId);
+                            }
+                        } else {
+                            if (activeLayer) {
+                                // Layer loaded and visible — hide it
+                                toggleSwisstopoLayerVisibility(layerId);
+                            }
+                        }
+                    });
+                });
+
+                // Info buttons
+                container.querySelectorAll('.layer-info-btn').forEach(function(btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        showLayerInfo(this.dataset.layer);
+                    });
+                });
+
+                // Sync Geokatalog checkboxes
+                updateGeokatalogCheckboxes();
+            };
+
+            // Initial render
+            renderReferenceLayersList();
 
             // ===== EDIT MODE =====
             var editToolbar = document.getElementById('edit-toolbar');
@@ -1599,7 +1670,7 @@
             };
 
             // Edit button click — toggle edit toolbar for that layer
-            widget.querySelectorAll('.layer-edit-btn').forEach(function(btn) {
+            accordion.querySelectorAll('.layer-edit-btn').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1612,7 +1683,7 @@
                     }
 
                     // Clear previous active state
-                    widget.querySelectorAll('.layer-edit-btn').forEach(function(b) {
+                    accordion.querySelectorAll('.layer-edit-btn').forEach(function(b) {
                         b.classList.remove('active');
                     });
 
@@ -1640,7 +1711,6 @@
 
                     // Undo/Redo are instant actions, don't toggle
                     if (tool === 'undo' || tool === 'redo') {
-                        // Placeholder for undo/redo logic
                         return;
                     }
 
@@ -1664,7 +1734,7 @@
                 activeEditTool = null;
                 editToolbar.classList.remove('visible');
                 editBanner.classList.remove('visible');
-                widget.querySelectorAll('.layer-edit-btn').forEach(function(b) {
+                accordion.querySelectorAll('.layer-edit-btn').forEach(function(b) {
                     b.classList.remove('active');
                 });
             }
@@ -1898,44 +1968,10 @@
         };
 
         function renderActiveLayersList() {
-            var container = document.getElementById('active-layers-list');
-            if (!container) return;
-
-            if (activeSwisstopoLayers.length === 0) {
-                container.innerHTML = '<div class="active-layers-empty">Keine Hintergrundkarten aktiv. Suchen Sie nach Karten über das Suchfeld.</div>';
-                return;
+            // Delegate to the accordion-based reference layers renderer
+            if (typeof renderReferenceLayersList === 'function') {
+                renderReferenceLayersList();
             }
-
-            var html = '';
-            activeSwisstopoLayers.forEach(function(layer) {
-                // Check if map layer exists, fall back to tracked visibility state
-                var isVisible;
-                if (map.getLayer(layer.mapLayerId)) {
-                    var visibility = map.getLayoutProperty(layer.mapLayerId, 'visibility');
-                    isVisible = visibility !== 'none';
-                } else {
-                    isVisible = layer.visible !== false;
-                }
-                var checkedAttr = isVisible ? 'checked' : '';
-                var escapedId = escapeForJs(layer.id);
-
-                html += '<div class="active-layer-item">' +
-                    '<button class="active-layer-remove" onclick="removeSwisstopoLayer(\'' + escapedId + '\')" title="Entfernen">' +
-                        '<span class="material-symbols-outlined">close</span>' +
-                    '</button>' +
-                    '<input type="checkbox" class="active-layer-checkbox" ' + checkedAttr + ' onchange="toggleSwisstopoLayerVisibility(\'' + escapedId + '\')" title="' + (isVisible ? 'Ausblenden' : 'Einblenden') + '">' +
-                    '<span class="active-layer-title">' + escapeHtml(layer.title) + '</span>' +
-                    '<button class="active-layer-info" onclick="showLayerInfo(\'' + escapedId + '\')" title="Layer-Informationen">' +
-                        '<span class="material-symbols-outlined">info</span>' +
-                    '</button>' +
-                '</div>';
-            });
-
-            container.innerHTML = html;
-
-            // Sync checkboxes across all UIs
-            updateGeokatalogCheckboxes();
-            updateLayerWidgetCheckboxes();
         }
 
         function readdSwisstopoLayers() {
@@ -2956,18 +2992,9 @@
             });
         }
 
-        // Sync layer widget checkboxes with active layers
+        // Sync layer widget checkboxes — no longer needed (widget removed)
         function updateLayerWidgetCheckboxes() {
-            var widget = document.getElementById('layer-widget');
-            if (!widget) return;
-            widget.querySelectorAll('.layer-item input[type="checkbox"]').forEach(function(cb) {
-                var layerId = cb.dataset.layer;
-                // Only sync reference layers (not project layers like portfolio/parcels)
-                if (layerId && layerId.indexOf('ch.') === 0) {
-                    var isActive = activeSwisstopoLayers.some(function(l) { return l.id === layerId; });
-                    cb.checked = isActive;
-                }
-            });
+            // No-op: layer widget has been replaced by Dargestellte Karten accordion
         }
 
         function loadGeokatalog() {

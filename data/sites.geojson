@@ -1,0 +1,76 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "siteId": "SITE-001",
+        "name": "Parkanlage Sonnenberg",
+        "siteType": "Park",
+        "municipality": "Zürich",
+        "canton": "ZH",
+        "address": "Sonnenbergstrasse 20, 8032 Zürich",
+        "totalAreaM2": 18500,
+        "greenAreaM2": 14200,
+        "hardSurfaceAreaM2": 4300,
+        "ownershipType": "Öffentlich",
+        "managingOrganisation": "Grün Stadt Zürich",
+        "responsibleContactId": "CONT-001",
+        "status": "Aktiv",
+        "lv95East": 2683200,
+        "lv95North": 1247550,
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T10:30:00Z",
+        "updatedAt": "2026-01-20T14:15:00Z",
+        "eventType": "SiteUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5180, 47.3640],
+          [8.5230, 47.3640],
+          [8.5230, 47.3665],
+          [8.5200, 47.3670],
+          [8.5180, 47.3665],
+          [8.5180, 47.3640]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "siteId": "SITE-002",
+        "name": "Quartierpark Limmatfeld",
+        "siteType": "Park",
+        "municipality": "Dietikon",
+        "canton": "ZH",
+        "address": "Limmatfeldstrasse 12, 8953 Dietikon",
+        "totalAreaM2": 4500,
+        "greenAreaM2": 3200,
+        "hardSurfaceAreaM2": 1300,
+        "ownershipType": "Öffentlich",
+        "managingOrganisation": "Stadtgärtnerei Dietikon",
+        "responsibleContactId": "CONT-005",
+        "status": "Aktiv",
+        "lv95East": 2672800,
+        "lv95North": 1249300,
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-09-10T11:00:00Z",
+        "eventType": "SiteUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4020, 47.3940],
+          [8.4045, 47.3940],
+          [8.4045, 47.3955],
+          [8.4020, 47.3955],
+          [8.4020, 47.3940]
+        ]]
+      }
+    }
+  ]
+}

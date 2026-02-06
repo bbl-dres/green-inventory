@@ -1,0 +1,261 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-001",
+        "siteId": "SITE-001",
+        "name": "Blumenwiese Sonnenberg Süd",
+        "careProfileId": "CP-BW",
+        "areaM2": 3200,
+        "condition": 2,
+        "usageIntensity": "Gering",
+        "vegetationType": "Artenreiche Blumenwiese mit Margeriten, Wiesensalbei und Glockenblumen",
+        "soilType": "Lehmig-sandig",
+        "irrigated": false,
+        "lastCareDate": "2025-09-15T00:00:00Z",
+        "notes": "Herbstschnitt 2025 durchgeführt. Artenvielfalt nimmt seit Umstellung zu.",
+        "validFrom": "2022-04-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2022-04-01T08:00:00Z",
+        "updatedAt": "2025-09-16T10:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5185, 47.3641],
+          [8.5210, 47.3641],
+          [8.5212, 47.3648],
+          [8.5188, 47.3650],
+          [8.5185, 47.3641]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-002",
+        "siteId": "SITE-001",
+        "name": "Gebrauchsrasen Spielbereich",
+        "careProfileId": "CP-GR",
+        "areaM2": 2800,
+        "condition": 2,
+        "usageIntensity": "Hoch",
+        "vegetationType": "Strapazierfähiger Gebrauchsrasen (Lolium perenne, Poa pratensis)",
+        "soilType": "Sandig-lehmig, drainiert",
+        "irrigated": true,
+        "lastCareDate": "2025-10-20T00:00:00Z",
+        "notes": "Angrenzend an Spielplatz. Hohe Trittbelastung im Sommer.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-10-20T14:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5195, 47.3652],
+          [8.5218, 47.3652],
+          [8.5218, 47.3660],
+          [8.5195, 47.3660],
+          [8.5195, 47.3652]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-003",
+        "siteId": "SITE-001",
+        "name": "Staudenbeet Rosengarten",
+        "careProfileId": "CP-ST",
+        "areaM2": 450,
+        "condition": 1,
+        "usageIntensity": "Gering",
+        "vegetationType": "Gemischte Staudenpflanzung mit Rosen, Lavendel, Salbei und Storchschnabel",
+        "soilType": "Humos, gut durchlässig",
+        "irrigated": true,
+        "lastCareDate": "2025-11-05T00:00:00Z",
+        "notes": "Repräsentatives Beet am Haupteingang. Hoher Pflegeaufwand.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-11-05T11:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5200, 47.3648],
+          [8.5210, 47.3648],
+          [8.5210, 47.3652],
+          [8.5200, 47.3652],
+          [8.5200, 47.3648]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-004",
+        "siteId": "SITE-001",
+        "name": "Ruderalfläche Böschung Ost",
+        "careProfileId": "CP-RV",
+        "areaM2": 600,
+        "condition": 2,
+        "usageIntensity": "Keine",
+        "vegetationType": "Spontanvegetation auf Kiessubstrat: Natternkopf, Wilde Möhre, Wegwarte",
+        "soilType": "Kiesig-sandig, mager",
+        "irrigated": false,
+        "lastCareDate": "2025-10-01T00:00:00Z",
+        "notes": "2022 als Ruderalfläche angelegt. Wichtiges Habitat für Wildbienen.",
+        "validFrom": "2022-09-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2022-09-01T08:00:00Z",
+        "updatedAt": "2025-10-01T09:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5222, 47.3645],
+          [8.5228, 47.3645],
+          [8.5228, 47.3660],
+          [8.5222, 47.3660],
+          [8.5222, 47.3645]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-005",
+        "siteId": "SITE-001",
+        "name": "Schotterrasen Festplatz",
+        "careProfileId": "CP-SR",
+        "areaM2": 1200,
+        "condition": 3,
+        "usageIntensity": "Mittel",
+        "vegetationType": "Rasengräser auf Schottertragschicht",
+        "soilType": "Kiestragschicht mit Humusauflage",
+        "irrigated": false,
+        "lastCareDate": "2025-09-01T00:00:00Z",
+        "notes": "Wird für Quartiersfeste und temporäre Parkierung genutzt.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-09-01T15:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5182, 47.3660],
+          [8.5195, 47.3660],
+          [8.5195, 47.3668],
+          [8.5182, 47.3668],
+          [8.5182, 47.3660]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-006",
+        "siteId": "SITE-001",
+        "name": "Blumenrasen Nordwiese",
+        "careProfileId": "CP-BR",
+        "areaM2": 1800,
+        "condition": 2,
+        "usageIntensity": "Mittel",
+        "vegetationType": "Rasen mit Gänseblümchen, Ehrenpreis und Hornklee",
+        "soilType": "Lehmig",
+        "irrigated": false,
+        "lastCareDate": "2025-10-10T00:00:00Z",
+        "notes": "Übergang von Gebrauchsrasen zu Blumenrasen seit 2023.",
+        "validFrom": "2023-03-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2023-03-01T08:00:00Z",
+        "updatedAt": "2025-10-10T12:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5200, 47.3660],
+          [8.5220, 47.3660],
+          [8.5218, 47.3668],
+          [8.5198, 47.3668],
+          [8.5200, 47.3660]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-007",
+        "siteId": "SITE-002",
+        "name": "Gebrauchsrasen Limmatfeld",
+        "careProfileId": "CP-GR",
+        "areaM2": 2000,
+        "condition": 2,
+        "usageIntensity": "Hoch",
+        "vegetationType": "Gebrauchsrasen (Lolium perenne dominant)",
+        "soilType": "Sandig-lehmig",
+        "irrigated": true,
+        "lastCareDate": "2025-10-25T00:00:00Z",
+        "notes": "Zentrale Rasenfläche des Quartierparks.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-10-25T14:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4025, 47.3943],
+          [8.4040, 47.3943],
+          [8.4040, 47.3952],
+          [8.4025, 47.3952],
+          [8.4025, 47.3943]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "greenAreaId": "GA-008",
+        "siteId": "SITE-002",
+        "name": "Bodendecker Hangbepflanzung",
+        "careProfileId": "CP-BD",
+        "areaM2": 350,
+        "condition": 2,
+        "usageIntensity": "Keine",
+        "vegetationType": "Immergrüner Bodendecker (Vinca minor, Waldsteinia ternata)",
+        "soilType": "Humos, halbschattig",
+        "irrigated": false,
+        "lastCareDate": "2025-08-15T00:00:00Z",
+        "notes": "Hangbepflanzung als Erosionsschutz unter Baumbestand.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-08-15T10:00:00Z",
+        "eventType": "GreenAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4022, 47.3950],
+          [8.4030, 47.3950],
+          [8.4030, 47.3954],
+          [8.4022, 47.3954],
+          [8.4022, 47.3950]
+        ]]
+      }
+    }
+  ]
+}
