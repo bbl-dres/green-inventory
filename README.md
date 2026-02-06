@@ -8,15 +8,6 @@ Interactive GIS web application mockup for urban green space inventory, maintena
 
 **Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
 
-<p align="center">
-  <img src="assets/images/preview1.jpg" width="90%"/>
-</p>
-
-<p align="center">
-  <img src="assets/images/preview2.jpg" width="45%" style="vertical-align: top;"/>
-  <img src="assets/images/preview3.jpg" width="45%" style="vertical-align: top;"/>
-</p>
-
 ## Features
 
 ### Core Views
