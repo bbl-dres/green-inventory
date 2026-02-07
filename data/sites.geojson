@@ -1,5 +1,11 @@
 {
   "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Standorte",
+    "description": "Standortübersicht aller verwalteten Anlagen mit Flächen-, Ökologie- und Infrastrukturdaten.",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
   "features": [
     {
       "type": "Feature",

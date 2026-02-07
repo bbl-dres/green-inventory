@@ -2251,13 +2251,6 @@
             flex-shrink: 0;
         }
 
-        .layer-icon {
-            font-size: 18px;
-            color: var(--grey-500);
-            flex-shrink: 0;
-            width: 18px;
-            text-align: center;
-        }
 
         .layer-name {
             flex: 1;
