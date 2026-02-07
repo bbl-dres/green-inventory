@@ -2251,6 +2251,7 @@
             flex-shrink: 0;
         }
 
+
         .layer-name {
             flex: 1;
             color: var(--grey-900);

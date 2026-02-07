@@ -1874,10 +1874,11 @@
                     activeEditLayer = layerId;
                     activeEditTool = null;
 
-                    // Determine geometry type from layer data
-                    var dataFn = internalLayerData[layerId];
-                    var data = dataFn ? dataFn() : null;
-                    var geometryType = (data && data.layerInfo) ? data.layerInfo.geometryType : null;
+                    // Determine geometry type from cached layerInfo or loaded data
+                    var geometryType = null;
+                    if (layerInfoCache[layerId]) {
+                        geometryType = layerInfoCache[layerId].info.geometryType;
+                    }
                     updateToolbarForGeometry(geometryType);
 
                     // Update banner and show toolbar + banner
@@ -3187,14 +3188,50 @@
         var layerInfoContent = document.getElementById('layer-info-content');
         var layerInfoCloseBtn = layerInfoModal ? layerInfoModal.querySelector('.layer-info-modal-close') : null;
 
-        // Map internal layer keys to their loaded data objects
-        var internalLayerData = {
-            'portfolio': function() { return portfolioData; },
-            'gruenflaechen': function() { return greenAreaData; },
-            'parcels': function() { return parcelData; },
-            'furniture': function() { return furnitureData; },
-            'trees': function() { return treeData; }
+        // Map layer IDs to their GeoJSON file paths (for reading layerInfo metadata)
+        var layerGeoJsonFiles = {
+            'trees': 'data/trees.geojson',
+            'furniture': 'data/furniture.geojson',
+            'structure-elements': 'data/structure-elements.geojson',
+            'linear-features': 'data/linear-features.geojson',
+            'water-features': 'data/water-features.geojson',
+            'surfaces': 'data/surfaces.geojson',
+            'plantings': 'data/plantings.geojson',
+            'building-greenery': 'data/building-greenery.geojson',
+            'lawns': 'data/lawns.geojson',
+            'gardens': 'data/gardens.geojson',
+            'external-areas': 'data/external-areas.geojson',
+            'woodlands': 'data/woodlands.geojson',
+            'forest': 'data/forest.geojson',
+            'portfolio': 'data/buildings.geojson',
+            'parcels': 'data/parcels.geojson'
         };
+
+        // Cache for fetched layerInfo to avoid repeated requests
+        var layerInfoCache = {};
+
+        function renderLayerInfoHtml(info, featureCount) {
+            return '<div class="layer-info-internal">' +
+                '<div class="layer-info-internal-header">' +
+                    '<h3>' + escapeHtml(info.name) + '</h3>' +
+                '</div>' +
+                '<p class="layer-info-internal-desc">' + escapeHtml(info.description) + '</p>' +
+                '<div class="layer-info-internal-meta">' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Objekte</span>' +
+                        '<span class="layer-info-meta-value">' + featureCount + '</span>' +
+                    '</div>' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Geometrie</span>' +
+                        '<span class="layer-info-meta-value">' + escapeHtml(info.geometryType || '—') + '</span>' +
+                    '</div>' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Quelle</span>' +
+                        '<span class="layer-info-meta-value">' + escapeHtml(info.source || '—') + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
 
         function showLayerInfo(layerId) {
             if (!layerInfoModal || !layerInfoContent || !layerId) return;
@@ -3203,37 +3240,36 @@
             layerInfoContent.innerHTML = '<div class="layer-info-loading">Lade Informationen...</div>';
             layerInfoModal.classList.add('show');
 
-            // Check if this is an internal layer
-            var dataFn = internalLayerData[layerId];
-            if (dataFn) {
-                var data = dataFn();
-                var info = data && data.layerInfo;
-                if (info) {
-                    var count = data.features ? data.features.length : 0;
-                    layerInfoContent.innerHTML =
-                        '<div class="layer-info-internal">' +
-                            '<div class="layer-info-internal-header">' +
-                                '<h3>' + escapeHtml(info.name) + '</h3>' +
-                            '</div>' +
-                            '<p class="layer-info-internal-desc">' + escapeHtml(info.description) + '</p>' +
-                            '<div class="layer-info-internal-meta">' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Objekte</span>' +
-                                    '<span class="layer-info-meta-value">' + count + '</span>' +
-                                '</div>' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Geometrie</span>' +
-                                    '<span class="layer-info-meta-value">' + escapeHtml(info.geometryType || '—') + '</span>' +
-                                '</div>' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Quelle</span>' +
-                                    '<span class="layer-info-meta-value">' + escapeHtml(info.source || '—') + '</span>' +
-                                '</div>' +
-                            '</div>' +
-                        '</div>';
-                } else {
-                    layerInfoContent.innerHTML = '<div class="layer-info-loading">Keine Informationen verfügbar.</div>';
+            // Check if this is an internal layer with a GeoJSON file
+            var geoJsonFile = layerGeoJsonFiles[layerId];
+            if (geoJsonFile) {
+                // Use cache if available
+                if (layerInfoCache[layerId]) {
+                    var cached = layerInfoCache[layerId];
+                    layerInfoContent.innerHTML = renderLayerInfoHtml(cached.info, cached.count);
+                    return;
                 }
+
+                // Fetch layerInfo from GeoJSON file
+                fetch(geoJsonFile)
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('GeoJSON nicht verfügbar');
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        var info = data && data.layerInfo;
+                        if (info) {
+                            var count = data.features ? data.features.length : 0;
+                            layerInfoCache[layerId] = { info: info, count: count };
+                            layerInfoContent.innerHTML = renderLayerInfoHtml(info, count);
+                        } else {
+                            layerInfoContent.innerHTML = '<div class="layer-info-loading">Keine Informationen verfügbar.</div>';
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Fehler beim Laden der Layer-Informationen:', error);
+                        layerInfoContent.innerHTML = '<div class="layer-info-loading">Informationen konnten nicht geladen werden.</div>';
+                    });
                 return;
             }
 
