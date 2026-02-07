@@ -1,0 +1,111 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Gehölze & Parkwald",
+    "description": "Kleinere bestockte Flächen und Baumgruppen ausserhalb des Waldes: Parkwald, Gehölzgruppen, Waldrand, Feldobstbestände. Pflege durch Grünflächenteam.",
+    "icon": "nature",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "woodlandId": "WOOD-001",
+        "siteId": "SITE-001",
+        "name": "Parkwald Sonnenberg Mitte",
+        "woodlandType": "Parkwald",
+        "careProfileId": "CP-PW",
+        "areaM2": 3500,
+        "condition": 2,
+        "dominantSpecies": "Fagus sylvatica, Tilia cordata, Acer pseudoplatanus",
+        "canopyCoverPercent": 70,
+        "understoryDescription": "Lichte Krautschicht, Efeu-Bodendecker, einzelne Sträucher",
+        "ecologicalValue": "Hoch",
+        "lastCareDate": "2025-01-20T00:00:00Z",
+        "notes": "Historischer Parkwaldbestand mit altem Baumbestand. Totholz belassen. Lichtdurchlässigkeit gezielt fördern.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-01-20T10:00:00Z",
+        "eventType": "WoodlandUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5185, 47.3653],
+          [8.5195, 47.3653],
+          [8.5195, 47.3663],
+          [8.5185, 47.3663],
+          [8.5185, 47.3653]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "woodlandId": "WOOD-002",
+        "siteId": "SITE-001",
+        "name": "Feldobstbestand Sonnenberg West",
+        "woodlandType": "Feldobstbestand",
+        "careProfileId": "CP-OB",
+        "areaM2": 1800,
+        "condition": 2,
+        "dominantSpecies": "Malus domestica, Prunus avium, Pyrus communis",
+        "canopyCoverPercent": 40,
+        "understoryDescription": "Extensiv gemähte Wiese unter Hochstamm-Obstbäumen",
+        "ecologicalValue": "Hoch",
+        "lastCareDate": "2025-02-15T00:00:00Z",
+        "notes": "12 Hochstamm-Obstbäume, ProSpecieRara-Sorten. Winterschnitt Feb. Ernte durch Quartierverein.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-02-15T14:00:00Z",
+        "eventType": "WoodlandUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5180, 47.3663],
+          [8.5195, 47.3663],
+          [8.5197, 47.3670],
+          [8.5182, 47.3670],
+          [8.5180, 47.3663]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "woodlandId": "WOOD-003",
+        "siteId": "SITE-002",
+        "name": "Gehölzgruppe Limmatfeld Nord",
+        "woodlandType": "Gehölzgruppe",
+        "careProfileId": "CP-SB",
+        "areaM2": 250,
+        "condition": 1,
+        "dominantSpecies": "Corylus avellana, Sambucus nigra, Cornus sanguinea",
+        "canopyCoverPercent": 60,
+        "understoryDescription": "Dichter Strauchbestand als Sichtschutz und Vogelhabitat",
+        "ecologicalValue": "Mittel",
+        "lastCareDate": "2025-02-28T00:00:00Z",
+        "notes": "Naturnah gepflegte Gehölzgruppe. Auf-den-Stock-setzen alle 8–10 Jahre abschnittsweise.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-02-28T10:00:00Z",
+        "eventType": "WoodlandUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4020, 47.3952],
+          [8.4028, 47.3952],
+          [8.4028, 47.3955],
+          [8.4020, 47.3955],
+          [8.4020, 47.3952]
+        ]]
+      }
+    }
+  ]
+}

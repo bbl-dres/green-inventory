@@ -1,0 +1,88 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Wald",
+    "description": "Waldflächen im Sinne des Waldgesetzes (WaG). Bewirtschaftung durch Forstdienst: Schutzwald, Erholungswald, Nutzwald, Naturwaldreservat. Planung gemäss Waldentwicklungsplan (WEP) und NaiS.",
+    "icon": "park",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "forestId": "FOREST-001",
+        "siteId": "SITE-001",
+        "name": "Schutzwald Sonnenberg Nordhang",
+        "forestType": "Schutzwald",
+        "forestFunction": "Hangstabilisierung, Steinschlagschutz",
+        "areaM2": 42000,
+        "standType": "Buchen-Tannen-Mischwald",
+        "dominantSpecies": "Fagus sylvatica, Abies alba, Picea abies",
+        "ageClass": "Baumholz",
+        "standingVolumeM3ha": 380,
+        "canopyCoverPercent": 85,
+        "naisProfile": "2M (Buchen-Tannen-Wald, mässig trocken)",
+        "protectionStatus": "Schutzwaldperimeter Kanton ZH",
+        "lastIntervention": "2024-02-15T00:00:00Z",
+        "interventionType": "Durchforstung",
+        "nextIntervention": "2029-01-01T00:00:00Z",
+        "notes": "Schutzwald gemäss kantonalem Schutzwaldperimeter. Letzte Durchforstung 2024 mit Seilkran. Naturverjüngung Buche gut, Tanne durch Wildverbiss beeinträchtigt.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2024-03-01T10:00:00Z",
+        "eventType": "ForestUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5230, 47.3650],
+          [8.5280, 47.3650],
+          [8.5280, 47.3680],
+          [8.5240, 47.3680],
+          [8.5230, 47.3670],
+          [8.5230, 47.3650]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "forestId": "FOREST-002",
+        "siteId": "SITE-001",
+        "name": "Erholungswald Sonnenberg Süd",
+        "forestType": "Erholungswald",
+        "forestFunction": "Naherholung, Biodiversität",
+        "areaM2": 28000,
+        "standType": "Eichen-Hagebuchen-Wald",
+        "dominantSpecies": "Quercus robur, Carpinus betulus, Acer campestre",
+        "ageClass": "Altholz",
+        "standingVolumeM3ha": 320,
+        "canopyCoverPercent": 75,
+        "naisProfile": null,
+        "protectionStatus": "Naturwaldreservat (teilweise)",
+        "lastIntervention": "2023-11-20T00:00:00Z",
+        "interventionType": "Jungwaldpflege, Totholzförderung",
+        "nextIntervention": "2028-01-01T00:00:00Z",
+        "notes": "Wichtiges Naherholungsgebiet. Markiertes Wegnetz. Altholzinseln als Naturwaldreservat ausgeschieden. Totholzanteil bewusst hoch gehalten (>30 m³/ha).",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2023-12-01T10:00:00Z",
+        "eventType": "ForestUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5150, 47.3620],
+          [8.5200, 47.3620],
+          [8.5200, 47.3640],
+          [8.5180, 47.3640],
+          [8.5150, 47.3635],
+          [8.5150, 47.3620]
+        ]]
+      }
+    }
+  ]
+}

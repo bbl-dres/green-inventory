@@ -238,25 +238,70 @@ erDiagram
 
 #### Entity Overview
 
-| # | Entity (EN) | Entity (DE) | Geometry | Source (Demo) | Description |
-|--:|-------------|-------------|----------|---------------|-------------|
-| 1 | **Site** | Standort | Polygon / MultiPolygon | `data/sites.geojson` | Top-level container for green spaces — parks, school grounds, sports facilities, street-side strips. All other spatial objects belong to exactly one site. |
-| 2 | **GreenArea** | Grünfläche | Polygon | `data/green-areas.geojson` | Vegetated area within a site. Each green area is assigned exactly one care profile that defines its maintenance regime. Primary spatial unit for care planning. |
-| 3 | **Tree** | Baum | Point | `data/trees.geojson` | Individual tree with dendrometric data (trunk, crown, height), multi-level taxonomy, condition assessment, and optional care profile. |
-| 4 | **LinearFeature** | Linienobjekt | LineString / MultiLineString | — *(planned)* | Line-shaped object within a site — hedges, walls, fences, footpaths, cycle paths. |
-| 5 | **Furniture** | Mobiliar | Point | `data/furniture.geojson` | Point installation within a site — benches, fountains, play equipment, waste bins, lighting, signage. |
-| 6 | **StructureElement** | Strukturelement | Point / Polygon | `data/furniture.json` | Ecological feature tracked for biodiversity value — dry stone walls, brush piles, stone piles, nesting aids, dead wood. |
-| 7 | **SurfaceArea** | Belagsfläche | Polygon | — *(planned)* | Hard surface or paved area within a site — gravel paths, asphalt, paving, play surfaces. |
-| 8 | **WaterFeature** | Gewässer | Polygon / LineString | — *(planned)* | Water body or water installation — ponds, streams, fountains, water basins. |
-| 9 | **Species** | Art | — | `data/species.json` | Taxonomic reference record for plant species. Links to Infoflora neophyte status, GALK suitability, and i-Tree ecosystem service parameters. |
-| 10 | **CareProfile** | Pflegeprofil | — | `data/care-profiles.json` | Standardized maintenance regime. 46 pre-configured profiles based on the GSZ «Mehr als Grün» Profilkatalog, with ecology/design/usage tension-field ratings. |
-| 11 | **CareAction** | Pflegemassnahme | — | `data/care-profiles.json` | Specific maintenance task defined within a care profile — action name, timing, frequency, equipment, and duration. Templates for generating concrete tasks. |
-| 12 | **Task** | Massnahme | — | — *(planned)* | Concrete, scheduled or completed maintenance work order. Links to spatial objects and a responsible contact. Workflow: Geplant → In Bearbeitung → Abgeschlossen → Abgenommen. |
-| 13 | **Inspection** | Kontrolle | — | — *(planned)* | Structured field assessment of a spatial object with standardized scoring, damage documentation, urgency, and recommended actions. Supports FLL VTA tree inspections, DIN EN 1176 playground inspections, and general condition assessments. |
-| 14 | **Contact** | Kontakt | — | `data/contacts.json` | People and organisations involved in green space management — internal staff, external contractors, authorities, suppliers. |
-| 15 | **Contract** | Vertrag | — | `data/contracts.json` | Service agreements for green space maintenance — care contracts, tree inspection agreements, supplier contracts. |
-| 16 | **Document** | Dokument | — | `data/documents.json` | Files and records associated with green space objects — care plans, photos, tree assessments, cadastral plans, reports. |
-| 17 | **Cost** | Kosten | — | `data/costs.json` | Financial entries for maintenance — personnel, materials, external services, equipment, disposal. Supports budget vs. actual tracking. |
+Entities are organized by their role in the application. **Reference layers** provide spatial context from external facility management systems. **Managed layers** are the core editable entities for green area inventory and maintenance. Each managed layer maps to one or more GSZ care profile categories (A.3) and DMAV land cover types (A.25).
+
+##### Reference Layers (read-only, external FM systems)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Description |
+|--:|-------------|-------------|----------|--------|-------------|-------------|
+| 1 | **Building** | Gebäude | Point | MVP | `data/buildings.geojson` | Buildings from external FM master system. Type field: `primaryTypeOfBuilding` (Bürogebäude, Wohngebäude, Bildungsgebäude, Lagergebäude, Technisches Gebäude). |
+| 2 | **Parcel** | Grundstück | Polygon | MVP | `data/parcels.geojson` | Land parcels from cadastral/FM system. Type field: `landUseZone` (Verwaltungszone, Wohnzone, Industriezone, Bildungszone). |
+
+##### Vegetation Layers (editable polygons — GSZ Cat. 1, 2, 5, 7, 8)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
+| 3 | **Lawn** | Rasen & Wiese | Polygon | MVP | `data/lawns.geojson` | `lawnType` | 1 | Humusierte Fl. |
+| 4 | **Planting** | Staude & Strauch | Polygon | MVP | `data/plantings.geojson` | `plantingType` | 2 | Humusierte Fl. |
+| 5 | **BuildingGreenery** | Geb.-/Ausst.begrünung | Polygon | MVP | `data/building-greenery.geojson` | `greeneryType` | 5 | Humusierte Fl. |
+| 6 | **Garden** | Garten | Polygon | MVP | `data/gardens.geojson` | `gardenType` | 8 | Humusierte Fl. |
+| 7 | **ExternalArea** | Ext. Bewirtschaftung | Polygon | MVP | `data/external-areas.geojson` | `externalType` | 7 | Humusierte Fl. |
+
+##### Wooded Area Layers (editable polygons — forestry + GSZ Cat. 2 Parkwald)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|------|
+| 8 | **Forest** | Wald | Polygon | MVP | `data/forest.geojson` | `forestType` | Bestockte Fl. |
+| 9 | **Woodland** | Gehölz & Parkwald | Polygon | MVP | `data/woodlands.geojson` | `woodlandType` | Bestockte Fl. |
+
+##### Surface & Water Layers (editable polygons/lines — GSZ Cat. 3, 4)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
+| 10 | **Surface** | Belagsfläche | Polygon | MVP | `data/surfaces.geojson` | `surfaceType` | 3 | Befestigte Fl. |
+| 11 | **WaterFeature** | Gewässer | Polygon / Line | MVP | `data/water-features.geojson` | `waterType` | 4 | Gewässer |
+
+##### Object Layers (editable points — GSZ Cat. 6)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|
+| 12 | **Tree** | Baum | Point | MVP | `data/trees.geojson` | `treeCategory` | — |
+| 13 | **Furniture** | Mobiliar | Point | MVP | `data/furniture.geojson` | `furnitureType` | — |
+| 14 | **StructureElement** | Strukturelement | Point | MVP | `data/structure-elements.geojson` | `elementType` | 6 |
+
+##### Line Layers (editable lines — GSZ Cat. 2, 6)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|
+| 15 | **LinearFeature** | Linienobjekt | LineString | MVP | `data/linear-features.geojson` | `linearType` | 2, 6 |
+
+##### Supporting Entities (non-spatial)
+
+| # | Entity (EN) | Entity (DE) | Status | Data Source | Description |
+|--:|-------------|-------------|--------|-------------|-------------|
+| 16 | **Species** | Art | MVP | `data/species.json` | Taxonomic reference record for plant species. Links to Infoflora, GALK, i-Tree. |
+| 17 | **CareProfile** | Pflegeprofil | MVP | `data/care-profiles.json` | Standardized maintenance regime (46 GSZ profiles). |
+| 18 | **CareAction** | Pflegemassnahme | MVP | `data/care-profiles.json` | Maintenance task template within a care profile. |
+| 19 | **Task** | Massnahme | Planned | — | Concrete, scheduled maintenance work order. |
+| 20 | **Inspection** | Kontrolle | Planned | — | Structured field assessment (FLL VTA, DIN EN 1176). |
+| 21 | **Contact** | Kontakt | MVP | `data/contacts.json` | People and organisations in green space management. |
+| 22 | **Contract** | Vertrag | MVP | `data/contracts.json` | Service agreements for maintenance. |
+| 23 | **Document** | Dokument | MVP | `data/documents.json` | Files and records (plans, photos, assessments). |
+| 24 | **Cost** | Kosten | MVP | `data/costs.json` | Financial entries for maintenance and budget tracking. |
+
+> **Status legend:** **MVP** — Demo data available, included in minimum viable product. **Planned** — Schema defined, no demo data yet.
+>
+> **Layer principle:** Each managed layer represents a distinct **responsibility boundary** — different teams manage different layers. Buildings and parcels are imported from external FM master systems (read-only).
 
 ### 2.2 Entity Hierarchy
 
