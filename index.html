@@ -379,30 +379,13 @@
                     </div>
                     <div class="accordion-content show" id="dargestellte-karten-content">
                         <!-- Interne Daten (project layers, ordered top=frontmost on map) -->
+                        <!-- Z-order: Points > Lines > Small polygons > Large polygons > Reference -->
                         <div class="layer-group-label">Interne Daten</div>
-                        <div class="layer-item" data-layer="portfolio">
-                            <input type="checkbox" id="layer-portfolio" data-layer="portfolio" checked>
-                            <span class="layer-name">Standorte</span>
-                            <div class="layer-actions">
-                                <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="furniture">
-                            <input type="checkbox" id="layer-furniture" data-layer="furniture" checked>
-                            <span class="layer-name">Möbel</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="furniture" title="Möbel bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="furniture" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+
+                        <!-- Objekte (Point) -->
                         <div class="layer-item" data-layer="trees">
                             <input type="checkbox" id="layer-trees" data-layer="trees" checked>
+                            <span class="material-symbols-outlined layer-icon">forest</span>
                             <span class="layer-name">Bäume</span>
                             <div class="layer-actions">
                                 <button class="layer-edit-btn" data-layer="trees" title="Bäume bearbeiten">
@@ -413,20 +396,185 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="layer-item" data-layer="gruenflaechen">
-                            <input type="checkbox" id="layer-gruenflaechen" data-layer="gruenflaechen" checked>
-                            <span class="layer-name">Grünflächen</span>
+                        <div class="layer-item" data-layer="furniture">
+                            <input type="checkbox" id="layer-furniture" data-layer="furniture" checked>
+                            <span class="material-symbols-outlined layer-icon">chair</span>
+                            <span class="layer-name">Mobiliar</span>
                             <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="gruenflaechen" title="Grünflächen bearbeiten">
+                                <button class="layer-edit-btn" data-layer="furniture" title="Mobiliar bearbeiten">
                                     <span class="material-symbols-outlined">edit</span>
                                 </button>
-                                <button class="layer-info-btn" data-layer="gruenflaechen" title="Layer-Info">
+                                <button class="layer-info-btn" data-layer="furniture" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="structure-elements">
+                            <input type="checkbox" id="layer-structure-elements" data-layer="structure-elements" checked>
+                            <span class="material-symbols-outlined layer-icon">wall</span>
+                            <span class="layer-name">Strukturelemente</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="structure-elements" title="Strukturelemente bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="structure-elements" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Linienobjekte (LineString) -->
+                        <div class="layer-item" data-layer="linear-features">
+                            <input type="checkbox" id="layer-linear-features" data-layer="linear-features" checked>
+                            <span class="material-symbols-outlined layer-icon">fence</span>
+                            <span class="layer-name">Linienobjekte</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="linear-features" title="Linienobjekte bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="linear-features" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Flächen klein (Polygon) -->
+                        <div class="layer-item" data-layer="water-features">
+                            <input type="checkbox" id="layer-water-features" data-layer="water-features" checked>
+                            <span class="material-symbols-outlined layer-icon">water</span>
+                            <span class="layer-name">Gewässer</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="water-features" title="Gewässer bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="water-features" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="surfaces">
+                            <input type="checkbox" id="layer-surfaces" data-layer="surfaces" checked>
+                            <span class="material-symbols-outlined layer-icon">grid_on</span>
+                            <span class="layer-name">Belagsflächen</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="surfaces" title="Belagsflächen bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="surfaces" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Vegetation (Polygon) -->
+                        <div class="layer-item" data-layer="plantings">
+                            <input type="checkbox" id="layer-plantings" data-layer="plantings" checked>
+                            <span class="material-symbols-outlined layer-icon">local_florist</span>
+                            <span class="layer-name">Stauden & Pflanzungen</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="plantings" title="Stauden & Pflanzungen bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="plantings" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="building-greenery">
+                            <input type="checkbox" id="layer-building-greenery" data-layer="building-greenery" checked>
+                            <span class="material-symbols-outlined layer-icon">roofing</span>
+                            <span class="layer-name">Gebäude-/Ausstattungsbegrünung</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="building-greenery" title="Gebäudebegrünung bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="building-greenery" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="lawns">
+                            <input type="checkbox" id="layer-lawns" data-layer="lawns" checked>
+                            <span class="material-symbols-outlined layer-icon">grass</span>
+                            <span class="layer-name">Rasen & Wiesen</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="lawns" title="Rasen & Wiesen bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="lawns" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="gardens">
+                            <input type="checkbox" id="layer-gardens" data-layer="gardens" checked>
+                            <span class="material-symbols-outlined layer-icon">yard</span>
+                            <span class="layer-name">Gärten</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="gardens" title="Gärten bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="gardens" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="external-areas">
+                            <input type="checkbox" id="layer-external-areas" data-layer="external-areas" checked>
+                            <span class="material-symbols-outlined layer-icon">handshake</span>
+                            <span class="layer-name">Externe Bewirtschaftung</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="external-areas" title="Externe Bewirtschaftung bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="external-areas" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bestockte Flächen (Polygon, large) -->
+                        <div class="layer-item" data-layer="woodlands">
+                            <input type="checkbox" id="layer-woodlands" data-layer="woodlands" checked>
+                            <span class="material-symbols-outlined layer-icon">nature</span>
+                            <span class="layer-name">Gehölze & Parkwald</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="woodlands" title="Gehölze & Parkwald bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="woodlands" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="layer-item" data-layer="forest">
+                            <input type="checkbox" id="layer-forest" data-layer="forest" checked>
+                            <span class="material-symbols-outlined layer-icon">park</span>
+                            <span class="layer-name">Wald</span>
+                            <div class="layer-actions">
+                                <button class="layer-edit-btn" data-layer="forest" title="Wald bearbeiten">
+                                    <span class="material-symbols-outlined">edit</span>
+                                </button>
+                                <button class="layer-info-btn" data-layer="forest" title="Layer-Info">
+                                    <span class="material-symbols-outlined">info</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Referenz-Layer (read-only, background) -->
+                        <div class="layer-item" data-layer="portfolio">
+                            <input type="checkbox" id="layer-portfolio" data-layer="portfolio" checked>
+                            <span class="material-symbols-outlined layer-icon">location_on</span>
+                            <span class="layer-name">Standorte</span>
+                            <div class="layer-actions">
+                                <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
                                     <span class="material-symbols-outlined">info</span>
                                 </button>
                             </div>
                         </div>
                         <div class="layer-item" data-layer="parcels">
                             <input type="checkbox" id="layer-parcels" data-layer="parcels" checked>
+                            <span class="material-symbols-outlined layer-icon">crop_free</span>
                             <span class="layer-name">Grundstücke</span>
                             <div class="layer-actions">
                                 <button class="layer-info-btn" data-layer="parcels" title="Layer-Info">
