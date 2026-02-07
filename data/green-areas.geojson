@@ -5,7 +5,7 @@
     "description": "Grünflächeninventar mit Vegetationstypen, Pflegeprofilen, Bodenarten und Nutzungsintensitäten.",
     "icon": "grass",
     "geometryType": "Polygon",
-    "source": "Groundskeeper Intern"
+    "source": "Green Area Inventory Intern"
   },
   "features": [
     {
