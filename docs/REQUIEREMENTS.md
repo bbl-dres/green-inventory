@@ -1,7 +1,7 @@
 # Anforderungskatalog — Grünflächeninventar GIS
 
 **Pflichtenheft für Eigenentwicklung**
-Version 0.2 — Entwurf | Februar 2026 | Klassifikation: Intern
+Version 0.4 — Entwurf | Februar 2026 | Klassifikation: Intern
 
 ---
 
@@ -218,6 +218,33 @@ Das Editing-Modul stellt geometriespezifische Werkzeuge bereit. Die Werkzeugleis
 | I-023 | Should | Dokumentenanhänge | Upload und Verknüpfung von Dokumenten (PDF, Pläne) mit Objekten. |
 | I-024 | Could | Benutzerdefinierte Felder | Administratoren können zusätzliche Attributfelder pro Objekttyp anlegen ohne Codeanpassung. |
 
+### 3.4 Artenverwaltung & Taxonomie
+
+Verwaltung von Artendaten für Bäume und Bepflanzungen mit standardisierter Taxonomie, Neophyten-Klassifikation und Referenzdaten für Ökosystemleistungen. Die Struktur orientiert sich am Darwin-Core-Standard (TDWG) und den Schweizer Artendatenbanken (Infoflora, GALK Strassenbaumliste).
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-100 | **Must** | Artenreferenz-Datenbank | Zentrale Artendatenbank mit mehrstufiger Taxonomie: Gattung (genus), Art (species), Sorte (cultivar), deutscher Trivialname, französischer Trivialname. Basierend auf der Nomenklatur von Infoflora / GALK Strassenbaumliste. |
+| I-101 | **Must** | Neophyten-Klassifikation | Klassifikation jeder Art gemäss Darwin Core `establishmentMeans`: einheimisch (native), eingeführt (introduced), eingebürgert (naturalised), invasiv (invasive), gepflegt (managed). Verknüpfung mit Infoflora Schwarze Liste / Watch List. |
+| I-102 | Should | Arten-Autovervollständigung | Bei der Baumerfassung: Autovervollständigung der Artbezeichnung mit Vorschlag von Gattung, Art und Trivialname aus der Referenzdatenbank. |
+| I-103 | Should | Artenstatistik | Dashboard mit Artenverteilung: Anzahl Bäume pro Gattung/Art, Anteil einheimischer vs. nicht-einheimischer Arten, häufigste Arten, Diversitätsindex. |
+| I-104 | **Must** | i-Tree-Artenparameter | Hinterlegung der i-Tree-Eco-Koeffizienten pro Art (Wachstumsrate, Biomasse-Allometrie, Blattflächen-Index) für die Berechnung von Ökosystemleistungen. Basierend auf den für Schweizer Verhältnisse kalibrierten Koeffizienten (Basel, Bern, Zürich). |
+
+### 3.5 Zustandserfassung & Inspektion
+
+Strukturierte Workflows für die Zustandsbeurteilung von Bäumen, Grünflächen und Mobiliar. Die Baumkontrolle folgt der FLL-Baumkontrollrichtlinie (VTA-Protokoll); Spielplatzinspektionen orientieren sich an DIN EN 1176/1177. Die Inspektionsdaten bilden die Grundlage für dringlichkeitsbasierte Massnahmengenerierung.
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| I-110 | **Must** | Baumkontrolle nach VTA | Bauminspektion gemäss FLL-Baumkontrollrichtlinie mit Visual Tree Assessment (VTA): Dokumentation von Schäden in den standardisierten Zonen Wurzel, Stammfuss, Stamm, Krone und Äste. Einstufung der Dringlichkeit. |
+| I-111 | **Must** | Zustandsnoten-System | Standardisiertes Zustandsbewertungssystem (1–5 Skala) für alle Inventarobjekte: 1 = sehr gut, 2 = gut, 3 = befriedigend, 4 = mangelhaft, 5 = ungenügend/Sofortmassnahme. Konsistent über Bäume, Grünflächen und Mobiliar. |
+| I-112 | **Must** | Inspektionsplanung | Automatische Fälligkeitsberechnung der nächsten Inspektion basierend auf konfigurierbaren Intervallen pro Objekttyp und Risikoklasse. Erinnerungen und Übersicht fälliger Inspektionen. |
+| I-113 | Should | Schadenszonen-Dokumentation | Detaillierte Erfassung von Schäden pro VTA-Zone (Wurzel, Stammfuss, Stamm, Krone, Äste) mit Schadensart, Schweregrad, Foto und Massnahmenempfehlung. |
+| I-114 | Should | Spielplatzinspektion | Inspektionsworkflow für Spielplatzgeräte gemäss DIN EN 1176/1177 mit Sicherheitsprüfung, Mängelkatalog und Fotodokumentation. |
+| I-115 | Should | Inspektionshistorie | Vollständige Versionierung aller Inspektionsergebnisse pro Objekt mit Zeitstempel, Kontrolleur, Zustandsnote und Trendvisualisierung (Verschlechterung/Verbesserung über Zeit). |
+| I-116 | Should | Dringlichkeitsbasierte Massnahmengenerierung | Automatische Erstellung von Massnahmen (Tasks) basierend auf Inspektionsergebnissen: kritische Befunde erzeugen sofortige Massnahmen, mittlere Befunde werden in die nächste Pflegeperiode eingeplant. |
+| I-117 | Should | Mobile Inspektion | Optimierte Inspektionsformulare für mobile Geräte (Tablet/Smartphone) mit Offline-Fähigkeit, GPS-Verortung und Kamera-Integration für die Felddokumentation. |
+
 ---
 
 ## 4. Pflegeprofil-Bibliothek
@@ -383,6 +410,18 @@ Finanzielle Planung und Überwachung der Grünflächenbewirtschaftung, von der E
 | F-013 | Could | Trendsanalyse | Mehrjährige Kostenentwicklung pro Fläche oder Pflegeprofil mit grafischer Darstellung. |
 | F-014 | Could | Szenarien-Vergleich | Vergleich verschiedener Pflegeszenarien (z.B. «naturnahe Pflege» vs. «konventionelle Pflege» gemäss GSZ-Systematik) hinsichtlich Kosten, Aufwand und ökologischem Nutzen. |
 
+### 8.3 Ökosystemleistungen
+
+Berechnung und Darstellung der Ökosystemleistungen von Bäumen und Grünflächen basierend auf den i-Tree-Eco-Methoden und den für Schweizer Verhältnisse kalibrierten Koeffizienten (Pilotstädte Basel, Bern, Zürich, Lausanne, Luzern, Winterthur).
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| F-020 | Should | CO₂-Sequestrierung | Berechnung der jährlichen CO₂-Bindung (kg/Jahr) und des gespeicherten CO₂ (kg total) pro Baum basierend auf Art, Stammumfang und Wachstumsrate (i-Tree-Eco-Methodik). |
+| F-021 | Should | Regenwasserrückhalt | Schätzung der jährlichen Regenwasserrückhaltung (m³/Jahr) pro Baum und Grünfläche basierend auf Kronenfläche und Blattflächen-Index. |
+| F-022 | Should | Kronendachmonitoring | Erfassung und Tracking des Kronendach-Bedeckungsgrads (%) pro Standort über die Zeit. Unterstützung der EU-NRR-Baseline-Anforderung (kein Nettoverlust der Baumkronenfläche). |
+| F-023 | Could | Ökosystemleistungs-Dashboard | Aggregierte Darstellung aller Ökosystemleistungen pro Standort oder Portfolio: CO₂-Bilanz, Regenwasserrückhalt, Luftschadstoff-Filterung, Kühlungseffekt. |
+| F-024 | Could | Baumwert-Berechnung | Berechnung des Baumwerts (CHF) nach der Stammformel-Methode (VSSG/FLL) oder CTLA-Methode für Versicherungs- und Planungszwecke. |
+
 ---
 
 ## 9. Datenimport & -export
@@ -417,6 +456,16 @@ Integration externer Datenquellen und Austauschformate für CAD-Grundrisse, BIM-
 | D-022 | Could | IFC-Viewer | Integrierter 3D-Viewer für importierte IFC-Modelle mit Querverweis zum GIS-Inventar. |
 | D-023 | Could | BCF-Integration | Unterstützung von BIM Collaboration Format (BCF) für koordinierte Mängel-/Aufgabenverwaltung. |
 | D-024 | Won't | Live-BIM-Synchronisation | Echtzeit-Synchronisation mit einer CDE (Common Data Environment). Für spätere Releases vorgemerkt. |
+
+### 9.4 Moderne Datenschnittstellen & Interoperabilität
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| D-030 | Should | GeoPackage Import/Export | Unterstützung von OGC GeoPackage (.gpkg) als Offline-Austauschformat für mobile Datenerfassung und QGIS-Integration. |
+| D-031 | Should | OGC API Features | REST-basierte Geodatenschnittstelle gemäss OGC API Features (Nachfolger von WFS) für die Interoperabilität mit kantonalen GIS, QGIS-Arbeitsplätzen und Bundesreporting. |
+| D-032 | Could | DCAT-AP CH Metadaten | Export von DCAT-AP-CH-2.0-konformen Metadatensätzen für die Publikation auf opendata.swiss und der I14Y-Interoperabilitätsplattform. |
+| D-033 | Could | Darwin Core / GBIF Export | Export von Baumdaten als Darwin-Core-Occurrence-Records für die Meldung an GBIF / Infoflora und nationale Biodiversitätsmonitorings. |
+| D-034 | Could | Schema.org JSON-LD Export | Export von Standortdaten als Schema.org `Park`-Objekte im JSON-LD-Format für öffentliche Auffindbarkeit und Suchmaschinen-Integration. |
 
 ---
 
@@ -478,6 +527,15 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | N-023 | Should | Dokumentation | Technische Dokumentation (Architektur, API) und Benutzerhandbuch. |
 | N-024 | Should | Staging-Umgebung | Separate Test-/Staging-Umgebung für Updates und QA vor dem Produktivgang. |
 
+### 12.4 Standards & Interoperabilität
+
+| ID | Prio | Anforderung | Beschreibung |
+|----|------|-------------|--------------|
+| N-030 | Should | EU-NRR-Baseline-Tracking | Unterstützung der temporalen Versionierung (validFrom/validUntil) für die Berechnung von «kein Nettoverlust»-Metriken gemäss EU Nature Restoration Regulation (2024/1991). Aggregierte Kennzahlen (Gesamtgrünfläche, Kronendach-Bedeckungsgrad) pro Standort und Gemeinde. |
+| N-031 | Should | Open-Data-Publikationsbereitschaft | Datenmodell und Export-Funktionen unterstützen die Publikation als offene Daten auf opendata.swiss (DCAT-AP CH, maschinenlesbare Formate, standardisierte Metadaten). |
+| N-032 | Could | CityGML-3.0-Kompatibilität | Optionale Metadatenfelder (`cityGmlClass`) auf räumlichen Entitäten für die Interoperabilität mit kantonalen und nationalen 3D-Stadtmodellen (z.B. swisstopo swissTLM3D). |
+| N-033 | Could | INSPIRE-Ausrichtung | Ausrichtung der Bodenbedeckungs-/Nutzungsklassifikation an INSPIRE Land Cover / Land Use für europaweite Vergleichbarkeit. Basierend auf der bestehenden DMAV-Bodenbedeckungsart-Zuordnung. |
+
 ---
 
 ## 13. Zusammenfassung der Anforderungen
@@ -487,17 +545,17 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | Modul | Must | Should | Could | Won't | Total |
 |-------|------|--------|-------|-------|-------|
 | 2. Kartenmodul | 8 | 6 | 4 | 0 | 18 |
-| 3. Inventarmodul | 29 | 26 | 6 | 0 | 61 |
+| 3. Inventarmodul (inkl. Arten & Inspektion) | 35 | 33 | 6 | 0 | 74 |
 | 4. Pflegeprofil-Bibliothek | 7 | 7 | 2 | 0 | 16 |
 | 5. Massnahmenplanung | 4 | 7 | 2 | 0 | 13 |
 | 6. Mobile Erfassung | 6 | 6 | 1 | 0 | 13 |
 | 7. Kontaktmanagement | 3 | 2 | 1 | 0 | 6 |
-| 8. Kosten & Prognosen | 2 | 5 | 2 | 0 | 9 |
-| 9. Datenimport/-export | 2 | 5 | 4 | 1 | 12 |
+| 8. Kosten, Prognosen & Ökosystemleistungen | 2 | 8 | 4 | 0 | 14 |
+| 9. Datenimport/-export (inkl. moderne Schnittstellen) | 2 | 7 | 7 | 1 | 17 |
 | 10. Suche & Filter | 3 | 2 | 1 | 0 | 6 |
 | 11. Benutzerverwaltung | 2 | 2 | 1 | 0 | 5 |
-| 12. Nicht-funktionale Anf. | 5 | 7 | 0 | 0 | 12 |
-| **Total** | **71** | **75** | **24** | **1** | **171** |
+| 12. Nicht-funktionale Anf. (inkl. Standards) | 5 | 9 | 2 | 0 | 16 |
+| **Total** | **77** | **89** | **31** | **1** | **198** |
 
 ---
 
@@ -515,6 +573,12 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 - [ ] Einbindung weiterer Referenzwerke (SIA-Normen, VSSG-Richtlinien) in die Profil-Bibliothek
 - [ ] Klärung der Anforderungen an Winterdienst-Massnahmen (Streumittel-Tracking)
 - [ ] Anforderungen an Beleuchtungs-Management (Lichtverschmutzung gemäss SIA 491)
+- [ ] VTA-Inspektionskatalog: Definition des standardisierten Schadens- und Massnahmenkatalogs für die Baumkontrolle (FLL-Baumkontrollrichtlinie)
+- [ ] i-Tree-Koeffizienten: Beschaffung/Validierung der für Schweizer Verhältnisse kalibrierten i-Tree-Eco-Artparameter (Pilotstädte)
+- [ ] Artenreferenzdatenbank: Aufbau/Import einer vollständigen Artenreferenztabelle (Infoflora, GALK Strassenbaumliste)
+- [ ] EU NRR: Klärung der indirekten Anwendbarkeit der EU Nature Restoration Regulation (2024/1991) auf die Schweiz (BAFU-Positionierung)
+- [ ] Open-Data-Strategie: Definition der zu publizierenden Datensätze, Lizenzbedingungen und Aktualisierungsrhythmus für opendata.swiss
+- [ ] Grünstadt Schweiz: Abstimmung der Reporting-Outputs auf die Anforderungen des VSSG-Qualitätslabels
 
 ### B. Referenzen
 
@@ -525,8 +589,24 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | Stadt Zürich | VVO über die naturnahe Pflege und Bewirtschaftung städtischer Grün- und Freiflächen | — |
 | BAFU | Aktionsplan Strategie Biodiversität Schweiz | 2017 |
 | SIA | SIA 491 – Vermeidung unnötiger Lichtemissionen im Aussenraum | 2013 |
+| SIA | SIA 318:2009 – Garten- und Landschaftsbau | 2009 |
 | FiBL | Betriebsmittelliste für den biologischen Landbau | fortlaufend |
 | Infoflora | Schwarze Liste und Watch List invasiver Neophyten | fortlaufend |
+| FLL | Baumkontrollrichtlinie – Richtlinie für Regelkontrollen zur Überprüfung der Verkehrssicherheit von Bäumen | 2020 |
+| FLL | ZTV-Baumpflege – Zusätzliche Technische Vertragsbedingungen und Richtlinien für Baumpflege | 2017 |
+| DIN | DIN 18919 – Vegetationstechnik: Pflege von Grünflächen | — |
+| DIN | DIN EN 1176/1177 – Spielplatzgeräte und Spielplatzböden | — |
+| OGC | CityGML 3.0 Conceptual Model Standard | 2024 |
+| OGC | OGC API Features – Part 1: Core | 2019 |
+| OGC | GeoPackage Encoding Standard | 2014 |
+| European Commission | INSPIRE Data Specifications (Land Cover, Land Use, Protected Sites) | 2013 |
+| European Parliament | Regulation (EU) 2024/1991 – Nature Restoration Regulation | 2024 |
+| TDWG | Darwin Core Standard | fortlaufend |
+| USDA Forest Service | i-Tree Eco – Urban Forestry Analysis | fortlaufend |
+| VSSG | Grünstadt Schweiz® Qualitätslabel | fortlaufend |
+| GALK | Strassenbaumliste – Empfohlene Strassenbäume für Mitteleuropa | fortlaufend |
+| ISO | ISO 55000 – Asset Management (Überblick, Grundsätze, Terminologie) | 2014/2024 |
+| DCAT-AP CH | Metadatenprofil für offene Daten auf opendata.swiss (I14Y) | 2.0 |
 
 ### C. Änderungshistorie
 
@@ -535,3 +615,4 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | 0.1 | Februar 2026 | Erster Entwurf, 106 Anforderungen |
 | 0.2 | Februar 2026 | Erweiterung um GSZ-Profilstruktur (31 Profile, Spannungsfeld Ökologie–Gestaltung–Nutzung, Massnahmen-Tabellen), Pflegeübersichtsplan-Modul, Mobile-Modul (Field Survey mit Offline-Fähigkeit), Neophyten-Erfassung, Jahrespflegeplaner-Ansicht, erweiterte Objekttypen (Strukturelemente, Beläge, Gewässer). 130 Anforderungen. |
 | 0.3 | Februar 2026 | Umfassende Erweiterung des Geometrie-Editing-Moduls (Kap. 3.2): Aufgliederung nach Geometrietyp (Polygon, Punkt, Linie), neue Abschnitte für Selektion, Bearbeitungsworkflow, Zeichenhilfen und Geometrie-Validierung. +41 neue Anforderungen basierend auf Analyse von QGIS, ArcGIS Web Editor, Mapbox GL Draw und Leaflet-Geoman. Neu 171 Anforderungen. |
+| 0.4 | Februar 2026 | Abgleich mit RESEARCH.md und DATAMODEL.md: Neue Abschnitte Artenverwaltung & Taxonomie (Kap. 3.4, Darwin Core, Infoflora, GALK), Zustandserfassung & Inspektion (Kap. 3.5, FLL-Baumkontrollrichtlinie, VTA, DIN EN 1176/1177), Ökosystemleistungen (Kap. 8.3, i-Tree Eco), Moderne Datenschnittstellen (Kap. 9.4, GeoPackage, OGC API Features, DCAT-AP CH, GBIF), Standards & Interoperabilität (Kap. 12.4, EU NRR, CityGML 3.0, INSPIRE). +27 neue Anforderungen. Erweiterte Referenzen und offene Punkte. Neu 198 Anforderungen. |

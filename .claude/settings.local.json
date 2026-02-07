@@ -7,7 +7,16 @@
       "Bash(python:*)",
       "Bash(start \"\" \"C:\\\\Users\\\\DAVIDR~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-DavidRasner-Documents-GitHub-groundskeeper\\\\3a5790ef-4a53-4e79-806b-315ff8770d19\\\\scratchpad\\\\wireframe-dargestellte-karten.html\")",
       "Bash(start \"\" \"c:\\\\Users\\\\DavidRasner\\\\Documents\\\\GitHub\\\\groundskeeper\\\\index.html\")",
-      "WebFetch(domain:api3.geo.admin.ch)"
+      "WebFetch(domain:api3.geo.admin.ch)",
+      "WebFetch(domain:www.cadastre-manual.admin.ch)",
+      "WebFetch(domain:www.fedlex.admin.ch)",
+      "WebFetch(domain:www.hbav.sites.be.ch)",
+      "WebFetch(domain:www.zh.ch)",
+      "WebFetch(domain:www.hbav.dij.be.ch)",
+      "WebFetch(domain:geogr.mapplus.ch)",
+      "WebFetch(domain:docplayer.org)",
+      "WebFetch(domain:www.zhaw.ch)",
+      "WebFetch(domain:www.stadt-zuerich.ch)"
     ]
   }
 }

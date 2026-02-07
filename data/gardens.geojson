@@ -1,0 +1,117 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Gärten",
+    "description": "Gartenanlagen gemäss GSZ Profilkatalog Kategorie 8: Schulgarten, Schülergarten, Mietergarten, Nutzgarten sowie historische Gartenanlagen mit Denkmalschutz.",
+    "icon": "yard",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "gardenId": "GARDEN-001",
+        "siteId": "SITE-001",
+        "name": "Historischer Rosengarten Sonnenberg",
+        "gardenType": "Historischer Garten",
+        "careProfileId": "CP-HG",
+        "areaM2": 1600,
+        "condition": 1,
+        "designPeriod": "Neubarock, ca. 1910",
+        "heritageStatus": "Inventar der schützenswerten Gartendenkmäler (ICOMOS)",
+        "originalDesigner": "Evariste Mertens (zugeschrieben)",
+        "keyFeatures": "Geometrische Beetanlage, Buchseinfassung, historische Rosensorten, Kieswege, Pergola",
+        "historicRoseVarieties": "Louise Odier, Mme Isaac Pereire, Reine des Violettes, Souvenir de la Malmaison",
+        "irrigated": true,
+        "lastCareDate": "2025-11-05T00:00:00Z",
+        "notes": "Denkmalgeschützte Gartenanlage von 1910. Restaurierung 2018–2019 nach historischem Vorbild. Buchsbaumersatz durch Ilex crenata wegen Zünslerbefall. Begehung durch Denkmalpflege jährlich.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-11-05T11:00:00Z",
+        "eventType": "GardenUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5198, 47.3643],
+          [8.5212, 47.3643],
+          [8.5212, 47.3650],
+          [8.5198, 47.3650],
+          [8.5198, 47.3643]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "gardenId": "GARDEN-002",
+        "siteId": "SITE-001",
+        "name": "Schulgarten Sonnenberg",
+        "gardenType": "Schulgarten",
+        "careProfileId": "CP-SG",
+        "areaM2": 200,
+        "condition": 2,
+        "designPeriod": null,
+        "heritageStatus": null,
+        "originalDesigner": null,
+        "keyFeatures": "Hochbeete, Kräuterspirale, Beerensträucher, Kompost",
+        "historicRoseVarieties": null,
+        "irrigated": true,
+        "lastCareDate": "2025-10-15T00:00:00Z",
+        "notes": "Kooperation mit Schule Sonnenberg. Pflege durch Schüler unter Anleitung. Winterpause Nov–Feb.",
+        "validFrom": "2022-03-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2022-03-01T08:00:00Z",
+        "updatedAt": "2025-10-15T14:00:00Z",
+        "eventType": "GardenUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5218, 47.3662],
+          [8.5225, 47.3662],
+          [8.5225, 47.3666],
+          [8.5218, 47.3666],
+          [8.5218, 47.3662]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "gardenId": "GARDEN-003",
+        "siteId": "SITE-002",
+        "name": "Mietergärten Limmatfeld",
+        "gardenType": "Mietergarten",
+        "careProfileId": "CP-MG",
+        "areaM2": 480,
+        "condition": 2,
+        "designPeriod": null,
+        "heritageStatus": null,
+        "originalDesigner": null,
+        "keyFeatures": "8 Parzellen à 60m², Wasseranschluss, Geräteschuppen",
+        "historicRoseVarieties": null,
+        "irrigated": true,
+        "lastCareDate": "2025-10-30T00:00:00Z",
+        "notes": "8 Parzellen, verpachtet an Quartieranwohner. Verwaltung durch Stadtgärtnerei.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-10-30T09:00:00Z",
+        "eventType": "GardenUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4038, 47.3952],
+          [8.4044, 47.3952],
+          [8.4044, 47.3955],
+          [8.4038, 47.3955],
+          [8.4038, 47.3952]
+        ]]
+      }
+    }
+  ]
+}

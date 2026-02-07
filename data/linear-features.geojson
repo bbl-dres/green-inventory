@@ -1,0 +1,103 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Linienobjekte",
+    "description": "Linienförmige Objekte: Hecken, Zäune, Mauern, Wege, Uferverbauungen. Pflege teilweise gemäss GSZ Profilkatalog Kategorie 2 (Hecken) und 6 (Mauern).",
+    "icon": "fence",
+    "geometryType": "LineString",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "linearFeatureId": "LINE-001",
+        "siteId": "SITE-001",
+        "name": "Formhecke Rosengarten",
+        "linearType": "Formhecke",
+        "careProfileId": "CP-FH",
+        "lengthM": 45,
+        "heightM": 1.2,
+        "widthM": 0.6,
+        "species": "Taxus baccata",
+        "condition": 1,
+        "lastCareDate": "2025-08-20T00:00:00Z",
+        "notes": "Eiben-Formhecke als Einfassung des historischen Rosengartens. 3× Schnitt pro Jahr.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-08-20T10:00:00Z",
+        "eventType": "LinearFeatureUpdated"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.5198, 47.3643],
+          [8.5212, 47.3643],
+          [8.5212, 47.3650],
+          [8.5198, 47.3650],
+          [8.5198, 47.3643]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "linearFeatureId": "LINE-002",
+        "siteId": "SITE-001",
+        "name": "Wildhecke Parkrand Ost",
+        "linearType": "Wildhecke",
+        "careProfileId": "CP-WH",
+        "lengthM": 85,
+        "heightM": 3.0,
+        "widthM": 2.5,
+        "species": "Cornus sanguinea, Rosa canina, Prunus spinosa, Crataegus monogyna",
+        "condition": 2,
+        "lastCareDate": "2025-02-10T00:00:00Z",
+        "notes": "Naturnahe Wildhecke als Parkbegrenzung. Abschnittsweise Verjüngung alle 5 Jahre. Wichtig als Vogelhabitat und Vernetzungselement.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-02-10T10:00:00Z",
+        "eventType": "LinearFeatureUpdated"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.5228, 47.3642],
+          [8.5230, 47.3655],
+          [8.5228, 47.3668]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "linearFeatureId": "LINE-003",
+        "siteId": "SITE-002",
+        "name": "Metallzaun Spielplatz Limmatfeld",
+        "linearType": "Zaun",
+        "careProfileId": null,
+        "lengthM": 32,
+        "heightM": 1.0,
+        "widthM": null,
+        "species": null,
+        "condition": 1,
+        "lastCareDate": null,
+        "notes": "Niederzaun zur Abtrennung Spielplatzbereich von Strasse. Verzinkter Stahl.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2021-06-01T08:00:00Z",
+        "eventType": "LinearFeatureAdded"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [8.4020, 47.3940],
+          [8.4045, 47.3940]
+        ]
+      }
+    }
+  ]
+}

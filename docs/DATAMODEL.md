@@ -1,6 +1,6 @@
-# Groundskeeper — Data Model
+# Green Area Inventory — Data Model
 
-This document describes the data model for the Groundskeeper green space inventory application.
+This document describes the data model for the Green Area Inventory application.
 
 ---
 
@@ -8,11 +8,13 @@ This document describes the data model for the Groundskeeper green space invento
 
 ### 1.1 Purpose & Scope
 
-This document defines the canonical data model for the Groundskeeper application — a web-based GIS system for the inventory, management, and maintenance of municipal green spaces. The model supports:
+This document defines the canonical data model for the Green Area Inventory — a web-based GIS system for the inventory, management, and maintenance of municipal green spaces. The model supports:
 
 - Green space visualization and GIS-based exploration
 - Inventory management (green areas, trees, furniture, structures)
-- Care profile assignment based on the GSZ «Mehr als Grün» catalog
+- Species reference data with taxonomy, neophyte status, and ecosystem service parameters
+- Care profile assignment based on a catalog
+- Structured inspection and condition assessment workflows
 - Maintenance planning and task management
 - Contact and contract management
 - Cost tracking and budget planning
@@ -23,39 +25,46 @@ This document defines the canonical data model for the Groundskeeper application
 |-----------|-------------|
 | **Flat Structure** | All fields live at the top level of each entity — no nested `extensionData` objects. This simplifies querying and aligns with the standalone nature of the application. |
 | **Traceability** | All entities include `validFrom`/`validUntil` for temporal tracking and `eventType` for domain events. |
-| **Standards Compliance** | Uses ISO 8601 for dates, ISO 4217 for currencies (`CHF`), and aligns with the GSZ Profilkatalog for care profiles. |
+| **Standards Compliance** | Uses ISO 8601 for dates, ISO 4217 for currencies (`CHF`), Darwin Core for species taxonomy, and aligns with the GSZ Profilkatalog for care profiles. |
 | **Spatial First** | Core entities carry geometry; GeoJSON files comply with RFC 7946 (WGS84 coordinates). Optional LV95 fields provide Swiss coordinate support. |
 | **Bilingual Support** | All enumerations provide both English (EN) and German (DE) values; the demo uses German values. |
-| **GSZ Alignment** | Care profiles align with the Grün Stadt Zürich «Mehr als Grün» Profilkatalog (ZHAW/GSZ 2019), providing 31 standardized profiles as a baseline. |
+| **GSZ Alignment** | Care profiles align with the Grün Stadt Zürich «Mehr als Grün» Profilkatalog (ZHAW/GSZ 2019), providing 46 standardized profiles as a baseline. |
+| **Inspection History** | Condition scores on spatial entities reflect the latest snapshot; the Inspection entity provides full assessment history per FLL and DIN standards. |
 
 ### 1.3 Swiss Context
 
 | Standard / Identifier | Description | Usage |
 |-----------------------|-------------|-------|
 | **LV95 (EPSG:2056)** | Swiss coordinate reference system | Optional `lv95East`/`lv95North` fields on spatial entities. GeoJSON geometry uses WGS84. |
-| **GSZ Profilkatalog** | 31 standardized care profiles from «Mehr als Grün» (ZHAW/GSZ 2019) | CareProfile entity; pre-configured system profiles |
+| **GSZ Profilkatalog** | 46 standardized care profiles from «Mehr als Grün» (ZHAW/GSZ 2019) | CareProfile entity; pre-configured system profiles |
 | **ÖREB-Kataster** | Public-law restrictions on land ownership | Layer integration (Gewässerschutzzonen, Waldgrenzen, Nutzungsplanung) |
 | **Amtliche Vermessung (AV)** | Official Swiss cadastral survey | Layer integration (Liegenschaften, Bodenbedeckung) |
+| **DMAV Bodenbedeckung** | Minimales Geodatenmodell amtliche Vermessung — Bodenbedeckung (V1.0, swisstopo). Defines the official land-cover classification (BoFlaechenart) replacing DM.01-AV-CH. | Reference model for SurfaceArea / GreenArea land-cover alignment. Legal basis: VAV (SR 211.432.2). |
 | **swisstopo WMTS** | Federal mapping services (Landeskarte, SWISSIMAGE, swissTLM3D) | Base map layers |
-| **Infoflora** | Swiss flora database; Black List / Watch List of invasive neophytes | Neophyte species lookup for field reporting |
+| **Infoflora** | Swiss flora database; Black List / Watch List of invasive neophytes | Species entity neophyte status; field reporting |
+| **FLL Baumkontrollrichtlinie** | German-language standard for tree inspection (VTA protocol) | Inspection entity schema (damage zones, urgency levels) |
+| **Darwin Core** | Biodiversity data standard (TDWG) | Species taxonomy alignment; GBIF interoperability |
 
-### 1.4 Requirements Coverage
+### 1.4 Standards Alignment
 
-This data model covers 107 of 130 requirements from the REQUIEREMENTS.md specification (all **Must** and **Should** priorities). The remaining 22 **Could** requirements and 1 **Won't** requirement are noted as [Preview] entities for future implementation.
+The data model aligns with the following international and Swiss standards:
 
-| Module | Covered Requirements |
-|--------|---------------------|
-| Kartenmodul (K) | K-001..K-003, K-010..K-015, K-020..K-024, K-030..K-033 |
-| Inventarmodul (I) | I-001..I-007, I-010..I-017, I-020..I-023 |
-| Pflegeprofil-Bibliothek (P) | P-001..P-009, P-020..P-024, P-030..P-032 |
-| Massnahmenplanung (M) | M-001..M-007, M-010..M-014 |
-| Mobile Erfassung (MO) | MO-001..MO-005, MO-010..MO-014, MO-020..MO-022 |
-| Kontaktmanagement (C) | C-001..C-005 |
-| Kosten & Prognosen (F) | F-001..F-005, F-010..F-012 |
-| Datenimport/-export (D) | D-001..D-004, D-010..D-012, D-020..D-021 |
-| Suche & Filter (S) | S-001..S-005 |
-| Benutzerverwaltung (U) | U-001..U-004 |
-| Nicht-funktionale Anf. (N) | N-001..N-004, N-010..N-014, N-020..N-024 |
+| Standard | Alignment | Mapped Entities |
+|----------|-----------|-----------------|
+| **OGC CityGML 3.0** — Vegetation Module | SolitaryVegetationObject → Tree; PlantCover → GreenArea; species, height, trunkDiameter mapped directly | Tree, GreenArea |
+| **EU INSPIRE** — Protected Sites / Land Use | Site boundary → ProtectedSite; CareProfile → PlannedLandUse; temporal model aligns with INSPIRE lifecycle | Site, GreenArea, CareProfile |
+| **FLL Baumkontrollrichtlinie** | VTA inspection zones (root/collar/trunk/crown/branches) mapped to Inspection.damageFindings; urgency levels aligned | Inspection, Tree |
+| **DIN EN 1176/1177** | Playground safety inspection protocol supported via Inspection.inspectionType = `PlaygroundDIN1176` | Inspection, Furniture |
+| **SIA 318** | Swiss landscape construction standard referenced for quality levels and maintenance categories | CareProfile, CareAction |
+| **i-Tree Eco** | Species code, DBH derivation, ecosystem outputs (CO₂, canopy area, replacement value) mapped to computed fields | Tree, Species |
+| **Darwin Core** (TDWG) | scientificName, genus, specificEpithet, establishmentMeans aligned with Darwin Core Taxon terms | Species, Tree |
+| **GBIF** | Species entity supports Darwin Core export for GBIF occurrence data interchange | Species |
+| **FIWARE Smart Data Models** | Garden → Site; FlowerBed → GreenArea; GreenspaceRecord → CareAction/Task mapping documented | Site, GreenArea, Task |
+| **Open311 / GeoReport v2** | Issue entity [Preview] aligned with service_request schema | Issue [Preview] |
+| **Schema.org Park** | Site exportable as Schema.org Park type with JSON-LD for public discoverability | Site |
+| **EU NRR (2024/1991)** | No-net-loss tracking via Site aggregate metrics (canopyCoverPercent, greenAreaRatioPercent) with temporal versioning | Site, Tree |
+| **ISO 55000** | Asset lifecycle management concepts reflected in condition tracking, inspection history, and cost entities | Inspection, Cost, all spatial entities |
+| **DCAT-AP CH** | Metadata export for opendata.swiss publication supported via standard dataset description fields | All entities (export) |
 
 ---
 
@@ -83,15 +92,24 @@ erDiagram
     SurfaceArea }o--o| CareProfile : "assigned"
     WaterFeature }o--o| CareProfile : "assigned"
 
+    Tree }o--|| Species : "identified as"
+
     CareProfile ||--o{ CareAction : defines
     Task }o--o| CareAction : "based on"
     Task }o--|| Contact : "assigned to"
+
+    Tree ||--o{ Inspection : "inspected by"
+    GreenArea ||--o{ Inspection : "inspected by"
+    Furniture ||--o{ Inspection : "inspected by"
+    Inspection }o--|| Contact : "performed by"
 
     Site {
         string siteId PK
         string name
         string siteType
         string status
+        number canopyCoverPercent
+        number greenAreaRatioPercent
     }
 
     GreenArea {
@@ -99,16 +117,37 @@ erDiagram
         string siteId FK
         string careProfileId FK
         number areaM2
-        string condition
+        number condition
     }
 
     Tree {
         string treeId PK
         string siteId FK
+        string speciesId FK
+        string genus
         string species
         number trunkCircumferenceCm
         number crownDiameterM
-        string treeCategory
+        number heightM
+        string establishmentMeans
+    }
+
+    Species {
+        string speciesId PK
+        string scientificName
+        string genus
+        string commonNameDe
+        boolean isNative
+        string infofloraStatus
+    }
+
+    Inspection {
+        string inspectionId PK
+        string targetId FK
+        string targetType
+        string inspectorId FK
+        number overallScore
+        string urgency
     }
 
     LinearFeature {
@@ -122,7 +161,7 @@ erDiagram
         string furnitureId PK
         string siteId FK
         string furnitureType
-        string condition
+        number condition
     }
 
     StructureElement {
@@ -197,16 +236,85 @@ erDiagram
     }
 ```
 
+#### Entity Overview
+
+Entities are organized by their role in the application. **Reference layers** provide spatial context from external facility management systems. **Managed layers** are the core editable entities for green area inventory and maintenance. Each managed layer maps to one or more GSZ care profile categories (A.3) and DMAV land cover types (A.25).
+
+##### Reference Layers (read-only, external FM systems)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Description |
+|--:|-------------|-------------|----------|--------|-------------|-------------|
+| 1 | **Building** | Gebäude | Point | MVP | `data/buildings.geojson` | Buildings from external FM master system. Type field: `primaryTypeOfBuilding` (Bürogebäude, Wohngebäude, Bildungsgebäude, Lagergebäude, Technisches Gebäude). |
+| 2 | **Parcel** | Grundstück | Polygon | MVP | `data/parcels.geojson` | Land parcels from cadastral/FM system. Type field: `landUseZone` (Verwaltungszone, Wohnzone, Industriezone, Bildungszone). |
+
+##### Vegetation Layers (editable polygons — GSZ Cat. 1, 2, 5, 7, 8)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
+| 3 | **Lawn** | Rasen & Wiese | Polygon | MVP | `data/lawns.geojson` | `lawnType` | 1 | Humusierte Fl. |
+| 4 | **Planting** | Staude & Strauch | Polygon | MVP | `data/plantings.geojson` | `plantingType` | 2 | Humusierte Fl. |
+| 5 | **BuildingGreenery** | Geb.-/Ausst.begrünung | Polygon | MVP | `data/building-greenery.geojson` | `greeneryType` | 5 | Humusierte Fl. |
+| 6 | **Garden** | Garten | Polygon | MVP | `data/gardens.geojson` | `gardenType` | 8 | Humusierte Fl. |
+| 7 | **ExternalArea** | Ext. Bewirtschaftung | Polygon | MVP | `data/external-areas.geojson` | `externalType` | 7 | Humusierte Fl. |
+
+##### Wooded Area Layers (editable polygons — forestry + GSZ Cat. 2 Parkwald)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|------|
+| 8 | **Forest** | Wald | Polygon | MVP | `data/forest.geojson` | `forestType` | Bestockte Fl. |
+| 9 | **Woodland** | Gehölz & Parkwald | Polygon | MVP | `data/woodlands.geojson` | `woodlandType` | Bestockte Fl. |
+
+##### Surface & Water Layers (editable polygons/lines — GSZ Cat. 3, 4)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
+| 10 | **Surface** | Belagsfläche | Polygon | MVP | `data/surfaces.geojson` | `surfaceType` | 3 | Befestigte Fl. |
+| 11 | **WaterFeature** | Gewässer | Polygon / Line | MVP | `data/water-features.geojson` | `waterType` | 4 | Gewässer |
+
+##### Object Layers (editable points — GSZ Cat. 6)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|
+| 12 | **Tree** | Baum | Point | MVP | `data/trees.geojson` | `treeCategory` | — |
+| 13 | **Furniture** | Mobiliar | Point | MVP | `data/furniture.geojson` | `furnitureType` | — |
+| 14 | **StructureElement** | Strukturelement | Point | MVP | `data/structure-elements.geojson` | `elementType` | 6 |
+
+##### Line Layers (editable lines — GSZ Cat. 2, 6)
+
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+|--:|-------------|-------------|----------|--------|-------------|------------|----------|
+| 15 | **LinearFeature** | Linienobjekt | LineString | MVP | `data/linear-features.geojson` | `linearType` | 2, 6 |
+
+##### Supporting Entities (non-spatial)
+
+| # | Entity (EN) | Entity (DE) | Status | Data Source | Description |
+|--:|-------------|-------------|--------|-------------|-------------|
+| 16 | **Species** | Art | MVP | `data/species.json` | Taxonomic reference record for plant species. Links to Infoflora, GALK, i-Tree. |
+| 17 | **CareProfile** | Pflegeprofil | MVP | `data/care-profiles.json` | Standardized maintenance regime (46 GSZ profiles). |
+| 18 | **CareAction** | Pflegemassnahme | MVP | `data/care-profiles.json` | Maintenance task template within a care profile. |
+| 19 | **Task** | Massnahme | Planned | — | Concrete, scheduled maintenance work order. |
+| 20 | **Inspection** | Kontrolle | Planned | — | Structured field assessment (FLL VTA, DIN EN 1176). |
+| 21 | **Contact** | Kontakt | MVP | `data/contacts.json` | People and organisations in green space management. |
+| 22 | **Contract** | Vertrag | MVP | `data/contracts.json` | Service agreements for maintenance. |
+| 23 | **Document** | Dokument | MVP | `data/documents.json` | Files and records (plans, photos, assessments). |
+| 24 | **Cost** | Kosten | MVP | `data/costs.json` | Financial entries for maintenance and budget tracking. |
+
+> **Status legend:** **MVP** — Demo data available, included in minimum viable product. **Planned** — Schema defined, no demo data yet.
+>
+> **Layer principle:** Each managed layer represents a distinct **responsibility boundary** — different teams manage different layers. Buildings and parcels are imported from external FM master systems (read-only).
+
 ### 2.2 Entity Hierarchy
 
 Entities are organized into functional layers:
 
 | Layer | Entities | Description |
 |-------|----------|-------------|
-| **Spatial Core** | Site, GreenArea, Tree, LinearFeature, Furniture, StructureElement, SurfaceArea, WaterFeature | Geo-referenced objects displayed on the map |
+| **Spatial** | Site, GreenArea, Tree, LinearFeature, Furniture, StructureElement, SurfaceArea, WaterFeature | Geo-referenced objects displayed on the map |
+| **Reference Data** | Species | Taxonomic lookup with neophyte status and ecosystem service parameters |
 | **Profile & Maintenance** | CareProfile, CareAction, Task | Care instructions and operational work orders |
+| **Assessment** | Inspection | Structured condition assessments with history |
 | **Supporting** | Contact, Contract, Document, Cost | People, agreements, files, and financials |
-| **Future** | ConditionAssessment, NeophyteReport, MachineCatalog | Planned entities for future releases (see Section 6) |
+| **Future** | NeophyteReport, MachineCatalog, Issue | Planned entities for future releases (see Section 8) |
 
 ### 2.3 Demo vs. Production Implementation
 
@@ -218,13 +326,18 @@ For the demo stage, entities are stored in flat JSON and GeoJSON files:
 data/sites.geojson          → Site polygons
 data/green-areas.geojson    → GreenArea polygons
 data/trees.geojson          → Tree points
+data/furniture.geojson      → Furniture points (GeoJSON)
+data/furniture.json         → Furniture + StructureElement (flat JSON)
+data/species.json           → Species lookup table
 data/care-profiles.json     → CareProfile + CareAction
-data/tasks.json             → Task
-data/furniture.json         → Furniture + StructureElement
 data/contacts.json          → Contact
 data/contracts.json         → Contract
 data/costs.json             → Cost
 data/documents.json         → Document
+data/buildings.geojson      → Building footprints (reference layer)
+data/parcels.geojson        → Parcel boundaries (reference layer)
+data/area-measurements.json → Area measurement records
+data/assets.json            → Asset registry
 ```
 
 **Production Implementation:**
@@ -239,11 +352,11 @@ In a production system, these would be stored in PostGIS with proper foreign key
 
 ---
 
-## 3. Core Spatial Entities
+## 3. Spatial Entities
 
 ### 3.1 Site (Standort)
 
-A site represents a top-level container for green spaces, such as a park, school grounds, sports facility, or street-side green strip. All spatial objects belong to exactly one site.
+A site represents a top-level container for green spaces, such as a park, school grounds, sports facility, or street-side green strip. All spatial objects belong to exactly one site. Sites carry aggregate metrics for reporting (EU NRR, SDG 11.7.1, Singapore Index).
 
 #### Schema Definition
 
@@ -258,6 +371,11 @@ A site represents a top-level container for green spaces, such as a park, school
 | **totalAreaM2** | | number | Total site area in square meters. | **mandatory**, minimum: 0 | Total Area | Gesamtfläche |
 | **greenAreaM2** | | number | Total green area in square meters. | minimum: 0 | Green Area | Grünfläche |
 | **hardSurfaceAreaM2** | | number | Total hard surface area in square meters. | minimum: 0 | Hard Surface | Hartfläche |
+| **canopyCoverPercent** | | number | Tree canopy cover as percentage of total area. Computed: `Σ(Tree.canopyAreaM2) / totalAreaM2 × 100`. | minimum: 0, maximum: 100 | Canopy Cover | Kronendachanteil |
+| **greenAreaRatioPercent** | | number | Green area ratio as percentage of total area. Computed: `greenAreaM2 / totalAreaM2 × 100`. | minimum: 0, maximum: 100 | Green Ratio | Grünflächenanteil |
+| **treeCount** | | number | Count of active trees within the site. Computed. | minimum: 0 | Tree Count | Baumanzahl |
+| **nativeSpeciesRatioPercent** | | number | Percentage of trees with `establishmentMeans = native`. Computed. | minimum: 0, maximum: 100 | Native Ratio | Anteil einheimisch |
+| **biodiversityScore** | | number | Site-level biodiversity score (1–5 scale). Manual or semi-computed. | minimum: 1, maximum: 5 | Biodiversity | Biodiversität |
 | **ownershipType** | | string, enum | Ownership type. See [Ownership Types](#a2-shared-enumerations). | **mandatory** | Ownership | Eigentum |
 | **managingOrganisation** | | string | Organisation responsible for maintenance. | minLength: 1, maxLength: 200 | Organisation | Organisation |
 | **responsibleContactId** | FK | string | Primary responsible contact. | minLength: 1, maxLength: 50 | Responsible | Verantwortlich |
@@ -269,6 +387,8 @@ A site represents a top-level container for green spaces, such as a park, school
 | **createdAt** | | string | Timestamp of record creation. ISO 8601 format. | | Created | Erstellt |
 | **updatedAt** | | string | Timestamp of last update. ISO 8601 format. | | Updated | Aktualisiert |
 | **eventType** | | string, enum | Domain event type. Options: `SiteAdded`, `SiteUpdated`, `SiteDeleted` | | Event Type | Ereignistyp |
+
+> **Computed fields:** `canopyCoverPercent`, `greenAreaRatioPercent`, `treeCount`, and `nativeSpeciesRatioPercent` are derived from child entities and updated when child records change. They are stored denormalized for query performance but should not be manually edited.
 
 #### Geometry
 
@@ -289,6 +409,11 @@ Sites use **Polygon** or **MultiPolygon** geometry representing the site perimet
     "totalAreaM2": 18500,
     "greenAreaM2": 14200,
     "hardSurfaceAreaM2": 4300,
+    "canopyCoverPercent": 34.2,
+    "greenAreaRatioPercent": 76.8,
+    "treeCount": 47,
+    "nativeSpeciesRatioPercent": 72.3,
+    "biodiversityScore": 3,
     "ownershipType": "Öffentlich",
     "managingOrganisation": "Grün Stadt Zürich",
     "responsibleContactId": "CONT-001",
@@ -331,7 +456,7 @@ A green area represents a vegetated polygon within a site. Each green area is as
 | **name** | | string | Descriptive name (e.g., «Blumenwiese Süd»). | **mandatory**, minLength: 1, maxLength: 200 | Name | Bezeichnung |
 | **careProfileId** | FK | string | Reference to the assigned care profile. | **mandatory**, minLength: 1, maxLength: 50 | Care Profile | Pflegeprofil |
 | **areaM2** | | number | Area in square meters (computed from geometry or manually entered). | **mandatory**, minimum: 0 | Area | Fläche |
-| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). | **mandatory**, minimum: 1, maximum: 5 | Condition | Zustand |
+| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). Updated by latest Inspection. | **mandatory**, minimum: 1, maximum: 5 | Condition | Zustand |
 | **usageIntensity** | | string, enum | Usage intensity level. See [Usage Intensity](#a2-shared-enumerations). | | Usage Intensity | Nutzungsintensität |
 | **vegetationType** | | string | Description of the vegetation type or species composition. | minLength: 1, maxLength: 500 | Vegetation | Vegetation |
 | **soilType** | | string | Soil type description. | minLength: 1, maxLength: 200 | Soil Type | Bodentyp |
@@ -393,7 +518,7 @@ Green areas use **Polygon** geometry representing the area boundary. Coordinates
 
 ### 3.3 Tree (Baum)
 
-A tree represents an individual tree within a site. Trees are tracked as point objects with dendrometric data (trunk, crown, height), species identification, condition assessment, and care profile assignment.
+A tree represents an individual tree within a site. Trees are tracked as point objects with dendrometric data (trunk, crown, height), multi-level taxonomy linked to the Species entity, condition assessment, ecosystem service metrics, and optional care profile assignment.
 
 #### Schema Definition
 
@@ -402,18 +527,28 @@ A tree represents an individual tree within a site. Trees are tracked as point o
 | **treeId** | PK | string | Unique identifier for the tree. | **mandatory**, minLength: 1, maxLength: 50 | Tree ID | Baum-ID |
 | **siteId** | FK | string | Reference to the parent site. | **mandatory**, minLength: 1, maxLength: 50 | Site ID | Standort-ID |
 | **treeNumber** | | string | Local tree number within the site (e.g., «B-047»). | minLength: 1, maxLength: 20 | Tree No. | Baum-Nr. |
-| **species** | | string | Scientific name (Latin binomial, e.g., «Tilia cordata»). | **mandatory**, minLength: 1, maxLength: 200 | Species | Art (wiss.) |
-| **speciesCommon** | | string | Common German name (e.g., «Winterlinde»). | minLength: 1, maxLength: 200 | Common Name | Volksname |
+| **speciesId** | FK | string | Reference to the Species lookup entity. | minLength: 1, maxLength: 50 | Species ID | Art-ID |
+| **genus** | | string | Genus name (e.g., «Tilia»). Derivable from Species but stored for direct access. | **mandatory** (for trees), minLength: 1, maxLength: 100 | Genus | Gattung |
+| **species** | | string | Full scientific name (Latin binomial, e.g., «Tilia cordata»). | minLength: 1, maxLength: 200 | Species | Art (wiss.) |
+| **cultivar** | | string | Cultivar name if applicable (e.g., «Greenspire»). | maxLength: 100 | Cultivar | Sorte |
+| **commonNameDe** | | string | Common German name (e.g., «Winterlinde»). | minLength: 1, maxLength: 200 | Common Name (DE) | Volksname |
+| **commonNameFr** | | string | Common French name (for bilingual cantons). | maxLength: 200 | Common Name (FR) | Nom commun (FR) |
+| **establishmentMeans** | | string, enum | Origin/establishment. See [Establishment Means](#a2-shared-enumerations). Aligned with Darwin Core. | | Establishment | Etablierungsart |
 | **treeCategory** | | string, enum | Functional category. See [Tree Categories](#a4-tree-categories). | **mandatory** | Category | Kategorie |
 | **careProfileId** | FK | string | Reference to the assigned care profile. | minLength: 1, maxLength: 50 | Care Profile | Pflegeprofil |
-| **trunkCircumferenceCm** | | number | Trunk circumference in cm, measured at 1m height. | minimum: 0, maximum: 2000 | Trunk Circ. | Stammumfang |
-| **crownDiameterM** | | number | Crown diameter in meters. | minimum: 0, maximum: 50 | Crown Diam. | Kronendurchmesser |
+| **trunkCircumferenceCm** | | number | Trunk circumference in cm, measured at 1m height (Swiss/European standard). | minimum: 0, maximum: 2000 | Trunk Circ. | Stammumfang |
+| **crownDiameterM** | | number | Crown diameter in meters (average of N-S and E-W measurements). | minimum: 0, maximum: 50 | Crown Diam. | Kronendurchmesser |
+| **crownBaseHeightM** | | number | Height to lowest live branch in meters. | minimum: 0, maximum: 60 | Crown Base | Kronenansatz |
 | **heightM** | | number | Total height in meters. | minimum: 0, maximum: 60 | Height | Höhe |
+| **canopyAreaM2** | | number | Crown projection area in m². Computed: `π × (crownDiameterM / 2)²`. | minimum: 0 | Canopy Area | Kronenfläche |
+| **co2SequestrationKgYr** | | number | Annual CO₂ sequestration in kg/yr. Computed from species + DBH + growth rate via i-Tree coefficients. | minimum: 0 | CO₂ Seq. | CO₂-Bindung |
+| **co2StoredKg** | | number | Total CO₂ stored in biomass in kg. Computed. | minimum: 0 | CO₂ Stored | CO₂-Speicher |
+| **replacementValueCHF** | | number | Monetary replacement value in CHF (trunk formula method per FLL Gehölzwertermittlung). Computed. | minimum: 0 | Repl. Value | Ersatzwert |
 | **plantingYear** | | number | Year the tree was planted. | minimum: 1800, maximum: 2100 | Planting Year | Pflanzjahr |
-| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). | **mandatory**, minimum: 1, maximum: 5 | Condition | Zustand |
+| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). Updated by latest Inspection. | **mandatory**, minimum: 1, maximum: 5 | Condition | Zustand |
 | **protectionStatus** | | string, enum | Protection status. See [Protection Status](#a2-shared-enumerations). | | Protection | Schutzstatus |
-| **lastInspectionDate** | | string | Date of last tree inspection. ISO 8601 format. | | Last Inspection | Letzte Kontrolle |
-| **nextInspectionDate** | | string | Date of next scheduled inspection. ISO 8601 format. | | Next Inspection | Nächste Kontrolle |
+| **lastInspectionDate** | | string | Date of last tree inspection. ISO 8601 format. Updated by latest Inspection. | | Last Inspection | Letzte Kontrolle |
+| **nextInspectionDate** | | string | Date of next scheduled inspection. ISO 8601 format. Set by latest Inspection. | | Next Inspection | Nächste Kontrolle |
 | **notes** | | string | Free-text notes (diseases, damage, special features). | maxLength: 2000 | Notes | Bemerkungen |
 | **lv95East** | | number | LV95 easting. | | LV95 E | LV95 Ost |
 | **lv95North** | | number | LV95 northing. | | LV95 N | LV95 Nord |
@@ -422,6 +557,10 @@ A tree represents an individual tree within a site. Trees are tracked as point o
 | **createdAt** | | string | Timestamp of record creation. ISO 8601 format. | | Created | Erstellt |
 | **updatedAt** | | string | Timestamp of last update. ISO 8601 format. | | Updated | Aktualisiert |
 | **eventType** | | string, enum | Domain event type. Options: `TreeAdded`, `TreeUpdated`, `TreeDeleted` | | Event Type | Ereignistyp |
+
+> **Computed fields:** `canopyAreaM2`, `co2SequestrationKgYr`, `co2StoredKg`, and `replacementValueCHF` are derived from dendrometric data and species coefficients (i-Tree Eco, FLL Gehölzwertermittlung). They are recalculated after each Inspection or annual update cycle. `condition`, `lastInspectionDate`, and `nextInspectionDate` are denormalized from the latest Inspection record.
+
+> **Trunk measurement note:** `trunkCircumferenceCm` follows the Swiss/European standard (measured at 1.0m height). DBH for i-Tree calculations is derived: `DBH_cm = trunkCircumferenceCm / π`.
 
 #### Geometry
 
@@ -436,13 +575,23 @@ Trees use **Point** geometry representing the trunk base position. Coordinates a
     "treeId": "TREE-001",
     "siteId": "SITE-001",
     "treeNumber": "B-001",
+    "speciesId": "SP-TICO",
+    "genus": "Tilia",
     "species": "Tilia cordata",
-    "speciesCommon": "Winterlinde",
+    "cultivar": null,
+    "commonNameDe": "Winterlinde",
+    "commonNameFr": "Tilleul à petites feuilles",
+    "establishmentMeans": "Einheimisch",
     "treeCategory": "Parkbaum",
     "careProfileId": "CP-PB",
     "trunkCircumferenceCm": 220,
     "crownDiameterM": 12.5,
+    "crownBaseHeightM": 3.5,
     "heightM": 18,
+    "canopyAreaM2": 122.7,
+    "co2SequestrationKgYr": 48.3,
+    "co2StoredKg": 2850,
+    "replacementValueCHF": 45000,
     "plantingYear": 1952,
     "condition": 2,
     "protectionStatus": "Geschützt",
@@ -462,7 +611,7 @@ Trees use **Point** geometry representing the trunk base position. Coordinates a
 }
 ```
 
-> **Note:** The demo uses German values (e.g., `"treeCategory": "Parkbaum"`, `"protectionStatus": "Geschützt"`). For English implementations, use `"treeCategory": "Park tree"`, `"protectionStatus": "Protected"`.
+> **Note:** The demo uses German values (e.g., `"treeCategory": "Parkbaum"`, `"protectionStatus": "Geschützt"`, `"establishmentMeans": "Einheimisch"`). For English implementations, use `"treeCategory": "Park tree"`, `"protectionStatus": "Protected"`, `"establishmentMeans": "Native"`.
 
 ---
 
@@ -522,9 +671,8 @@ Linear features use **LineString** or **MultiLineString** geometry. Coordinates 
   "geometry": {
     "type": "LineString",
     "coordinates": [
-      [8.5192, 47.3655],
-      [8.5195, 47.3655],
-      [8.5200, 47.3656],
+      [8.5192, 47.3645],
+      [8.5200, 47.3650],
       [8.5210, 47.3656]
     ]
   }
@@ -550,7 +698,7 @@ Furniture represents point objects for benches, fountains, play equipment, waste
 | **manufacturer** | | string | Manufacturer or brand. | maxLength: 200 | Manufacturer | Hersteller |
 | **material** | | string | Primary material (e.g., «Holz/Metall», «Granit»). | maxLength: 200 | Material | Material |
 | **installationYear** | | number | Year of installation. | minimum: 1800, maximum: 2100 | Installation | Einbaujahr |
-| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). | minimum: 1, maximum: 5 | Condition | Zustand |
+| **condition** | | number, enum | Condition rating (1–5 scale). See [Condition Scale](#a2-shared-enumerations). Updated by latest Inspection. | minimum: 1, maximum: 5 | Condition | Zustand |
 | **lastMaintenanceDate** | | string | Date of last maintenance. ISO 8601 format. | | Last Maintenance | Letzte Wartung |
 | **nextMaintenanceDate** | | string | Date of next scheduled maintenance. ISO 8601 format. | | Next Maintenance | Nächste Wartung |
 | **notes** | | string | Free-text notes. | maxLength: 2000 | Notes | Bemerkungen |
@@ -795,11 +943,96 @@ Water features use **Polygon** geometry for still water bodies or **LineString**
 
 ---
 
-## 4. Profile & Maintenance Entities
+## 4. Reference Data
 
-### 4.1 CareProfile (Pflegeprofil)
+### 4.1 Species (Art)
 
-A care profile defines a standardized maintenance regime for a type of green space. The system ships with 31 pre-configured profiles based on the GSZ «Mehr als Grün» Profilkatalog. Profiles can be customized and extended by administrators.
+A species record provides the authoritative taxonomic reference for trees and other plant species. It centralizes taxonomy, neophyte status, ecosystem service parameters, and suitability ratings — eliminating inconsistencies from free-text species entry across individual tree records.
+
+The species lookup table is seeded with ~200 common Swiss urban species covering genera found across the Zürich, Basel, Bern, and Geneva open tree datasets.
+
+#### Schema Definition
+
+| Field | PK/FK | Type | Description | Constraints | Alias (EN) | Alias (DE) |
+|-------|-------|------|-------------|-------------|------------|------------|
+| **speciesId** | PK | string | Unique identifier (e.g., «SP-TICO» for Tilia cordata). | **mandatory**, minLength: 1, maxLength: 50 | Species ID | Art-ID |
+| **scientificName** | | string | Full binomial scientific name (e.g., «Tilia cordata»). | **mandatory**, minLength: 1, maxLength: 200 | Scientific Name | Wiss. Name |
+| **genus** | | string | Genus name (e.g., «Tilia»). | **mandatory**, minLength: 1, maxLength: 100 | Genus | Gattung |
+| **specificEpithet** | | string | Species epithet (e.g., «cordata»). Aligned with Darwin Core `specificEpithet`. | minLength: 1, maxLength: 100 | Species Epithet | Artepitheton |
+| **family** | | string | Botanical family (e.g., «Malvaceae»). | minLength: 1, maxLength: 100 | Family | Familie |
+| **commonNameDe** | | string | Common German name (e.g., «Winterlinde»). | minLength: 1, maxLength: 200 | Common Name (DE) | Volksname (DE) |
+| **commonNameFr** | | string | Common French name (e.g., «Tilleul à petites feuilles»). | maxLength: 200 | Common Name (FR) | Volksname (FR) |
+| **commonNameEn** | | string | Common English name (e.g., «Small-leaved linden»). | maxLength: 200 | Common Name (EN) | Volksname (EN) |
+| **isNative** | | boolean | Native to Switzerland (per Infoflora). | | Native | Einheimisch |
+| **establishmentMeans** | | string, enum | Origin classification. See [Establishment Means](#a2-shared-enumerations). Aligned with Darwin Core. | | Establishment | Etablierungsart |
+| **infofloraStatus** | | string, enum | Infoflora neophyte classification. See [Infoflora Status](#a20-infoflora-status). | | Infoflora Status | Infoflora-Status |
+| **galkRating** | | string | GALK street tree suitability rating (if applicable). | maxLength: 50 | GALK Rating | GALK-Eignung |
+| **iTreeSpeciesCode** | | string | i-Tree Eco species code for ecosystem service calculations. | maxLength: 20 | i-Tree Code | i-Tree-Code |
+| **treeForm** | | string, enum | General tree form. See [Tree Forms](#a21-tree-forms). | | Tree Form | Baumform |
+| **maxHeightM** | | number | Typical maximum height in meters (for planting guidance). | minimum: 0, maximum: 60 | Max Height | Max. Höhe |
+| **maxCrownDiameterM** | | number | Typical maximum crown spread in meters. | minimum: 0, maximum: 30 | Max Crown | Max. Krone |
+| **createdAt** | | string | Timestamp of record creation. | | Created | Erstellt |
+| **updatedAt** | | string | Timestamp of last update. | | Updated | Aktualisiert |
+
+> **Note:** The Species entity does not use `validFrom`/`validUntil` temporal versioning since species records are reference data that are updated in place rather than versioned.
+
+#### Example: Species Object
+
+```json
+{
+  "speciesId": "SP-TICO",
+  "scientificName": "Tilia cordata",
+  "genus": "Tilia",
+  "specificEpithet": "cordata",
+  "family": "Malvaceae",
+  "commonNameDe": "Winterlinde",
+  "commonNameFr": "Tilleul à petites feuilles",
+  "commonNameEn": "Small-leaved linden",
+  "isNative": true,
+  "establishmentMeans": "Einheimisch",
+  "infofloraStatus": "Keine",
+  "galkRating": "Geeignet",
+  "iTreeSpeciesCode": "TICO",
+  "treeForm": "Laubbaum",
+  "maxHeightM": 30,
+  "maxCrownDiameterM": 15,
+  "createdAt": "2026-01-01T00:00:00Z",
+  "updatedAt": "2026-01-01T00:00:00Z"
+}
+```
+
+```json
+{
+  "speciesId": "SP-AIAL",
+  "scientificName": "Ailanthus altissima",
+  "genus": "Ailanthus",
+  "specificEpithet": "altissima",
+  "family": "Simaroubaceae",
+  "commonNameDe": "Götterbaum",
+  "commonNameFr": "Ailante glanduleux",
+  "commonNameEn": "Tree of Heaven",
+  "isNative": false,
+  "establishmentMeans": "Invasiv",
+  "infofloraStatus": "Schwarze Liste",
+  "galkRating": null,
+  "iTreeSpeciesCode": "AIAL",
+  "treeForm": "Laubbaum",
+  "maxHeightM": 25,
+  "maxCrownDiameterM": 12,
+  "createdAt": "2026-01-01T00:00:00Z",
+  "updatedAt": "2026-01-01T00:00:00Z"
+}
+```
+
+> **Note:** The demo uses German values (e.g., `"establishmentMeans": "Einheimisch"`, `"infofloraStatus": "Schwarze Liste"`). For English implementations, use `"establishmentMeans": "Native"`, `"infofloraStatus": "Black list"`.
+
+---
+
+## 5. Profile & Maintenance Entities
+
+### 5.1 CareProfile (Pflegeprofil)
+
+A care profile defines a standardized maintenance regime for a type of green space. The system ships with 46 pre-configured profiles based on the GSZ «Mehr als Grün» Profilkatalog. Profiles can be customized and extended by administrators.
 
 Each profile includes a tension field rating (ecology vs. design vs. usage) and references a list of care actions with their timing and frequency.
 
@@ -855,7 +1088,7 @@ Each profile includes a tension field rating (ecology vs. design vs. usage) and 
 
 ---
 
-### 4.2 CareAction (Pflegemassnahme)
+### 5.2 CareAction (Pflegemassnahme)
 
 A care action is a specific maintenance task defined within a care profile. It specifies what to do, when, how often, and with what equipment. Care actions serve as templates for generating concrete tasks.
 
@@ -895,7 +1128,7 @@ A care action is a specific maintenance task defined within a care profile. It s
 
 ---
 
-### 4.3 Task (Massnahme)
+### 5.3 Task (Massnahme)
 
 A task represents a concrete, scheduled or completed maintenance work order. Tasks can be generated automatically from care profiles or created manually. Each task is linked to one or more spatial objects and assigned to a contact.
 
@@ -977,9 +1210,138 @@ Each transition records a timestamp and the responsible user.
 
 ---
 
-## 5. Supporting Entities
+### 5.4 Inspection (Kontrolle)
 
-### 5.1 Contact (Kontakt)
+An inspection represents a structured field assessment of a spatial object — a tree, green area, furniture item, or playground. Inspections provide the full condition history that the snapshot `condition` field on each spatial entity summarizes.
+
+The entity supports multiple inspection protocols through the `inspectionType` field: FLL VTA tree inspections (with zone-based damage findings), DIN EN 1176/1177 playground safety inspections, and general condition assessments.
+
+**Relationship:** n Inspections → 1 Spatial Object (Tree, GreenArea, Furniture, etc.)
+
+#### Schema Definition
+
+| Field | PK/FK | Type | Description | Constraints | Alias (EN) | Alias (DE) |
+|-------|-------|------|-------------|-------------|------------|------------|
+| **inspectionId** | PK | string | Unique identifier. | **mandatory**, minLength: 1, maxLength: 50 | Inspection ID | Kontrolle-ID |
+| **targetId** | FK | string | ID of the inspected object. | **mandatory**, minLength: 1, maxLength: 50 | Target ID | Zielobjekt-ID |
+| **targetType** | | string, enum | Type of inspected object. See [Target Types](#a2-shared-enumerations). | **mandatory** | Target Type | Zielobjekttyp |
+| **inspectionType** | | string, enum | Type of inspection protocol. See [Inspection Types](#a19-inspection-types). | **mandatory** | Inspection Type | Kontrolltyp |
+| **inspectorId** | FK | string | Contact who performed the inspection. | **mandatory**, minLength: 1, maxLength: 50 | Inspector | Kontrolleur/in |
+| **inspectionDate** | | string | Date of the inspection. ISO 8601 format. | **mandatory** | Inspection Date | Kontrolldatum |
+| **overallScore** | | number, enum | Overall condition score (1–5 scale). See [Condition Scale](#a2-shared-enumerations). | **mandatory**, minimum: 1, maximum: 5 | Overall Score | Gesamtbewertung |
+| **urgency** | | string, enum | Action urgency resulting from findings. See [Urgency Levels](#a22-urgency-levels). | **mandatory** | Urgency | Dringlichkeit |
+| **damageFindings** | | array[object] | Structured damage findings. See [Damage Findings Structure](#damage-findings-structure). | | Damage Findings | Schadensbefunde |
+| **recommendedActions** | | array[string] | Recommended follow-up actions (free text). | | Recommended Actions | Empfohlene Massnahmen |
+| **photographs** | | array[string] | Document IDs of photographs taken during inspection. | | Photographs | Fotos |
+| **nextInspectionDate** | | string | Recommended date for next inspection. ISO 8601 format. | | Next Inspection | Nächste Kontrolle |
+| **protocol** | | string | Reference to the inspection protocol or standard used (e.g., «FLL 2020», «DIN EN 1176»). | maxLength: 200 | Protocol | Protokoll |
+| **notes** | | string | Free-text notes. | maxLength: 2000 | Notes | Bemerkungen |
+| **validFrom** | | string | Inspection record date (same as inspectionDate). ISO 8601 format. | **mandatory** | Valid From | Gültig von |
+| **createdAt** | | string | Timestamp of record creation. | | Created | Erstellt |
+| **updatedAt** | | string | Timestamp of last update. | | Updated | Aktualisiert |
+| **eventType** | | string, enum | Domain event type. Options: `InspectionAdded`, `InspectionUpdated`, `InspectionDeleted` | | Event Type | Ereignistyp |
+
+#### Damage Findings Structure
+
+For structured damage documentation, each finding contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **zone** | string, enum | Inspection zone. For VTA tree inspections: `Wurzel` / `Stammfuss` / `Stamm` / `Krone` / `Äste` (per FLL Baumkontrollrichtlinie). For playground: `Fundament` / `Tragwerk` / `Fallraum` / `Oberfläche`. For general: `Gesamt`. See [VTA Damage Zones](#a23-vta-damage-zones). |
+| **damageType** | string | Damage type (e.g., «Pilzbefall», «Totholz», «Rissbildung», «Faulstelle», «Korrosion»). | 
+| **severity** | string, enum | `Gering` / `Mittel` / `Schwer` (Minor / Moderate / Severe) |
+| **description** | string | Free-text detail. |
+
+#### Side Effects
+
+When an Inspection is created, the following fields on the target entity should be updated:
+
+- `condition` ← `Inspection.overallScore`
+- `lastInspectionDate` ← `Inspection.inspectionDate` (Tree, Furniture)
+- `nextInspectionDate` ← `Inspection.nextInspectionDate` (Tree, Furniture)
+
+#### Example: Inspection Object (Tree VTA)
+
+```json
+{
+  "inspectionId": "INSP-001",
+  "targetId": "TREE-001",
+  "targetType": "Baum",
+  "inspectionType": "BaumkontrolleVTA",
+  "inspectorId": "CONT-003",
+  "inspectionDate": "2025-11-10T00:00:00Z",
+  "overallScore": 2,
+  "urgency": "Routinemässig",
+  "damageFindings": [
+    {
+      "zone": "Krone",
+      "damageType": "Totholz",
+      "severity": "Gering",
+      "description": "Leichter Totholzanteil in oberer Krone, ca. 5% der Kronenmasse."
+    },
+    {
+      "zone": "Stammfuss",
+      "damageType": "Pilzbefall",
+      "severity": "Gering",
+      "description": "Kleiner Fruchtkörper (vermutl. Hallimasch) am Stammfuss Nordseite. Beobachten."
+    }
+  ],
+  "recommendedActions": [
+    "Totholzentfernung bei nächster Baumpflege",
+    "Pilzbefall bei nächster Kontrolle dokumentieren"
+  ],
+  "photographs": ["DOC-010", "DOC-011"],
+  "nextInspectionDate": "2028-11-01T00:00:00Z",
+  "protocol": "FLL Baumkontrollrichtlinie 2020",
+  "notes": "Imposanter Solitärbaum. Gesamteindruck gut, Vitalität hoch.",
+  "validFrom": "2025-11-10T00:00:00Z",
+  "createdAt": "2025-11-10T15:30:00Z",
+  "updatedAt": "2025-11-10T15:30:00Z",
+  "eventType": "InspectionAdded"
+}
+```
+
+#### Example: Inspection Object (Playground DIN 1176)
+
+```json
+{
+  "inspectionId": "INSP-002",
+  "targetId": "FURN-005",
+  "targetType": "Mobiliar",
+  "inspectionType": "SpielplatzDIN1176",
+  "inspectorId": "CONT-003",
+  "inspectionDate": "2025-10-15T00:00:00Z",
+  "overallScore": 3,
+  "urgency": "Prioritär",
+  "damageFindings": [
+    {
+      "zone": "Fallraum",
+      "damageType": "Verdichtung",
+      "severity": "Mittel",
+      "description": "Holzschnitzel im Fallbereich stark verdichtet, Fallhöhe nicht mehr gewährleistet."
+    }
+  ],
+  "recommendedActions": [
+    "Holzschnitzel im Fallbereich auflockern und ggf. ergänzen (mind. 30cm)"
+  ],
+  "photographs": ["DOC-015"],
+  "nextInspectionDate": "2026-04-15T00:00:00Z",
+  "protocol": "DIN EN 1176/1177",
+  "notes": null,
+  "validFrom": "2025-10-15T00:00:00Z",
+  "createdAt": "2025-10-15T14:00:00Z",
+  "updatedAt": "2025-10-15T14:00:00Z",
+  "eventType": "InspectionAdded"
+}
+```
+
+> **Note:** The demo uses German values (e.g., `"inspectionType": "BaumkontrolleVTA"`, `"urgency": "Routinemässig"`, `"zone": "Krone"`). For English implementations, use `"inspectionType": "TreeVTA"`, `"urgency": "Routine"`, `"zone": "Crown"`.
+
+---
+
+## 6. Supporting Entities
+
+### 6.1 Contact (Kontakt)
 
 Contacts represent people and organisations involved in green space management — internal staff, external contractors, authorities, and suppliers.
 
@@ -1027,7 +1389,7 @@ Contacts represent people and organisations involved in green space management �
 
 ---
 
-### 5.2 Contract (Vertrag)
+### 6.2 Contract (Vertrag)
 
 Contracts represent service agreements for green space maintenance, including care contracts, tree inspection agreements, and supplier contracts.
 
@@ -1081,7 +1443,7 @@ Contracts represent service agreements for green space maintenance, including ca
 
 ---
 
-### 5.3 Document (Dokument)
+### 6.3 Document (Dokument)
 
 Documents represent files and records associated with green space objects — care plans, photos, tree assessments, cadastral plans, and reports.
 
@@ -1133,7 +1495,7 @@ Documents represent files and records associated with green space objects — ca
 
 ---
 
-### 5.4 Cost (Kosten)
+### 6.4 Cost (Kosten)
 
 Costs represent financial entries for green space maintenance — personnel costs, materials, external services, equipment, and disposal. Costs can be linked to specific tasks, sites, or areas, and support budget vs. actual tracking.
 
@@ -1185,27 +1547,21 @@ Costs represent financial entries for green space maintenance — personnel cost
 
 ---
 
-## 6. Future Entities [Preview]
+## 7. Future Entities [Preview]
 
 The following entities are planned for future implementation:
 
-### 6.1 ConditionAssessment (Zustandsbeurteilung)
-
-Structured field assessment of green areas and trees with standardized scoring, damage documentation, and recommended measures.
-
-**Relationship:** n Assessments → 1 Spatial Object (GreenArea, Tree, Furniture, etc.)
-
-**Planned fields:** assessmentId, targetId, targetType, assessmentDate, assessor (contactId), overallScore, damageTypes, photographs, recommendedActions, urgency.
-
-### 6.2 NeophyteReport (Neophyten-Meldung)
+### 7.1 NeophyteReport (Neophyten-Meldung)
 
 Field report for invasive neophyte sightings with species identification, location, estimated coverage, and management urgency.
 
 **Relationship:** n Reports → 1 Site
 
-**Planned fields:** reportId, siteId, species (from Infoflora Black List/Watch List), estimatedAreaM2, coordinates, photographs, urgency, managementMethod, disposalType, reportedBy, reportedDate.
+**Planned fields:** reportId, siteId, speciesId (FK → Species), estimatedAreaM2, coordinates, photographs, urgency, managementMethod, disposalType, reportedBy (contactId), reportedDate.
 
-### 6.3 MachineCatalog (Maschinen-/Gerätekatalog)
+> **Integration note:** With the Species entity now providing `infofloraStatus` (Black List / Watch List), this entity can reference the authoritative species record directly rather than requiring free-text species entry.
+
+### 7.2 MachineCatalog (Maschinen-/Gerätekatalog)
 
 Reference catalog of machines and equipment used in green space maintenance, linked to care actions.
 
@@ -1213,9 +1569,33 @@ Reference catalog of machines and equipment used in green space maintenance, lin
 
 **Planned fields:** machineId, name, category, manufacturer, purchaseYear, operatingCostPerHour, fuelType, emissionClass.
 
+### 7.3 Issue (Meldung) [Open311-aligned]
+
+Citizen or staff issue reports for green space objects — damaged benches, fallen trees, invasive species sightings, vandalism. Aligned with the Open311 GeoReport v2 specification for interoperability with platforms like «Züri wie neu» and «eBern».
+
+**Relationship:** n Issues → 1 Site, n Issues → 0..1 Spatial Object
+
+**Planned fields:**
+
+| Field | Type | Open311 Mapping | Description |
+|-------|------|-----------------|-------------|
+| issueId | string PK | `service_request_id` | Unique identifier |
+| serviceCode | string, enum | `service_code` | Issue category (e.g., `fallen_tree`, `damaged_bench`, `invasive_species`, `vandalism`, `litter`, `flooding`) |
+| description | string | `description` | Free-text description of the issue |
+| status | string, enum | `status` | `Offen` / `In Bearbeitung` / `Erledigt` (Open / In progress / Closed) |
+| targetId | FK | — | Optional link to nearest spatial object |
+| targetType | string, enum | — | Type of linked spatial object |
+| siteId | FK | — | Site where the issue was reported |
+| reportedBy | string | `email` / `first_name` | Reporter identification (optional, may be anonymous) |
+| reportedDate | string | `requested_datetime` | Date and time of report |
+| resolvedDate | string | `updated_datetime` | Date and time of resolution |
+| assignedContactId | FK | `agency_responsible` | Assigned staff member |
+| mediaUrl | string | `media_url` | URL to uploaded photo |
+| geometry | Point | `lat` / `long` | Location of the issue |
+
 ---
 
-## 7. Appendix A: Reference Tables
+## 8. Appendix A: Reference Tables
 
 ### A.1 Site Types
 
@@ -1256,7 +1636,7 @@ Used by: Site, Contract
 
 #### Condition Scale
 
-Used by: GreenArea, Tree, LinearFeature, Furniture, StructureElement, SurfaceArea, WaterFeature
+Used by: GreenArea, Tree, LinearFeature, Furniture, StructureElement, SurfaceArea, WaterFeature, Inspection
 
 | Value | Label (EN) | Label (DE) | Description |
 |-------|------------|------------|-------------|
@@ -1321,7 +1701,7 @@ Used by: Task
 
 #### Target Types
 
-Used by: Task, Document
+Used by: Task, Document, Inspection
 
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
@@ -1333,6 +1713,17 @@ Used by: Task, Document
 | `StructureElement` | `Strukturelement` | Structure element entity |
 | `SurfaceArea` | `Belagsfläche` | Surface area entity |
 | `WaterFeature` | `Gewässer` | Water feature entity |
+
+#### Establishment Means
+
+Used by: Tree, Species. Aligned with Darwin Core `establishmentMeans`.
+
+| Value (EN) | Value (DE) | Darwin Core | Description |
+|------------|------------|-------------|-------------|
+| `Native` | `Einheimisch` | `native` | Species indigenous to Switzerland |
+| `Introduced` | `Eingeführt` | `introduced` | Species brought by human activity, not invasive |
+| `Naturalised` | `Eingebürgert` | `naturalised` | Non-native species that reproduces in the wild |
+| `Invasive` | `Invasiv` | `invasive` | Species causing ecological or economic damage (per Infoflora) |
 
 #### Cost Periods
 
@@ -1347,17 +1738,21 @@ Used by: Task, Document
 
 ### A.3 Care Profile Categories
 
-| Value (EN) | Value (DE) | Profiles |
-|------------|------------|----------|
-| `Lawns & Meadows` | `Rasen & Wiesen` | Gebrauchsrasen, Blumenrasen, Blumenwiese, Schotterrasen |
-| `Plantings` | `Bepflanzungen` | Beetrosen, Bodendecker, Moorbeet, Ruderalvegetation, Staudenbepflanzung, Hochstaudenflur, Wechselflor |
-| `Shrubs` | `Gehölze` | Strauchbepflanzung, Formhecken, Wildhecken |
-| `Trees` | `Bäume` | Parkbaum, Strassenbaum, Obstbaum |
-| `Special surfaces` | `Spezialflächen` | Vertikalbegrünung, Dachbegrünung extensiv |
-| `Structure elements` | `Strukturelemente` | Trockenmauer, Asthaufen, Steinhaufen, Nisthilfen |
-| `Surfaces` | `Beläge` | Chaussierung, Stabilizer, Asphalt/Ortbeton, Pflasterung/Plattenbeläge, Klinker, Fallschutz lose |
-| `Water features` | `Gewässer` | Gewässer ruhend, Gewässer fliessend, Brunnen/Wasserbecken/Planschbecken |
-| `Use areas` | `Nutzungsflächen` | Spielanlagen, Nutzgarten |
+Categories as defined in the GSZ Profilkatalog «Mehr als Grün» (9 categories, 46 profiles):
+
+| # | Category (EN) | Category (DE) | Color | Hex | Profiles (count) |
+|--:|---------------|---------------|-------|-----|------------------|
+| 1 | `Lawns, Meadows` | `Rasen, Wiesen` | 🟡 Yellow/Gold | `#C8B832` | Sportrasen, Gebrauchsrasen, Blumenrasen, Blumenwiese, Ruderalvegetation, Schotterrasen (6) |
+| 2 | `Perennials, Shrubs, Seasonal` | `Stauden, Sträucher, Wechselflor` | 🟠 Orange | `#E2732A` | Formhecke, Wildhecke, Strauchbepflanzung, Parkwald, Bodendecker, Staudenbepflanzung, Hochstaudenflur, Wechselflor, Beetrosen, Moorbeet (10) |
+| 3 | `Surfaces` | `Beläge` | 🔵 Blue | `#3B7FC4` | Chaussierung, Pflasterung/Plattenbeläge, Asphalt/Ortbeton, Kunststoffrasen verfüllt, Kunststoffrasen unverfüllt, Holzbelag, Holz-/Rindenschnitzelbelag, Fallschutz lose, Fallschutz fest, Sandfläche, Tennenbelag (11) |
+| 4 | `Water elements` | `Wasserelemente` | 🩵 Teal | `#00A0A0` | Gewässer fliessend, Gewässer ruhend, Brunnen/Wasserbecken/Planschbecken (3) |
+| 5 | `Building/Fixture greening` | `Gebäude-/Ausstattungsbegrünung` | 🟢 Green | `#6AAD45` | Dachbegrünung extensiv, Vertikalbegrünung, Gefäss-/Trogbegrünung (3) |
+| 6 | `Fixed elements` | `Befestigte Elemente` | ⚪ Gray | `#999999` | Mauer, Trockenmauer, Treppe/Sitzstufe, Uferverbauung, Gebäude (5) |
+| 7 | `Changing vegetation, external mgmt` | `Wechselnde Vegetation, externe Bewirtschaftung` | 🟣 Purple | `#8B6BAE` | Grabpflege, Kontrolle GSZ, Verpachtet (3) |
+| 8 | `Gardens` | `Gärten` | 🩷 Pink | `#D48EB4` | Schulgarten, Schülergarten, Mietergarten, Nutzgarten (4) |
+| 9 | `Other` | `Sonstige` | 🤎 Beige | `#C4B899` | Sonstige (1) |
+
+> **Note:** Color values are eyeballed from the GSZ Profilkatalog table of contents and may differ slightly from the original PDF. These colors are used as `categoryColor` defaults for the care profile overview plan (Pflegeübersichtsplan).
 
 ---
 
@@ -1373,46 +1768,100 @@ Used by: Task, Document
 
 ### A.5 GSZ Care Profile Codes
 
-Complete list of 31 pre-configured profiles based on the GSZ Profilkatalog:
+Complete list of **46 pre-configured profiles** based on the GSZ Profilkatalog «Mehr als Grün» (ZHAW/GSZ 2019):
 
-| Code | Category (DE) | Profile Name (DE) | Profile Name (EN) |
-|------|---------------|-------------------|-------------------|
-| GR | Rasen & Wiesen | Gebrauchsrasen | Utility Lawn |
-| BR | Rasen & Wiesen | Blumenrasen | Flower Lawn |
-| BW | Rasen & Wiesen | Blumenwiese | Flower Meadow |
-| SR | Rasen & Wiesen | Schotterrasen | Gravel Lawn |
-| BT | Bepflanzungen | Beetrosen | Rose Bed |
-| BD | Bepflanzungen | Bodendecker | Ground Cover |
-| MB | Bepflanzungen | Moorbeet | Bog Bed |
-| RV | Bepflanzungen | Ruderalvegetation | Ruderal Vegetation |
-| ST | Bepflanzungen | Staudenbepflanzung | Perennial Planting |
-| HS | Bepflanzungen | Hochstaudenflur | Tall Herb Vegetation |
-| WF | Bepflanzungen | Wechselflor | Seasonal Planting |
-| SB | Gehölze | Strauchbepflanzung | Shrub Planting |
-| FH | Gehölze | Formhecken | Formal Hedges |
-| WH | Gehölze | Wildhecken | Wild Hedges |
-| PB | Bäume | Parkbaum | Park Tree |
-| STB | Bäume | Strassenbaum | Street Tree |
-| OB | Bäume | Obstbaum | Fruit Tree |
-| VB | Spezialflächen | Vertikalbegrünung | Vertical Greening |
-| DB | Spezialflächen | Dachbegrünung extensiv | Extensive Green Roof |
-| TM | Strukturelemente | Trockenmauer | Dry Stone Wall |
-| AH | Strukturelemente | Asthaufen | Brush Pile |
-| SH | Strukturelemente | Steinhaufen | Stone Pile |
-| NH | Strukturelemente | Nisthilfen | Nesting Aids |
-| CH | Beläge | Chaussierung | Gravel Surface |
-| SZ | Beläge | Stabilizer | Stabilizer Surface |
-| AO | Beläge | Asphalt/Ortbeton | Asphalt/Concrete |
-| PP | Beläge | Pflasterung/Plattenbeläge | Paving/Slabs |
-| KL | Beläge | Klinker | Clinker |
-| FL | Beläge | Fallschutz lose | Loose Fall Protection |
-| GW-RU | Gewässer | Gewässer ruhend | Still Water |
-| GW-FL | Gewässer | Gewässer fliessend | Flowing Water |
-| GW-BR | Gewässer | Brunnen/Wasserbecken | Fountain/Water Basin |
-| SA | Nutzungsflächen | Spielanlagen | Play Facilities |
-| NG | Nutzungsflächen | Nutzgarten | Kitchen Garden |
+#### Rasen, Wiesen (6)
 
-> **Note:** Codes GW-RU, GW-FL, GW-BR use a category prefix to avoid collisions with other two-letter codes. The `careProfileId` in data files uses the format `CP-{CODE}` (e.g., `CP-BW`, `CP-GW-RU`).
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 1 | SP | Sportrasen – Bodennah, DIN, Hybrid | Sports turf — close-cut, DIN, hybrid | 7 |
+| 2 | GR | Gebrauchsrasen | Utility lawn | 9 |
+| 3 | BR | Blumenrasen | Flower lawn | 11 |
+| 4 | BW | Blumenwiese | Flower meadow | 13 |
+| 5 | RV | Ruderalvegetation | Ruderal vegetation | 15 |
+| 6 | SR | Schotterrasen | Gravel lawn | 17 |
+
+#### Stauden, Sträucher, Wechselflor (10)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 7 | FH | Formhecke | Formal hedge | 18 |
+| 8 | WH | Wildhecke | Wild hedge | 20 |
+| 9 | SB | Strauchbepflanzung | Shrub planting | 22 |
+| 10 | PW | Parkwald | Park woodland | 24 |
+| 11 | BD | Bodendecker | Ground cover | 26 |
+| 12 | ST | Staudenbepflanzung | Perennial planting | 28 |
+| 13 | HS | Hochstaudenflur | Tall herb vegetation | 30 |
+| 14 | WF | Wechselflor | Seasonal planting | 31 |
+| 15 | BT | Beetrosen | Rose bed | 33 |
+| 16 | MB | Moorbeet | Bog bed | 34 |
+
+#### Beläge (11)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 17 | CH | Chaussierung | Gravel surface | 36 |
+| 18 | PP | Pflasterung und Plattenbeläge | Paving and slabs | 38 |
+| 19 | AO | Asphalt und Ortbeton | Asphalt and concrete | 39 |
+| 20 | KRV | Kunststoffrasen verfüllt | Artificial turf — filled | 40 |
+| 21 | KRU | Kunststoffrasen unverfüllt | Artificial turf — unfilled | 42 |
+| 22 | HB | Holzbelag | Wood surface | 43 |
+| 23 | HRS | Holz- und Rindenschnitzelbelag | Wood and bark chip surface | 44 |
+| 24 | FL | Fallschutz lose | Loose fall protection | 45 |
+| 25 | FF | Fallschutz fest | Solid fall protection | 46 |
+| 26 | SF | Sandfläche | Sand surface | 47 |
+| 27 | TB | Tennenbelag | Clay surface | 48 |
+
+#### Wasserelemente (3)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 28 | GW-FL | Gewässer fliessend | Flowing water | 49 |
+| 29 | GW-RU | Gewässer ruhend | Still water | 52 |
+| 30 | GW-BR | Brunnen, Wasserbecken, Planschbecken | Fountain, water basin, paddling pool | 54 |
+
+#### Gebäude-/Ausstattungsbegrünung (3)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 31 | DB | Dachbegrünung extensiv | Extensive green roof | 55 |
+| 32 | VB | Vertikalbegrünung | Vertical greening | 57 |
+| 33 | GT | Gefäss- und Trogbegrünung | Container and trough planting | 59 |
+
+#### Befestigte Elemente (5)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 34 | MA | Mauer | Wall | 61 |
+| 35 | TM | Trockenmauer | Dry stone wall | 62 |
+| 36 | TS | Treppe, Sitzstufe | Stairs, seating steps | 63 |
+| 37 | UV | Uferverbauung | Bank reinforcement | 64 |
+| 38 | GEB | Gebäude | Building | 65 |
+
+#### Wechselnde Vegetation, externe Bewirtschaftung (3)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 39 | GP | Grabpflege | Grave maintenance | 67 |
+| 40 | KG | Kontrolle GSZ | GSZ inspection | 70 |
+| 41 | VP | Verpachtet | Leased | 71 |
+
+#### Gärten (4)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 42 | SG | Schulgarten | School garden | 72 |
+| 43 | SGR | Schülergarten | Pupil garden | 73 |
+| 44 | MG | Mietergarten | Tenant garden | 74 |
+| 45 | NG | Nutzgarten | Kitchen garden | 75 |
+
+#### Sonstige (1)
+
+| # | Code | Profile Name (DE) | Profile Name (EN) | Page |
+|--:|------|-------------------|-------------------|-----:|
+| 46 | SO | Sonstige | Other | 77 |
+
+> **Note:** The `careProfileId` in data files uses the format `CP-{CODE}` (e.g., `CP-BW`, `CP-GW-RU`). Codes GW-RU, GW-FL, GW-BR use a category prefix to avoid collisions. Page numbers refer to the GSZ Profilkatalog «Mehr als Grün» (ZHAW/GSZ 2019).
 
 ---
 
@@ -1513,23 +1962,11 @@ When a task has `taskType: "Neophytenbekämpfung"`, the following additional att
 
 | Attribute | Description |
 |-----------|-------------|
-| Species | Invasive species (per Infoflora Black List / Watch List) |
+| Species | Invasive species — reference via `speciesId` (FK → Species where `infofloraStatus` = `Schwarze Liste` or `Beobachtungsliste`) |
 | Control method | Mechanical removal, cutting, root extraction |
-| Safety measures | Protective equipment, disposal precautions |
-| Disposal type | Green waste, incineration (for certain species like Ambrosia) |
-
-Common invasive species in Swiss green spaces:
-
-| Scientific Name | Common Name (DE) | Common Name (EN) |
-|----------------|------------------|-------------------|
-| `Ailanthus altissima` | `Götterbaum` | `Tree of Heaven` |
-| `Reynoutria japonica` | `Japanischer Staudenknöterich` | `Japanese Knotweed` |
-| `Solidago canadensis` | `Kanadische Goldrute` | `Canadian Goldenrod` |
-| `Buddleja davidii` | `Sommerflieder` | `Butterfly Bush` |
-| `Robinia pseudoacacia` | `Robinie` | `Black Locust` |
-| `Ambrosia artemisiifolia` | `Aufrechtes Traubenkraut` | `Common Ragweed` |
-| `Heracleum mantegazzianum` | `Riesenbärenklau` | `Giant Hogweed` |
-| `Impatiens glandulifera` | `Drüsiges Springkraut` | `Himalayan Balsam` |
+| Disposal type | Incineration (KVA), composting, special disposal |
+| Area covered (m²) | Treated area |
+| Regrowth risk | Low / Medium / High |
 
 ---
 
@@ -1537,10 +1974,11 @@ Common invasive species in Swiss green spaces:
 
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
-| `Employee` | `Mitarbeiter` | Internal municipal employee |
-| `Contractor` | `Unternehmer` | External contractor (landscaping, tree care) |
+| `Employee` | `Mitarbeiter` | Internal staff member |
+| `Contractor` | `Unternehmer` | External contractor |
 | `Authority` | `Behörde` | Government authority or agency |
 | `Supplier` | `Lieferant` | Material or equipment supplier |
+| `Consultant` | `Berater` | External consultant or specialist |
 
 ---
 
@@ -1549,13 +1987,11 @@ Common invasive species in Swiss green spaces:
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
 | `Head of Green Spaces` | `Bereichsleiter Grünflächen` | Department head for green spaces |
-| `District Gardener` | `Reviergärtner/in` | Gardener responsible for a district |
-| `Tree Inspector` | `Baumkontrolleur/in` | Certified tree inspection specialist |
-| `Landscape Architect` | `Landschaftsarchitekt/in` | Landscape architecture professional |
-| `Nature Conservation` | `Natur- und Umweltschutz` | Nature and environmental conservation officer |
-| `Operations Manager` | `Betriebsleiter/in` | Operations manager |
-| `Contractor Manager` | `Projektleiter/in Unternehmer` | Contact person at contractor firm |
-| `Other` | `Sonstige` | Other role |
+| `District gardener` | `Reviergärtner/in` | Gardener responsible for a specific district |
+| `Tree inspector` | `Baumkontrolleur/in` | Certified tree inspector (FLL) |
+| `Playground inspector` | `Spielplatzkontrolleur/in` | Certified playground inspector (DIN EN 1176) |
+| `Project manager` | `Projektleiter/in` | Project manager for new construction or renovation |
+| `Administration` | `Verwaltung` | Administrative staff |
 
 ---
 
@@ -1563,14 +1999,11 @@ Common invasive species in Swiss green spaces:
 
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
-| `Maintenance contract` | `Pflegevertrag` | Green space maintenance contract |
-| `Tree care contract` | `Baumkontrollvertrag` | Tree inspection and care contract |
-| `Playground inspection` | `Spielplatzwartung` | Playground equipment inspection |
-| `Neophyte control` | `Neophytenbekämpfung` | Invasive species management contract |
-| `Winter service` | `Winterdienst` | Snow removal and winter maintenance |
-| `Supply contract` | `Liefervertrag` | Material or plant supply contract |
-| `Service contract` | `Dienstleistungsvertrag` | General service contract |
-| `Other` | `Sonstige` | Other contract type |
+| `Maintenance contract` | `Pflegevertrag` | Ongoing maintenance agreement |
+| `Tree inspection contract` | `Baumkontrollvertrag` | Tree inspection services |
+| `Playground inspection contract` | `Spielplatzkontrollvertrag` | Playground inspection services |
+| `Supply contract` | `Liefervertrag` | Material or equipment supply |
+| `Planning contract` | `Planungsvertrag` | Landscape planning or design services |
 
 ---
 
@@ -1578,17 +2011,16 @@ Common invasive species in Swiss green spaces:
 
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
-| `Care plan` | `Pflegeplan` | Maintenance or care plan document |
 | `Care overview plan` | `Pflegeübersichtsplan` | Color-coded care profile map |
-| `Photograph` | `Foto` | Photograph (with optional geotag) |
-| `Tree assessment` | `Baumgutachten` | Tree condition assessment report |
+| `Care plan` | `Pflegeplan` | Detailed care plan document |
+| `Tree assessment` | `Baumgutachten` | Expert tree assessment report |
+| `Tree inspection report` | `Baumkontrollbericht` | VTA inspection report |
+| `Photo documentation` | `Fotodokumentation` | Photographic documentation |
 | `Cadastral plan` | `Katasterplan` | Cadastral or survey plan |
-| `Safety data sheet` | `Sicherheitsdatenblatt` | Safety data sheet for chemicals |
+| `Concept/Strategy` | `Konzept/Strategie` | Strategic or concept document |
+| `Report` | `Bericht` | General report |
+| `Invoice` | `Rechnung` | Invoice or financial document |
 | `Contract document` | `Vertragsdokument` | Contract or agreement document |
-| `Inspection report` | `Inspektionsbericht` | Inspection report |
-| `Profile sheet` | `Profilblatt` | GSZ profile sheet (Praxishandbuch) |
-| `CAD drawing` | `CAD-Zeichnung` | CAD plan (DXF/DWG) |
-| `Other` | `Sonstige` | Other document type |
 
 ---
 
@@ -1597,16 +2029,135 @@ Common invasive species in Swiss green spaces:
 | Value (EN) | Value (DE) | Description |
 |------------|------------|-------------|
 | `Personnel` | `Personal` | Internal staff costs |
-| `Materials` | `Material` | Seeds, fertilizer, soil, plants |
-| `External services` | `Fremdleistung` | External contractor services |
-| `Equipment` | `Maschinen` | Machine and equipment costs |
+| `Materials` | `Material` | Plants, soil, mulch, etc. |
+| `External services` | `Fremdleistungen` | External contractor services |
+| `Equipment` | `Geräte/Maschinen` | Equipment rental or depreciation |
 | `Disposal` | `Entsorgung` | Green waste and disposal costs |
-| `Water` | `Wasser` | Irrigation and water costs |
-| `Other` | `Sonstige` | Other costs |
+| `Water/Energy` | `Wasser/Energie` | Irrigation, lighting, and energy costs |
 
 ---
 
-## 8. Appendix B: Transformation Rules
+### A.19 Inspection Types
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `Tree VTA` | `BaumkontrolleVTA` | Visual Tree Assessment per FLL Baumkontrollrichtlinie |
+| `Playground DIN 1176` | `SpielplatzDIN1176` | Playground safety inspection per DIN EN 1176/1177 |
+| `Green area quality` | `GrünflächenQualität` | Green area condition and quality assessment |
+| `Furniture condition` | `MobiliarZustand` | Furniture and installations condition check |
+| `General` | `Allgemein` | General condition assessment |
+
+---
+
+### A.20 Infoflora Status
+
+Used by: Species
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `None` | `Keine` | No neophyte classification |
+| `Watch list` | `Beobachtungsliste` | On the Infoflora Watch List — potentially invasive |
+| `Black list` | `Schwarze Liste` | On the Infoflora Black List — confirmed invasive |
+
+---
+
+### A.21 Tree Forms
+
+Used by: Species
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `Deciduous` | `Laubbaum` | Broad-leaved deciduous tree |
+| `Coniferous` | `Nadelbaum` | Coniferous / evergreen tree |
+| `Palm` | `Palme` | Palm tree |
+| `Other` | `Andere` | Other tree forms |
+
+---
+
+### A.22 Urgency Levels
+
+Used by: Inspection
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `None` | `Keine` | No action required |
+| `Routine` | `Routinemässig` | Can be addressed during next scheduled maintenance |
+| `Priority` | `Prioritär` | Should be addressed within 3 months |
+| `Urgent` | `Dringend` | Must be addressed within 2 weeks |
+| `Immediate` | `Sofort` | Immediate action required (safety hazard) |
+
+---
+
+### A.23 VTA Damage Zones
+
+Used by: Inspection.damageFindings (for inspectionType = `BaumkontrolleVTA`)
+
+Per FLL Baumkontrollrichtlinie:
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `Root` | `Wurzel` | Root zone and root plate |
+| `Collar` | `Stammfuss` | Trunk base / root collar area |
+| `Trunk` | `Stamm` | Main trunk |
+| `Crown` | `Krone` | Crown structure |
+| `Branches` | `Äste` | Individual branches and limbs |
+
+---
+
+### A.24 Playground Inspection Zones
+
+Used by: Inspection.damageFindings (for inspectionType = `SpielplatzDIN1176`)
+
+Per DIN EN 1176/1177:
+
+| Value (EN) | Value (DE) | Description |
+|------------|------------|-------------|
+| `Foundation` | `Fundament` | Foundations and anchoring |
+| `Structure` | `Tragwerk` | Load-bearing structure |
+| `Fall zone` | `Fallraum` | Fall zone and impact area |
+| `Surface` | `Oberfläche` | Play surfaces, edges, protrusions |
+| `Overall` | `Gesamt` | General / overall assessment |
+
+---
+
+### A.25 DMAV Bodenbedeckungsart (Referenz)
+
+Wertebereich des Attributs **«Bodenbedeckungsart»** gemäss [DMAV Bodenbedeckung V1.0](https://www.cadastre-manual.admin.ch/dam/de/sd-web/ajONrLGSL74-/DMAV_Bodenbedeckung_V1_0-DE.pdf) (swisstopo), gestützt auf die [Verordnung über die amtliche Vermessung (VAV, SR 211.432.2)](https://www.fedlex.admin.ch/eli/cc/1992/2446_2446_2446/de).
+
+| # | Hauptkategorie | Bodenbedeckungsart (DE) | Land Cover Type (EN) |
+|--:|----------------|-------------------------|----------------------|
+| 1 | **Gebäude** | Gebäude | Building |
+| 2 | **Befestigte Fläche** | Strasse, Weg | Road, Path |
+| 3 | | Trottoir | Sidewalk |
+| 4 | | Verkehrsinsel | Traffic island |
+| 5 | | Bahn | Railway |
+| 6 | | Flugplatz | Airport |
+| 7 | | Wasserbecken | Water basin |
+| 8 | | Übrige befestigte | Other sealed surface |
+| 9 | **Humusierte Fläche** | Acker, Wiese, Weide | Cropland, Meadow, Pasture |
+| 10 | | Reben | Vineyard |
+| 11 | | Übrige Intensivkultur | Other intensive cultivation |
+| 12 | | Gartenanlage | Garden |
+| 13 | | Hoch-, Flachmoor | Raised bog, Fen |
+| 14 | | Übrige humusierte | Other humic surface |
+| 15 | **Gewässer** | Stehendes Gewässer | Still water body |
+| 16 | | Fliessendes Gewässer | Flowing water body |
+| 17 | | Schilfgürtel | Reed belt |
+| 18 | **Bestockte Fläche** | Geschlossener Wald | Dense forest |
+| 19 | | Wytweide dicht | Dense wood pasture |
+| 20 | | Wytweide offen | Open wood pasture |
+| 21 | | Übrige bestockte | Other wooded area |
+| 22 | **Vegetationslose Fläche** | Fels | Rock |
+| 23 | | Gletscher, Firn | Glacier, Firn |
+| 24 | | Geröll, Sand | Scree, Sand |
+| 25 | | Abbau, Deponie | Extraction, Landfill |
+| 26 | | Übrige vegetationslose | Other unvegetated |
+
+> **Hinweis:** Diese Tabelle dient als Referenz für die Zuordnung von SurfaceArea- und GreenArea-Objekten zu den offiziellen Bodenbedeckungskategorien der amtlichen Vermessung. Das DMAV löst per 31.12.2027 das bisherige Datenmodell DM.01-AV-CH ab.
+
+---
+
+## 9. Appendix B: Transformation Rules
 
 ### B.1 Date Format
 
@@ -1641,26 +2192,80 @@ When importing data in LV95, convert to WGS84 for GeoJSON storage and retain ori
 - Default currency: `CHF` (Swiss Franc)
 - All monetary amounts use ISO 4217 currency codes
 
+### B.5 Trunk Measurement Conversion
+
+- Swiss/European standard: trunk circumference in cm at 1.0m height (`trunkCircumferenceCm`)
+- i-Tree Eco / US standard: diameter at breast height (DBH) in cm at 1.37m (4.5 ft) height
+- Derivation: `DBH_cm = trunkCircumferenceCm / π`
+- Note: The measurement height differs (1.0m vs 1.37m), so the conversion is an approximation. For i-Tree calculations, this is accepted practice.
+
+### B.6 Canopy Area Calculation
+
+- `canopyAreaM2 = π × (crownDiameterM / 2)²`
+- Assumes circular crown projection (standard simplification for inventory purposes)
+- For asymmetric crowns, `crownDiameterM` should be the average of N-S and E-W measurements
+
 ---
 
-## 9. Version History
+## 10. Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0 | February 2026 | Major update based on RESEARCH.md v2.0 (572+ sources). Added Species entity (Section 4) for authoritative taxonomy with Darwin Core alignment, Infoflora neophyte status, and i-Tree ecosystem service parameters. Promoted ConditionAssessment → Inspection entity (Section 5.4) with FLL VTA damage zones and DIN EN 1176 playground protocol support. Extended Tree entity with multi-level taxonomy (genus, cultivar, commonNameDe/Fr, establishmentMeans), ecosystem fields (canopyAreaM2, co2SequestrationKgYr, co2StoredKg, replacementValueCHF), and crownBaseHeightM. Added Site aggregate computed fields (canopyCoverPercent, greenAreaRatioPercent, treeCount, nativeSpeciesRatioPercent, biodiversityScore). Added Issue [Preview] entity aligned with Open311 GeoReport v2. New appendix enumerations: A.19–A.25. Replaced Requirements Coverage with Standards Alignment matrix. Renamed project from «Groundskeeper» to «Green Area Inventory». 17 entities + 3 preview (was 15 + 3). |
+| 1.1 | February 2026 | Added category colors (hex values) to A.3 Care Profile Categories based on GSZ Profilkatalog table of contents. |
 | 1.0 | February 2026 | Complete rewrite for green space management domain. Replaces BBL Immobilienportfolio data model. 15 entities covering spatial inventory, care profiles, maintenance tasks, contacts, contracts, documents, and costs. |
 
 ---
 
-## 10. References
+## 11. References
+
+### Standards & Specifications
+
+| Source | Title | Year |
+|--------|-------|------|
+| OGC | CityGML 3.0 — Vegetation Module | 2021 |
+| EU | INSPIRE Data Specification — Protected Sites, Land Use | 2013 |
+| FLL | Baumkontrollrichtlinie — Richtlinien für Regelkontrollen zur Überprüfung der Verkehrssicherheit von Bäumen | 2020 |
+| FLL | Richtlinien für die Bewertung und den Schadensersatz bei Baumschäden (Gehölzwertermittlung) | 2023 |
+| DIN | DIN EN 1176/1177 — Spielplatzgeräte und Spielplatzböden | 2017 |
+| SIA | SIA 318 — Garten- und Landschaftsbau | 2019 |
+| ISO | ISO 55000 — Asset management — Overview, principles and terminology | 2014 |
+| TDWG | Darwin Core Standard — Taxon terms | 2023 |
+| GBIF | Global Biodiversity Information Facility — Data standards | — |
+| USDA Forest Service | i-Tree Eco — Urban Forest Assessment | 2024 |
+| EU | Regulation (EU) 2024/1991 — Nature Restoration Regulation | 2024 |
+| UN-Habitat | SDG 11.7.1 — Urban Green Space Indicator | 2020 |
+| FIWARE Foundation | Smart Data Models — ParksAndGardens (Garden, FlowerBed, GreenspaceRecord) | 2024 |
+| Open311 | GeoReport v2 — Citizen Service Request API | 2013 |
+| Schema.org | Park Type — structured data vocabulary | — |
+| OGC | OGC API Features — Part 1: Core | 2019 |
+| W3C | DCAT-AP CH — Swiss Application Profile for Data Catalogs | 2024 |
+
+### Swiss Sources
 
 | Source | Title | Year |
 |--------|-------|------|
 | ZHAW / Grün Stadt Zürich | Profilkatalog naturnahe Pflege «Mehr als Grün» | 2019 |
 | ZHAW / Grün Stadt Zürich | Praxishandbuch naturnahe Pflege «Mehr als Grün» | 2019 |
 | BAFU | Aktionsplan Strategie Biodiversität Schweiz | 2017 |
+| VSSG | Grünstadt Schweiz® — Label für grüne Städte und Gemeinden | 2020 |
+| ZHAW | Q-Index — Green Space Quality Assessment Method | 2021 |
 | Infoflora | Schwarze Liste und Watch List invasiver Neophyten | fortlaufend |
+| Stadt Zürich, GSZ | Baumkataster — Open Data Zürich (~80'000 Bäume) | fortlaufend |
+| Stadtgärtnerei Basel | Baumkataster Basel-Stadt (~28'000 Bäume) | fortlaufend |
+| Stadt Bern | Baumkataster Bern (~21'000 Bäume) | fortlaufend |
+| SITG Genève | Arbres isolés, cadastre du patrimoine arboré (~250'000 Bäume) | fortlaufend |
+| GALK | Deutsche Gartenamtsleiterkonferenz — Strassenbaum-Liste | 2023 |
+| swisstopo | DMAV Bodenbedeckung V1.0 — Minimales Geodatenmodell amtliche Vermessung | 2024 |
+| Schweizerischer Bundesrat | Verordnung über die amtliche Vermessung (VAV), SR 211.432.2 | 1992 |
 | swisstopo | LV95 — Schweizer Koordinatenreferenzsystem | — |
+
+### Technical Standards
+
+| Source | Title | Year |
+|--------|-------|------|
 | IETF | RFC 7946 — The GeoJSON Format | 2016 |
 | ISO | ISO 8601 — Date and time format | — |
 | ISO | ISO 4217 — Currency codes | — |
 | ISO | ISO 3166 — Country codes | — |
+| OGC | GeoPackage Encoding Standard | 2021 |

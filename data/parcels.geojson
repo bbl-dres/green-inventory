@@ -6,7 +6,7 @@
     "description": "Parzellengrenzen der verwalteten Liegenschaften mit Katasterinformationen.",
     "icon": "crop_free",
     "geometryType": "Polygon",
-    "source": "Groundskeeper Intern"
+    "source": "Green Area Inventory Intern"
   },
   "features": [
     {
