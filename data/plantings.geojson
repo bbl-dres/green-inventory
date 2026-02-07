@@ -1,0 +1,111 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Stauden & Sträucher",
+    "description": "Stauden-, Strauch- und Wechselflorpflanzungen gemäss GSZ Profilkatalog Kategorie 2: Strauchbepflanzung, Bodendecker, Staudenbepflanzung, Hochstaudenflur, Wechselflor, Beetrosen, Moorbeet.",
+    "icon": "local_florist",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "plantingId": "PLANT-001",
+        "siteId": "SITE-001",
+        "name": "Staudenbeet Rosengarten",
+        "plantingType": "Staudenbepflanzung",
+        "careProfileId": "CP-ST",
+        "areaM2": 450,
+        "condition": 1,
+        "usageIntensity": "Gering",
+        "vegetationType": "Gemischte Staudenpflanzung mit Rosen, Lavendel, Salbei und Storchschnabel",
+        "soilType": "Humos, gut durchlässig",
+        "irrigated": true,
+        "lastCareDate": "2025-11-05T00:00:00Z",
+        "notes": "Repräsentatives Beet am Haupteingang. Hoher Pflegeaufwand.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-11-05T11:00:00Z",
+        "eventType": "PlantingUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5200, 47.3648],
+          [8.5210, 47.3648],
+          [8.5210, 47.3652],
+          [8.5200, 47.3652],
+          [8.5200, 47.3648]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "plantingId": "PLANT-002",
+        "siteId": "SITE-002",
+        "name": "Bodendecker Hangbepflanzung",
+        "plantingType": "Bodendecker",
+        "careProfileId": "CP-BD",
+        "areaM2": 350,
+        "condition": 2,
+        "usageIntensity": "Keine",
+        "vegetationType": "Immergrüner Bodendecker (Vinca minor, Waldsteinia ternata)",
+        "soilType": "Humos, halbschattig",
+        "irrigated": false,
+        "lastCareDate": "2025-08-15T00:00:00Z",
+        "notes": "Hangbepflanzung als Erosionsschutz unter Baumbestand.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-08-15T10:00:00Z",
+        "eventType": "PlantingUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4022, 47.3950],
+          [8.4030, 47.3950],
+          [8.4030, 47.3954],
+          [8.4022, 47.3954],
+          [8.4022, 47.3950]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "plantingId": "PLANT-003",
+        "siteId": "SITE-001",
+        "name": "Strauchpflanzung Parkrand West",
+        "plantingType": "Strauchbepflanzung",
+        "careProfileId": "CP-SB",
+        "areaM2": 280,
+        "condition": 2,
+        "usageIntensity": "Keine",
+        "vegetationType": "Einheimische Sträucher: Cornus sanguinea, Viburnum opulus, Ligustrum vulgare",
+        "soilType": "Lehmig-humos",
+        "irrigated": false,
+        "lastCareDate": "2025-02-20T00:00:00Z",
+        "notes": "Rückschnitt alle 3 Jahre. Wichtig als Vogelschutzgehölz.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-02-20T14:00:00Z",
+        "eventType": "PlantingUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5180, 47.3650],
+          [8.5184, 47.3650],
+          [8.5184, 47.3662],
+          [8.5180, 47.3662],
+          [8.5180, 47.3650]
+        ]]
+      }
+    }
+  ]
+}

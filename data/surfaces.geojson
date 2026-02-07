@@ -1,0 +1,108 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Belagsflächen",
+    "description": "Hart- und Belagsflächen gemäss GSZ Profilkatalog Kategorie 3: Chaussierung, Pflasterung, Asphalt, Kunststoffbelag, Holzbelag, Rindenschnitzel, Fallschutz, Sandfläche, Tennenbelag.",
+    "icon": "grid_on",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "surfaceId": "SURF-001",
+        "siteId": "SITE-001",
+        "name": "Hauptweg Sonnenberg",
+        "surfaceType": "Chaussierung",
+        "careProfileId": "CP-CH",
+        "areaM2": 950,
+        "condition": 2,
+        "material": "Kalksteinschotter 0/16",
+        "thicknessCm": 12,
+        "drainageType": "Natürlich versickernd",
+        "lastCareDate": "2025-04-15T00:00:00Z",
+        "notes": "Wassergebundene Decke. Nachschotterung und Walzen im Frühling. Unkrautbekämpfung thermisch.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-04-15T10:00:00Z",
+        "eventType": "SurfaceUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5193, 47.3641],
+          [8.5197, 47.3641],
+          [8.5197, 47.3668],
+          [8.5193, 47.3668],
+          [8.5193, 47.3641]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "surfaceId": "SURF-002",
+        "siteId": "SITE-001",
+        "name": "Spielplatz Fallschutz",
+        "surfaceType": "Fallschutz lose",
+        "careProfileId": "CP-FL",
+        "areaM2": 180,
+        "condition": 2,
+        "material": "Holzschnitzel, Fallhöhe 2.5m",
+        "thicknessCm": 30,
+        "drainageType": "Versickernd",
+        "lastCareDate": "2025-09-01T00:00:00Z",
+        "notes": "Fallschutz unter Kletterturm. Jährliche Kontrolle gemäss DIN EN 1176/1177. Schnitzel alle 2 Jahre auffüllen.",
+        "validFrom": "2020-08-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-08-01T08:00:00Z",
+        "updatedAt": "2025-09-01T10:00:00Z",
+        "eventType": "SurfaceUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5207, 47.3654],
+          [8.5214, 47.3654],
+          [8.5214, 47.3658],
+          [8.5207, 47.3658],
+          [8.5207, 47.3654]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "surfaceId": "SURF-003",
+        "siteId": "SITE-002",
+        "name": "Pflasterung Sitzplatz Limmatfeld",
+        "surfaceType": "Pflasterung",
+        "careProfileId": "CP-PP",
+        "areaM2": 120,
+        "condition": 1,
+        "material": "Natursteinpflaster, Granit",
+        "thicknessCm": 8,
+        "drainageType": "Fugenentwässerung",
+        "lastCareDate": "2025-06-01T00:00:00Z",
+        "notes": "Sitzplatz mit Natursteinpflaster. Fugenreinigung 1× jährlich.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-06-01T10:00:00Z",
+        "eventType": "SurfaceUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4030, 47.3945],
+          [8.4036, 47.3945],
+          [8.4036, 47.3948],
+          [8.4030, 47.3948],
+          [8.4030, 47.3945]
+        ]]
+      }
+    }
+  ]
+}

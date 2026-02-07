@@ -1,0 +1,81 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Gewässer",
+    "description": "Gewässer und Wasseranlagen gemäss GSZ Profilkatalog Kategorie 4: Fliessgewässer, Stillgewässer, Brunnen/Wasserbecken/Planschbecken.",
+    "icon": "water",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "waterId": "WATER-001",
+        "siteId": "SITE-001",
+        "name": "Weiher Sonnenberg",
+        "waterType": "Stillgewässer",
+        "careProfileId": "CP-GR-W",
+        "areaM2": 340,
+        "condition": 2,
+        "waterSource": "Grundwasserspeisung",
+        "depthM": 1.2,
+        "lining": "Natürliche Sohle, Lehmabdichtung",
+        "aquaticVegetation": "Seerosen (Nymphaea alba), Schilf (Phragmites australis), Schwertlilie (Iris pseudacorus)",
+        "fauna": "Bergmolch, Erdkröte, Libellen (14 Arten nachgewiesen)",
+        "lastCareDate": "2025-10-15T00:00:00Z",
+        "notes": "Naturnaher Weiher, angelegt 1985. Entlandung alle 10 Jahre. Letzte Entlandung 2022. Schilf-Rückschnitt abschnittsweise.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-10-15T10:00:00Z",
+        "eventType": "WaterFeatureUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5215, 47.3643],
+          [8.5222, 47.3643],
+          [8.5223, 47.3646],
+          [8.5220, 47.3648],
+          [8.5214, 47.3647],
+          [8.5215, 47.3643]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "waterId": "WATER-002",
+        "siteId": "SITE-002",
+        "name": "Wasserspiel Limmatfeld",
+        "waterType": "Brunnen/Wasserbecken",
+        "careProfileId": "CP-BR-W",
+        "areaM2": 25,
+        "condition": 1,
+        "waterSource": "Trinkwassernetz, Umwälzpumpe",
+        "depthM": 0.15,
+        "lining": "Sichtbeton",
+        "aquaticVegetation": null,
+        "fauna": null,
+        "lastCareDate": "2025-10-30T00:00:00Z",
+        "notes": "Flaches Wasserspiel / Planschbecken für Kinder. Betrieb Mai–September. Wasserqualitätskontrolle wöchentlich. Winterentleerung.",
+        "validFrom": "2021-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-06-01T08:00:00Z",
+        "updatedAt": "2025-10-30T09:00:00Z",
+        "eventType": "WaterFeatureUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.4032, 47.3942],
+          [8.4036, 47.3942],
+          [8.4036, 47.3944],
+          [8.4032, 47.3944],
+          [8.4032, 47.3942]
+        ]]
+      }
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Strukturelemente",
+    "description": "Ökologische und bauliche Strukturelemente: Trockenmauern, Treppen, Insektenhotels, Asthaufen, Nisthilfen und weitere Kleinstrukturen mit Biodiversitätswert.",
+    "icon": "wall",
+    "geometryType": "Point",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5205, 47.3649] },
+      "properties": {
+        "structureElementId": "STRUCT-001",
+        "siteId": "SITE-001",
+        "name": "Trockenmauer Rosengarten",
+        "elementType": "Trockenmauer",
+        "careProfileId": "CP-TM",
+        "dimensionDescription": "8m lang, 1.2m hoch, 0.6m breit",
+        "ecologicalValue": "Hoch",
+        "targetSpecies": "Eidechsen, Wildbienen, Schnecken",
+        "installationYear": 2019,
+        "condition": 1,
+        "notes": "Natursteinmauer aus lokalem Kalkstein. Fugen bewusst offen gehalten.",
+        "validFrom": "2019-10-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2019-10-01T08:00:00Z",
+        "updatedAt": "2025-05-20T10:00:00Z",
+        "eventType": "StructureElementUpdated"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5192, 47.3645] },
+      "properties": {
+        "structureElementId": "STRUCT-002",
+        "siteId": "SITE-001",
+        "name": "Insektenhotel Blumenwiese",
+        "elementType": "Insektenhotel",
+        "careProfileId": null,
+        "dimensionDescription": "1.5m hoch, 0.8m breit, 0.3m tief",
+        "ecologicalValue": "Hoch",
+        "targetSpecies": "Wildbienen, Schlupfwespen, Ohrwürmer",
+        "installationYear": 2022,
+        "condition": 1,
+        "notes": "Verschiedene Nistmaterialien: Schilfröhrchen, Hartholz-Bohrungen, Lehm.",
+        "validFrom": "2022-05-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2022-05-01T08:00:00Z",
+        "updatedAt": "2025-03-10T09:00:00Z",
+        "eventType": "StructureElementUpdated"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5225, 47.3652] },
+      "properties": {
+        "structureElementId": "STRUCT-003",
+        "siteId": "SITE-001",
+        "name": "Asthaufen Böschung",
+        "elementType": "Asthaufen",
+        "careProfileId": null,
+        "dimensionDescription": "3m Durchmesser, 1.5m hoch",
+        "ecologicalValue": "Mittel",
+        "targetSpecies": "Igel, Erdkröte, Zaunkönig",
+        "installationYear": 2023,
+        "condition": 2,
+        "notes": "Aus Schnittgut der Kronenpflege aufgeschichtet. Jährlich ergänzen.",
+        "validFrom": "2023-02-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2023-02-01T08:00:00Z",
+        "updatedAt": "2025-02-15T10:00:00Z",
+        "eventType": "StructureElementUpdated"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5210, 47.3657] },
+      "properties": {
+        "structureElementId": "STRUCT-004",
+        "siteId": "SITE-001",
+        "name": "Nistkästen Baumbestand",
+        "elementType": "Nisthilfe",
+        "careProfileId": null,
+        "dimensionDescription": "6 Stück, verschiedene Einfluglochdurchmesser",
+        "ecologicalValue": "Hoch",
+        "targetSpecies": "Kohlmeise, Blaumeise, Kleiber, Gartenrotschwanz",
+        "installationYear": 2021,
+        "condition": 2,
+        "notes": "Reinigung jährlich im Herbst. 4× Meisenkästen, 1× Kleiberhöhle, 1× Halbhöhle.",
+        "validFrom": "2021-03-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2021-03-01T08:00:00Z",
+        "updatedAt": "2025-10-20T09:00:00Z",
+        "eventType": "StructureElementUpdated"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [8.5196, 47.3655] },
+      "properties": {
+        "structureElementId": "STRUCT-005",
+        "siteId": "SITE-001",
+        "name": "Natursteintreppe Hangweg",
+        "elementType": "Treppe/Sitzstufe",
+        "careProfileId": "CP-TS",
+        "dimensionDescription": "12 Stufen, 2m breit, Naturstein",
+        "ecologicalValue": "Gering",
+        "targetSpecies": null,
+        "installationYear": 2020,
+        "condition": 2,
+        "notes": "Verbindet oberen und unteren Parkbereich. Rutschsicherung prüfen.",
+        "validFrom": "2020-06-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-06-01T08:00:00Z",
+        "updatedAt": "2025-04-15T10:00:00Z",
+        "eventType": "StructureElementUpdated"
+      }
+    }
+  ]
+}

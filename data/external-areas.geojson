@@ -1,0 +1,76 @@
+{
+  "type": "FeatureCollection",
+  "layerInfo": {
+    "name": "Ext. Bewirtschaftung",
+    "description": "Flächen mit wechselnder Vegetation oder externer Bewirtschaftung gemäss GSZ Profilkatalog Kategorie 7: Grabpflege, Kontrolle GSZ, verpachtete Flächen.",
+    "icon": "handshake",
+    "geometryType": "Polygon",
+    "source": "Green Area Inventory Intern"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "externalAreaId": "EXT-001",
+        "siteId": "SITE-001",
+        "name": "Verpachtete Wiese Sonnenberg Ost",
+        "externalType": "Verpachtet",
+        "careProfileId": "CP-VP",
+        "areaM2": 2200,
+        "condition": 2,
+        "managedBy": "Landwirt Müller, Zürich",
+        "contractId": "CONTR-006",
+        "usageDescription": "Extensiv bewirtschaftete Mähwiese mit zwei Schnitten pro Jahr",
+        "lastCareDate": "2025-09-01T00:00:00Z",
+        "notes": "Verpachtet an lokalen Landwirt. Bewirtschaftung gemäss Pachtvertrag. Keine Düngung, kein Herbizideinsatz.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-09-01T10:00:00Z",
+        "eventType": "ExternalAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5225, 47.3660],
+          [8.5230, 47.3660],
+          [8.5230, 47.3670],
+          [8.5225, 47.3670],
+          [8.5225, 47.3660]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "externalAreaId": "EXT-002",
+        "siteId": "SITE-001",
+        "name": "Grabfelder Parkfriedhof",
+        "externalType": "Grabpflege",
+        "careProfileId": "CP-GP",
+        "areaM2": 850,
+        "condition": 2,
+        "managedBy": "Friedhofsverwaltung Stadt Zürich",
+        "contractId": null,
+        "usageDescription": "Grabfelder mit Einzel- und Gemeinschaftsgräbern, Urnennischen",
+        "lastCareDate": "2025-11-01T00:00:00Z",
+        "notes": "Pflege durch Friedhofsgärtnerei. Koordination für Gehölzschnitt und Wegunterhalt.",
+        "validFrom": "2020-01-01T00:00:00Z",
+        "validUntil": null,
+        "createdAt": "2020-01-15T09:00:00Z",
+        "updatedAt": "2025-11-01T09:00:00Z",
+        "eventType": "ExternalAreaUpdated"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [8.5180, 47.3640],
+          [8.5192, 47.3640],
+          [8.5192, 47.3648],
+          [8.5180, 47.3648],
+          [8.5180, 47.3640]
+        ]]
+      }
+    }
+  ]
+}
