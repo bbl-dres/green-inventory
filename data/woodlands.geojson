@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Gehölze & Parkwald",
     "description": "Kleinere bestockte Flächen und Baumgruppen ausserhalb des Waldes: Parkwald, Gehölzgruppen, Waldrand, Feldobstbestände. Pflege durch Grünflächenteam.",
-    "icon": "nature",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

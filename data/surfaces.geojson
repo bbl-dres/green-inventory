@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Belagsflächen",
     "description": "Hart- und Belagsflächen gemäss GSZ Profilkatalog Kategorie 3: Chaussierung, Pflasterung, Asphalt, Kunststoffbelag, Holzbelag, Rindenschnitzel, Fallschutz, Sandfläche, Tennenbelag.",
-    "icon": "grid_on",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },
