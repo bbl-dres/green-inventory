@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Gewässer",
     "description": "Gewässer und Wasseranlagen gemäss GSZ Profilkatalog Kategorie 4: Fliessgewässer, Stillgewässer, Brunnen/Wasserbecken/Planschbecken.",
-    "icon": "water",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

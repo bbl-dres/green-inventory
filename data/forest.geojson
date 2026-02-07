@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Wald",
     "description": "Waldflächen im Sinne des Waldgesetzes (WaG). Bewirtschaftung durch Forstdienst: Schutzwald, Erholungswald, Nutzwald, Naturwaldreservat. Planung gemäss Waldentwicklungsplan (WEP) und NaiS.",
-    "icon": "park",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

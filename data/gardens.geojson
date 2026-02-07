@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Gärten",
     "description": "Gartenanlagen gemäss GSZ Profilkatalog Kategorie 8: Schulgarten, Schülergarten, Mietergarten, Nutzgarten sowie historische Gartenanlagen mit Denkmalschutz.",
-    "icon": "yard",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },
