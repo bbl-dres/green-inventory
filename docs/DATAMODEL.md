@@ -197,6 +197,26 @@ erDiagram
     }
 ```
 
+#### Entity Overview
+
+| # | Entity (EN) | Entity (DE) | Geometry | Source (Demo) | Description |
+|--:|-------------|-------------|----------|---------------|-------------|
+| 1 | **Site** | Standort | Polygon / MultiPolygon | `data/sites.geojson` | Top-level container for green spaces — parks, school grounds, sports facilities, street-side strips. All other spatial objects belong to exactly one site. |
+| 2 | **GreenArea** | Grünfläche | Polygon | `data/green-areas.geojson` | Vegetated area within a site. Each green area is assigned exactly one care profile that defines its maintenance regime. Primary spatial unit for care planning. |
+| 3 | **Tree** | Baum | Point | `data/trees.geojson` | Individual tree with dendrometric data (trunk, crown, height), species identification, condition assessment, and optional care profile. |
+| 4 | **LinearFeature** | Linienobjekt | LineString / MultiLineString | — *(planned)* | Line-shaped object within a site — hedges, walls, fences, footpaths, cycle paths. |
+| 5 | **Furniture** | Mobiliar | Point | `data/furniture.geojson` | Point installation within a site — benches, fountains, play equipment, waste bins, lighting, signage. |
+| 6 | **StructureElement** | Strukturelement | Point / Polygon | `data/furniture.json` | Ecological feature tracked for biodiversity value — dry stone walls, brush piles, stone piles, nesting aids, dead wood. |
+| 7 | **SurfaceArea** | Belagsfläche | Polygon | — *(planned)* | Hard surface or paved area within a site — gravel paths, asphalt, paving, play surfaces. |
+| 8 | **WaterFeature** | Gewässer | Polygon / LineString | — *(planned)* | Water body or water installation — ponds, streams, fountains, water basins. |
+| 9 | **CareProfile** | Pflegeprofil | — | `data/care-profiles.json` | Standardized maintenance regime. 31 pre-configured profiles based on the GSZ «Mehr als Grün» Profilkatalog, with ecology/design/usage tension-field ratings. |
+| 10 | **CareAction** | Pflegemassnahme | — | `data/care-profiles.json` | Specific maintenance task defined within a care profile — action name, timing, frequency, equipment, and duration. Templates for generating concrete tasks. |
+| 11 | **Task** | Massnahme | — | — *(planned)* | Concrete, scheduled or completed maintenance work order. Links to spatial objects and a responsible contact. Workflow: Geplant → In Bearbeitung → Abgeschlossen → Abgenommen. |
+| 12 | **Contact** | Kontakt | — | `data/contacts.json` | People and organisations involved in green space management — internal staff, external contractors, authorities, suppliers. |
+| 13 | **Contract** | Vertrag | — | `data/contracts.json` | Service agreements for green space maintenance — care contracts, tree inspection agreements, supplier contracts. |
+| 14 | **Document** | Dokument | — | `data/documents.json` | Files and records associated with green space objects — care plans, photos, tree assessments, cadastral plans, reports. |
+| 15 | **Cost** | Kosten | — | `data/costs.json` | Financial entries for maintenance — personnel, materials, external services, equipment, disposal. Supports budget vs. actual tracking. |
+
 ### 2.2 Entity Hierarchy
 
 Entities are organized into functional layers:
@@ -218,13 +238,17 @@ For the demo stage, entities are stored in flat JSON and GeoJSON files:
 data/sites.geojson          → Site polygons
 data/green-areas.geojson    → GreenArea polygons
 data/trees.geojson          → Tree points
+data/furniture.geojson      → Furniture points (GeoJSON)
+data/furniture.json         → Furniture + StructureElement (flat JSON)
 data/care-profiles.json     → CareProfile + CareAction
-data/tasks.json             → Task
-data/furniture.json         → Furniture + StructureElement
 data/contacts.json          → Contact
 data/contracts.json         → Contract
 data/costs.json             → Cost
 data/documents.json         → Document
+data/buildings.geojson      → Building footprints (reference layer)
+data/parcels.geojson        → Parcel boundaries (reference layer)
+data/area-measurements.json → Area measurement records
+data/assets.json            → Asset registry
 ```
 
 **Production Implementation:**
