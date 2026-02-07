@@ -13,7 +13,7 @@ This document defines the canonical data model for the Green Area Inventory — 
 - Green space visualization and GIS-based exploration
 - Inventory management (green areas, trees, furniture, structures)
 - Species reference data with taxonomy, neophyte status, and ecosystem service parameters
-- Care profile assignment based on the GSZ «Mehr als Grün» catalog
+- Care profile assignment based on a catalog
 - Structured inspection and condition assessment workflows
 - Maintenance planning and task management
 - Contact and contract management
