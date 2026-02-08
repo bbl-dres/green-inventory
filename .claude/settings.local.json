@@ -16,7 +16,8 @@
       "WebFetch(domain:geogr.mapplus.ch)",
       "WebFetch(domain:docplayer.org)",
       "WebFetch(domain:www.zhaw.ch)",
-      "WebFetch(domain:www.stadt-zuerich.ch)"
+      "WebFetch(domain:www.stadt-zuerich.ch)",
+      "Bash(node -e:*)"
     ]
   }
 }

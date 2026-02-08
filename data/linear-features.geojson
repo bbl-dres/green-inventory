@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Linienobjekte",
     "description": "Linienförmige Objekte: Hecken, Zäune, Mauern, Wege, Uferverbauungen. Pflege teilweise gemäss GSZ Profilkatalog Kategorie 2 (Hecken) und 6 (Mauern).",
-    "icon": "fence",
     "geometryType": "LineString",
     "source": "Green Area Inventory Intern"
   },

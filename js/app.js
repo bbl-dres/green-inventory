@@ -23,6 +23,18 @@
         var selectedParcelId = null;
         var searchMarker = null;
 
+        // Extended data stores
+        var careProfileData = null;
+        var contactData = null;
+        var contractData = null;
+        var costData = null;
+        var documentData = null;
+        var speciesData = null;
+        var inspectionData = null;
+        var taskData = null;
+        var plantingData = null;
+        var sitesData = null;
+
         // Active Swisstopo layers added from search
         var activeSwisstopoLayers = [];
         // Track pending layer fetch requests for cancellation
@@ -201,6 +213,16 @@
                     }
                     return response.json();
                 });
+        }
+
+        // Graceful fetch that returns null on failure (for optional data files)
+        function fetchOptional(url) {
+            return fetch(url)
+                .then(function(response) {
+                    if (!response.ok) return null;
+                    return response.json();
+                })
+                .catch(function() { return null; });
         }
 
         // ===== FILTER STATE =====
@@ -1278,9 +1300,20 @@
             Promise.all([
                 fetchWithErrorHandling('data/buildings.geojson'),
                 fetchWithErrorHandling('data/parcels.geojson'),
-                fetchWithErrorHandling('data/furniture.geojson'),
-                fetchWithErrorHandling('data/trees.geojson'),
-                fetchWithErrorHandling('data/green-areas.geojson')
+                fetchOptional('data/furniture.geojson'),
+                fetchOptional('data/trees.geojson'),
+                fetchOptional('data/green-areas.geojson'),
+                fetchOptional('data/care-profiles.json'),
+                fetchOptional('data/contacts.json'),
+                fetchOptional('data/contracts.json'),
+                fetchOptional('data/costs.json'),
+                fetchOptional('data/documents.json'),
+                fetchOptional('data/species.json'),
+                fetchOptional('data/inspections.json'),
+                fetchOptional('data/tasks.json'),
+                fetchOptional('data/plantings.geojson'),
+                fetchOptional('data/lawns.geojson'),
+                fetchOptional('data/sites.geojson')
             ])
                 .then(function(results) {
                     portfolioData = results[0];
@@ -1288,6 +1321,32 @@
                     furnitureData = results[2];
                     treeData = results[3];
                     greenAreaData = results[4];
+
+                    // Extended data
+                    var cpRaw = results[5];
+                    careProfileData = cpRaw && cpRaw.careProfiles ? cpRaw.careProfiles : (Array.isArray(cpRaw) ? cpRaw : []);
+                    var ctRaw = results[6];
+                    contactData = ctRaw && ctRaw.contacts ? ctRaw.contacts : (Array.isArray(ctRaw) ? ctRaw : []);
+                    var crRaw = results[7];
+                    contractData = crRaw && crRaw.contracts ? crRaw.contracts : (Array.isArray(crRaw) ? crRaw : []);
+                    var coRaw = results[8];
+                    costData = coRaw && coRaw.costs ? coRaw.costs : (Array.isArray(coRaw) ? coRaw : []);
+                    var doRaw = results[9];
+                    documentData = doRaw && doRaw.documents ? doRaw.documents : (Array.isArray(doRaw) ? doRaw : []);
+                    var spRaw = results[10];
+                    speciesData = spRaw && spRaw.species ? spRaw.species : (Array.isArray(spRaw) ? spRaw : []);
+                    var inRaw = results[11];
+                    inspectionData = inRaw && inRaw.inspections ? inRaw.inspections : (Array.isArray(inRaw) ? inRaw : []);
+                    var taRaw = results[12];
+                    taskData = taRaw && taRaw.tasks ? taRaw.tasks : (Array.isArray(taRaw) ? taRaw : []);
+                    plantingData = results[13];
+                    var lawnsRaw = results[14];
+                    sitesData = results[15];
+
+                    // Use lawns data as greenAreaData if green-areas.geojson didn't load
+                    if (!greenAreaData && lawnsRaw && lawnsRaw.features) {
+                        greenAreaData = lawnsRaw;
+                    }
 
                     // Validate portfolio data
                     if (!portfolioData || !portfolioData.features) {
@@ -1412,6 +1471,13 @@
                     }
                 }, 100);
             }
+
+            // Render dynamic views
+            if (view === 'tasks') {
+                renderTasksView();
+            } else if (view === 'dashboard') {
+                renderDashboardView();
+            }
         }
 
         // View toggle click handlers
@@ -1467,7 +1533,8 @@
             style: mapStyles[currentMapStyle].url,
             center: startCenter,
             zoom: startZoom,
-            dragRotate: false
+            dragRotate: false,
+            customAttribution: '&copy; swisstopo'
         });
 
         // Middle mouse button drag to rotate/pitch
@@ -1807,10 +1874,11 @@
                     activeEditLayer = layerId;
                     activeEditTool = null;
 
-                    // Determine geometry type from layer data
-                    var dataFn = internalLayerData[layerId];
-                    var data = dataFn ? dataFn() : null;
-                    var geometryType = (data && data.layerInfo) ? data.layerInfo.geometryType : null;
+                    // Determine geometry type from cached layerInfo or loaded data
+                    var geometryType = null;
+                    if (layerInfoCache[layerId]) {
+                        geometryType = layerInfoCache[layerId].info.geometryType;
+                    }
                     updateToolbarForGeometry(geometryType);
 
                     // Update banner and show toolbar + banner
@@ -2650,6 +2718,9 @@
 
             // Load background layers from URL parameters
             loadLayersFromUrl();
+
+            // Add click handlers for green features (trees, furniture, green areas)
+            addGreenFeatureClickHandlers();
         }
 
         // Reusable function to select a building
@@ -3117,14 +3188,50 @@
         var layerInfoContent = document.getElementById('layer-info-content');
         var layerInfoCloseBtn = layerInfoModal ? layerInfoModal.querySelector('.layer-info-modal-close') : null;
 
-        // Map internal layer keys to their loaded data objects
-        var internalLayerData = {
-            'portfolio': function() { return portfolioData; },
-            'gruenflaechen': function() { return greenAreaData; },
-            'parcels': function() { return parcelData; },
-            'furniture': function() { return furnitureData; },
-            'trees': function() { return treeData; }
+        // Map layer IDs to their GeoJSON file paths (for reading layerInfo metadata)
+        var layerGeoJsonFiles = {
+            'trees': 'data/trees.geojson',
+            'furniture': 'data/furniture.geojson',
+            'structure-elements': 'data/structure-elements.geojson',
+            'linear-features': 'data/linear-features.geojson',
+            'water-features': 'data/water-features.geojson',
+            'surfaces': 'data/surfaces.geojson',
+            'plantings': 'data/plantings.geojson',
+            'building-greenery': 'data/building-greenery.geojson',
+            'lawns': 'data/lawns.geojson',
+            'gardens': 'data/gardens.geojson',
+            'external-areas': 'data/external-areas.geojson',
+            'woodlands': 'data/woodlands.geojson',
+            'forest': 'data/forest.geojson',
+            'portfolio': 'data/buildings.geojson',
+            'parcels': 'data/parcels.geojson'
         };
+
+        // Cache for fetched layerInfo to avoid repeated requests
+        var layerInfoCache = {};
+
+        function renderLayerInfoHtml(info, featureCount) {
+            return '<div class="layer-info-internal">' +
+                '<div class="layer-info-internal-header">' +
+                    '<h3>' + escapeHtml(info.name) + '</h3>' +
+                '</div>' +
+                '<p class="layer-info-internal-desc">' + escapeHtml(info.description) + '</p>' +
+                '<div class="layer-info-internal-meta">' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Objekte</span>' +
+                        '<span class="layer-info-meta-value">' + featureCount + '</span>' +
+                    '</div>' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Geometrie</span>' +
+                        '<span class="layer-info-meta-value">' + escapeHtml(info.geometryType || '—') + '</span>' +
+                    '</div>' +
+                    '<div class="layer-info-meta-item">' +
+                        '<span class="layer-info-meta-label">Quelle</span>' +
+                        '<span class="layer-info-meta-value">' + escapeHtml(info.source || '—') + '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
 
         function showLayerInfo(layerId) {
             if (!layerInfoModal || !layerInfoContent || !layerId) return;
@@ -3133,38 +3240,36 @@
             layerInfoContent.innerHTML = '<div class="layer-info-loading">Lade Informationen...</div>';
             layerInfoModal.classList.add('show');
 
-            // Check if this is an internal layer
-            var dataFn = internalLayerData[layerId];
-            if (dataFn) {
-                var data = dataFn();
-                var info = data && data.layerInfo;
-                if (info) {
-                    var count = data.features ? data.features.length : 0;
-                    layerInfoContent.innerHTML =
-                        '<div class="layer-info-internal">' +
-                            '<div class="layer-info-internal-header">' +
-                                '<span class="material-symbols-outlined">' + (info.icon || 'layers') + '</span>' +
-                                '<h3>' + escapeHtml(info.name) + '</h3>' +
-                            '</div>' +
-                            '<p class="layer-info-internal-desc">' + escapeHtml(info.description) + '</p>' +
-                            '<div class="layer-info-internal-meta">' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Objekte</span>' +
-                                    '<span class="layer-info-meta-value">' + count + '</span>' +
-                                '</div>' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Geometrie</span>' +
-                                    '<span class="layer-info-meta-value">' + escapeHtml(info.geometryType || '—') + '</span>' +
-                                '</div>' +
-                                '<div class="layer-info-meta-item">' +
-                                    '<span class="layer-info-meta-label">Quelle</span>' +
-                                    '<span class="layer-info-meta-value">' + escapeHtml(info.source || '—') + '</span>' +
-                                '</div>' +
-                            '</div>' +
-                        '</div>';
-                } else {
-                    layerInfoContent.innerHTML = '<div class="layer-info-loading">Keine Informationen verfügbar.</div>';
+            // Check if this is an internal layer with a GeoJSON file
+            var geoJsonFile = layerGeoJsonFiles[layerId];
+            if (geoJsonFile) {
+                // Use cache if available
+                if (layerInfoCache[layerId]) {
+                    var cached = layerInfoCache[layerId];
+                    layerInfoContent.innerHTML = renderLayerInfoHtml(cached.info, cached.count);
+                    return;
                 }
+
+                // Fetch layerInfo from GeoJSON file
+                fetch(geoJsonFile)
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('GeoJSON nicht verfügbar');
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        var info = data && data.layerInfo;
+                        if (info) {
+                            var count = data.features ? data.features.length : 0;
+                            layerInfoCache[layerId] = { info: info, count: count };
+                            layerInfoContent.innerHTML = renderLayerInfoHtml(info, count);
+                        } else {
+                            layerInfoContent.innerHTML = '<div class="layer-info-loading">Keine Informationen verfügbar.</div>';
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Fehler beim Laden der Layer-Informationen:', error);
+                        layerInfoContent.innerHTML = '<div class="layer-info-loading">Informationen konnten nicht geladen werden.</div>';
+                    });
                 return;
             }
 
@@ -4143,3 +4248,615 @@
             // Add new point
             addMeasurePoint(e.lngLat);
         });
+
+        // ===== HELPER: Lookup functions =====
+
+        function getContactName(contactId) {
+            if (!contactData || !contactId) return '—';
+            var c = contactData.find(function(ct) { return ct.contactId === contactId; });
+            return c ? c.name : '—';
+        }
+
+        function getCareProfileName(careProfileId) {
+            if (!careProfileData || !careProfileId) return '—';
+            var cp = careProfileData.find(function(p) { return p.careProfileId === careProfileId; });
+            return cp ? cp.name : '—';
+        }
+
+        function getCareProfile(careProfileId) {
+            if (!careProfileData || !careProfileId) return null;
+            return careProfileData.find(function(p) { return p.careProfileId === careProfileId; }) || null;
+        }
+
+        function formatDateShort(isoStr) {
+            if (!isoStr) return '—';
+            var d = new Date(isoStr);
+            return d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function formatNumber(n) {
+            if (n == null || isNaN(n)) return '—';
+            return Number(n).toLocaleString('de-CH');
+        }
+
+        var conditionColors = {
+            1: '#2e7d32', 2: '#689f38', 3: '#fbc02d', 4: '#ef6c00', 5: '#c62828'
+        };
+        var conditionLabels = {
+            1: 'Sehr gut', 2: 'Gut', 3: 'Befriedigend', 4: 'Mangelhaft', 5: 'Ungenügend'
+        };
+        var taskStatusClasses = {
+            'Geplant': 'status-planning',
+            'In Bearbeitung': 'status-renovation',
+            'Abgeschlossen': 'status-active',
+            'Abgenommen': 'status-inactive'
+        };
+        var monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+        // ===== FEATURE INFO PANEL WITH TABS =====
+
+        function showFeatureInfoPanel(featureType, featureId, props) {
+            var headerTitle = featureType === 'Baum' ? 'Baum' :
+                              featureType === 'Grünfläche' ? 'Grünfläche' :
+                              featureType === 'Bepflanzung' ? 'Bepflanzung' :
+                              featureType === 'Mobiliar' ? 'Mobiliar' : 'Objekt';
+
+            document.getElementById('info-header-title').textContent = headerTitle;
+            document.getElementById('info-preview-image').style.display = 'none';
+
+            // Clear building/parcel selection
+            selectedBuildingId = null;
+            selectedParcelId = null;
+            updateSelectedBuilding();
+            updateSelectedParcel();
+
+            var condScore = props.condition || '—';
+            var condColor = conditionColors[condScore] || '#6C757D';
+            var condLabel = conditionLabels[condScore] || '—';
+
+            // Build tabs
+            var tabsHtml = '<div class="info-tabs">' +
+                '<button class="info-tab active" data-tab="properties">Eigenschaften</button>' +
+                '<button class="info-tab" data-tab="inspections">Inspektionen</button>' +
+                '<button class="info-tab" data-tab="feature-tasks">Aufgaben</button>' +
+                '</div>';
+
+            // Properties tab content
+            var propsHtml = '<div class="info-tab-content active" data-tab="properties">';
+
+            if (featureType === 'Baum') {
+                propsHtml +=
+                    '<div class="info-row"><span class="info-label">ID</span><span class="info-value">' + escapeHtml(props.treeId) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Art</span><span class="info-value">' + escapeHtml(props.commonNameDe || props.species) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Wissenschaftl.</span><span class="info-value"><em>' + escapeHtml(props.species) + '</em></span></div>' +
+                    '<div class="info-row"><span class="info-label">Kategorie</span><span class="info-value">' + escapeHtml(props.treeCategory) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Stammumfang</span><span class="info-value">' + (props.trunkCircumferenceCm || '—') + ' cm</span></div>' +
+                    '<div class="info-row"><span class="info-label">Höhe</span><span class="info-value">' + (props.heightM || '—') + ' m</span></div>' +
+                    '<div class="info-row"><span class="info-label">Kronendurchmesser</span><span class="info-value">' + (props.crownDiameterM || '—') + ' m</span></div>' +
+                    '<div class="info-row"><span class="info-label">Pflanzjahr</span><span class="info-value">' + (props.plantingYear || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Zustand</span><span class="info-value"><span class="condition-badge" style="background:' + condColor + ';color:#fff">' + condScore + ' – ' + condLabel + '</span></span></div>' +
+                    '<div class="info-row"><span class="info-label">Vitalität (Roloff)</span><span class="info-value">' + (props.vitalityRoloff != null ? props.vitalityRoloff : '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Kronentransparenz</span><span class="info-value">' + (props.crownTransparencyPercent != null ? props.crownTransparencyPercent + ' %' : '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Standsicherheit</span><span class="info-value">' + escapeHtml(props.standSecurity || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Bruchsicherheit</span><span class="info-value">' + escapeHtml(props.breakSecurity || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Schutzstatus</span><span class="info-value">' + escapeHtml(props.protectionStatus || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">CO₂ Bindung</span><span class="info-value">' + (props.co2SequestrationKgYr || '—') + ' kg/Jahr</span></div>' +
+                    '<div class="info-row"><span class="info-label">Ersatzwert</span><span class="info-value">' + formatNumber(props.replacementValueCHF) + ' CHF</span></div>' +
+                    '<div class="info-row"><span class="info-label">Letzte Kontrolle</span><span class="info-value">' + formatDateShort(props.lastInspectionDate) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Nächste Kontrolle</span><span class="info-value">' + formatDateShort(props.nextInspectionDate) + '</span></div>';
+            } else if (featureType === 'Grünfläche' || featureType === 'Bepflanzung') {
+                var areaId = props.lawnId || props.plantingId || '—';
+                var areaName = props.name || '—';
+                var areaType = props.lawnType || props.plantingType || '—';
+                propsHtml +=
+                    '<div class="info-row"><span class="info-label">ID</span><span class="info-value">' + escapeHtml(areaId) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Name</span><span class="info-value">' + escapeHtml(areaName) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Typ</span><span class="info-value">' + escapeHtml(areaType) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Pflegeprofil</span><span class="info-value">' + getCareProfileName(props.careProfileId) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Fläche</span><span class="info-value">' + formatNumber(props.areaM2) + ' m²</span></div>' +
+                    '<div class="info-row"><span class="info-label">Zustand</span><span class="info-value"><span class="condition-badge" style="background:' + condColor + ';color:#fff">' + condScore + ' – ' + condLabel + '</span></span></div>' +
+                    '<div class="info-row"><span class="info-label">Nutzungsintensität</span><span class="info-value">' + escapeHtml(props.usageIntensity || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Bewässert</span><span class="info-value">' + (props.irrigated ? 'Ja' : 'Nein') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Letzte Pflege</span><span class="info-value">' + formatDateShort(props.lastCareDate) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Letzte Kontrolle</span><span class="info-value">' + formatDateShort(props.lastInspectionDate) + '</span></div>';
+            } else if (featureType === 'Mobiliar') {
+                propsHtml +=
+                    '<div class="info-row"><span class="info-label">ID</span><span class="info-value">' + escapeHtml(props.furnitureId) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Name</span><span class="info-value">' + escapeHtml(props.name || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Typ</span><span class="info-value">' + escapeHtml(props.furnitureType || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Material</span><span class="info-value">' + escapeHtml(props.material || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Einbaujahr</span><span class="info-value">' + (props.installationYear || '—') + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Zustand</span><span class="info-value"><span class="condition-badge" style="background:' + condColor + ';color:#fff">' + condScore + ' – ' + condLabel + '</span></span></div>' +
+                    '<div class="info-row"><span class="info-label">Letzte Wartung</span><span class="info-value">' + formatDateShort(props.lastMaintenanceDate) + '</span></div>' +
+                    '<div class="info-row"><span class="info-label">Nächste Wartung</span><span class="info-value">' + formatDateShort(props.nextMaintenanceDate) + '</span></div>';
+            }
+
+            if (props.notes) {
+                propsHtml += '<div class="info-row"><span class="info-label">Bemerkungen</span><span class="info-value info-value-notes">' + escapeHtml(props.notes) + '</span></div>';
+            }
+            propsHtml += '</div>';
+
+            // Inspections tab content
+            var inspHtml = '<div class="info-tab-content" data-tab="inspections">' + renderInspectionTab(featureId) + '</div>';
+
+            // Tasks tab content
+            var tasksTabHtml = '<div class="info-tab-content" data-tab="feature-tasks">' + renderFeatureTasksTab(featureId) + '</div>';
+
+            document.getElementById('info-body').innerHTML = tabsHtml + propsHtml + inspHtml + tasksTabHtml;
+            document.getElementById('info-panel').classList.add('show');
+
+            // Wire up tab clicks
+            document.querySelectorAll('#info-body .info-tab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('#info-body .info-tab').forEach(function(t) { t.classList.remove('active'); });
+                    document.querySelectorAll('#info-body .info-tab-content').forEach(function(c) { c.classList.remove('active'); });
+                    tab.classList.add('active');
+                    var content = document.querySelector('#info-body .info-tab-content[data-tab="' + tab.dataset.tab + '"]');
+                    if (content) content.classList.add('active');
+                });
+            });
+        }
+
+        function renderInspectionTab(targetId) {
+            if (!inspectionData) return '<div class="empty-state-small">Keine Inspektionsdaten geladen.</div>';
+            var inspections = inspectionData.filter(function(i) { return i.targetId === targetId; });
+            inspections.sort(function(a, b) { return new Date(b.inspectionDate) - new Date(a.inspectionDate); });
+            if (inspections.length === 0) return '<div class="empty-state-small"><span class="material-symbols-outlined">search_off</span><p>Keine Inspektionen vorhanden.</p></div>';
+
+            var html = '';
+            inspections.forEach(function(insp, idx) {
+                var scoreColor = conditionColors[insp.overallScore] || '#6C757D';
+                var scoreLabel = conditionLabels[insp.overallScore] || '—';
+                html += '<div class="inspection-card' + (idx === 0 ? ' inspection-card-latest' : '') + '">' +
+                    '<div class="inspection-card-header">' +
+                        '<span class="condition-badge" style="background:' + scoreColor + ';color:#fff">' + insp.overallScore + '</span>' +
+                        '<div class="inspection-card-meta">' +
+                            '<strong>' + formatDateShort(insp.inspectionDate) + '</strong>' +
+                            '<span>' + escapeHtml(insp.inspectionType) + '</span>' +
+                        '</div>' +
+                        '<span class="inspection-urgency inspection-urgency-' + (insp.urgency === 'Dringend' || insp.urgency === 'Sofortmassnahme' ? 'high' : insp.urgency === 'Prioritär' ? 'medium' : 'low') + '">' + escapeHtml(insp.urgency) + '</span>' +
+                    '</div>' +
+                    '<div class="inspection-card-body">' +
+                        '<div class="info-row"><span class="info-label">Kontrolleur</span><span class="info-value">' + getContactName(insp.inspectorId) + '</span></div>';
+
+                if (insp.vitalityRoloff != null) {
+                    html += '<div class="info-row"><span class="info-label">Vitalität (Roloff)</span><span class="info-value">' + insp.vitalityRoloff + '</span></div>';
+                }
+                if (insp.trafficSafety) {
+                    html += '<div class="info-row"><span class="info-label">Verkehrssicherheit</span><span class="info-value">' + escapeHtml(insp.trafficSafety) + '</span></div>';
+                }
+
+                if (insp.damageFindings && insp.damageFindings.length > 0) {
+                    html += '<div class="damage-findings"><strong>Schäden:</strong>';
+                    insp.damageFindings.forEach(function(df) {
+                        var sevClass = df.severity === 'Schwer' ? 'severity-high' : df.severity === 'Mittel' ? 'severity-medium' : 'severity-low';
+                        html += '<div class="damage-finding">' +
+                            '<span class="zone-badge">' + escapeHtml(df.zone) + '</span>' +
+                            '<span class="severity-badge ' + sevClass + '">' + escapeHtml(df.severity) + '</span>' +
+                            '<span>' + escapeHtml(df.damageType) + '</span>' +
+                            '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                if (insp.recommendedActions && insp.recommendedActions.length > 0) {
+                    html += '<div class="recommended-actions"><strong>Massnahmen:</strong><ul>';
+                    insp.recommendedActions.forEach(function(a) { html += '<li>' + escapeHtml(a) + '</li>'; });
+                    html += '</ul></div>';
+                }
+
+                if (insp.notes) {
+                    html += '<div class="inspection-notes">' + escapeHtml(insp.notes) + '</div>';
+                }
+
+                html += '</div></div>';
+            });
+            return html;
+        }
+
+        function renderFeatureTasksTab(targetId) {
+            if (!taskData) return '<div class="empty-state-small">Keine Aufgabendaten geladen.</div>';
+            var tasks = taskData.filter(function(t) {
+                return t.targetIds && t.targetIds.indexOf(targetId) !== -1;
+            });
+            tasks.sort(function(a, b) { return new Date(a.dueDate) - new Date(b.dueDate); });
+            if (tasks.length === 0) return '<div class="empty-state-small"><span class="material-symbols-outlined">task_alt</span><p>Keine Aufgaben verknüpft.</p></div>';
+
+            var html = '';
+            tasks.forEach(function(t) {
+                var statusClass = taskStatusClasses[t.status] || 'status-inactive';
+                html += '<div class="task-card-mini">' +
+                    '<div class="task-card-mini-header">' +
+                        '<span class="status-badge ' + statusClass + '">' + escapeHtml(t.status) + '</span>' +
+                        '<span class="task-card-mini-date">' + formatDateShort(t.dueDate) + '</span>' +
+                    '</div>' +
+                    '<div class="task-card-mini-title">' + escapeHtml(t.title) + '</div>' +
+                    '<div class="task-card-mini-meta">' +
+                        '<span>' + escapeHtml(t.taskType) + '</span>' +
+                        '<span>' + getContactName(t.assignedContactId) + '</span>' +
+                    '</div>' +
+                '</div>';
+            });
+            return html;
+        }
+
+        // ===== TASKS VIEW =====
+
+        var tasksViewTab = 'calendar';
+
+        function renderTasksView() {
+            if (!taskData) return;
+            var container = document.getElementById('tasks-view');
+            if (!container) return;
+
+            // Summary counts
+            var total = taskData.length;
+            var open = taskData.filter(function(t) { return t.status === 'Geplant' || t.status === 'In Bearbeitung'; }).length;
+            var done = taskData.filter(function(t) { return t.status === 'Abgeschlossen' || t.status === 'Abgenommen'; }).length;
+            var overdue = taskData.filter(function(t) {
+                return (t.status === 'Geplant' || t.status === 'In Bearbeitung') && new Date(t.dueDate) < new Date();
+            }).length;
+
+            var html = '<div class="tasks-view-container">' +
+                '<div class="tasks-header">' +
+                    '<h2>Massnahmenplanung</h2>' +
+                    '<div class="tasks-summary">' +
+                        '<span class="tasks-summary-item"><strong>' + total + '</strong> Gesamt</span>' +
+                        '<span class="tasks-summary-item tasks-summary-open"><strong>' + open + '</strong> Offen</span>' +
+                        '<span class="tasks-summary-item tasks-summary-done"><strong>' + done + '</strong> Erledigt</span>' +
+                        (overdue > 0 ? '<span class="tasks-summary-item tasks-summary-overdue"><strong>' + overdue + '</strong> Überfällig</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="tasks-tabs">' +
+                    '<button class="tasks-tab' + (tasksViewTab === 'calendar' ? ' active' : '') + '" data-tasks-tab="calendar"><span class="material-symbols-outlined">calendar_month</span> Kalender</button>' +
+                    '<button class="tasks-tab' + (tasksViewTab === 'list' ? ' active' : '') + '" data-tasks-tab="list"><span class="material-symbols-outlined">list</span> Liste</button>' +
+                    '<button class="tasks-tab' + (tasksViewTab === 'planner' ? ' active' : '') + '" data-tasks-tab="planner"><span class="material-symbols-outlined">grid_on</span> Jahresplaner</button>' +
+                '</div>' +
+                '<div class="tasks-tab-content">';
+
+            if (tasksViewTab === 'calendar') {
+                html += renderTasksCalendar();
+            } else if (tasksViewTab === 'list') {
+                html += renderTasksList();
+            } else if (tasksViewTab === 'planner') {
+                html += renderJahresplaner();
+            }
+
+            html += '</div></div>';
+            container.innerHTML = html;
+
+            // Wire up tab clicks
+            container.querySelectorAll('.tasks-tab').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    tasksViewTab = tab.dataset.tasksTab;
+                    renderTasksView();
+                });
+            });
+        }
+
+        function renderTasksCalendar() {
+            var byMonth = {};
+            taskData.forEach(function(t) {
+                var m = t.dueDateMonth || new Date(t.dueDate).getMonth() + 1;
+                if (!byMonth[m]) byMonth[m] = [];
+                byMonth[m].push(t);
+            });
+
+            var html = '<div class="tasks-calendar">';
+            for (var m = 1; m <= 12; m++) {
+                var tasks = byMonth[m] || [];
+                var hasContent = tasks.length > 0;
+                html += '<div class="calendar-month' + (hasContent ? '' : ' calendar-month-empty') + '">' +
+                    '<div class="calendar-month-header">' +
+                        '<span class="calendar-month-name">' + monthNames[m - 1] + '</span>' +
+                        (hasContent ? '<span class="calendar-month-count">' + tasks.length + '</span>' : '') +
+                    '</div>' +
+                    '<div class="calendar-month-body">';
+
+                tasks.forEach(function(t) {
+                    var statusClass = taskStatusClasses[t.status] || 'status-inactive';
+                    var priorityClass = t.priority === 'Hoch' ? 'priority-high' : t.priority === 'Mittel' ? 'priority-medium' : 'priority-low';
+                    var typeIcon = t.taskType === 'Pflege' ? 'eco' :
+                                   t.taskType === 'Inspektion' ? 'search' :
+                                   t.taskType === 'Sanierung' ? 'build' :
+                                   t.taskType === 'Neophytenbekämpfung' ? 'bug_report' : 'task_alt';
+                    html += '<div class="task-card">' +
+                        '<div class="task-card-header">' +
+                            '<span class="material-symbols-outlined task-type-icon">' + typeIcon + '</span>' +
+                            '<span class="task-priority-badge ' + priorityClass + '">' + escapeHtml(t.priority) + '</span>' +
+                            '<span class="status-badge ' + statusClass + '">' + escapeHtml(t.status) + '</span>' +
+                        '</div>' +
+                        '<div class="task-card-title">' + escapeHtml(t.title) + '</div>' +
+                        '<div class="task-card-meta">' +
+                            '<span><span class="material-symbols-outlined" style="font-size:14px">person</span> ' + getContactName(t.assignedContactId) + '</span>' +
+                            '<span>' + formatDateShort(t.dueDate) + '</span>' +
+                        '</div>';
+
+                    if (t.checklist && t.checklist.length > 0) {
+                        var checked = t.checklist.filter(function(c) { return c.done; }).length;
+                        html += '<div class="task-card-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.round(checked / t.checklist.length * 100) + '%"></div></div><span>' + checked + '/' + t.checklist.length + '</span></div>';
+                    }
+                    html += '</div>';
+                });
+
+                html += '</div></div>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function renderTasksList() {
+            var sorted = taskData.slice().sort(function(a, b) { return new Date(a.dueDate) - new Date(b.dueDate); });
+            var html = '<div class="tasks-list-table"><table>' +
+                '<thead><tr><th>Status</th><th>Priorität</th><th>Titel</th><th>Typ</th><th>Zugewiesen</th><th>Fällig</th><th>Aufwand</th></tr></thead><tbody>';
+            sorted.forEach(function(t) {
+                var statusClass = taskStatusClasses[t.status] || 'status-inactive';
+                var priorityClass = t.priority === 'Hoch' ? 'priority-high' : t.priority === 'Mittel' ? 'priority-medium' : 'priority-low';
+                html += '<tr>' +
+                    '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(t.status) + '</span></td>' +
+                    '<td><span class="task-priority-badge ' + priorityClass + '">' + escapeHtml(t.priority) + '</span></td>' +
+                    '<td>' + escapeHtml(t.title) + '</td>' +
+                    '<td>' + escapeHtml(t.taskType) + '</td>' +
+                    '<td>' + getContactName(t.assignedContactId) + '</td>' +
+                    '<td>' + formatDateShort(t.dueDate) + '</td>' +
+                    '<td>' + (t.actualHours || t.plannedHours || '—') + ' h</td>' +
+                    '</tr>';
+            });
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        function renderJahresplaner() {
+            // Collect all green areas with care profiles
+            var areas = [];
+            if (greenAreaData && greenAreaData.features) {
+                greenAreaData.features.forEach(function(f) {
+                    if (f.properties.careProfileId) areas.push({ id: f.properties.lawnId || f.properties.greenAreaId, name: f.properties.name || f.properties.lawnId, careProfileId: f.properties.careProfileId });
+                });
+            }
+            // Also lawns loaded separately
+            if (plantingData && plantingData.features) {
+                plantingData.features.forEach(function(f) {
+                    if (f.properties.careProfileId) areas.push({ id: f.properties.plantingId, name: f.properties.name || f.properties.plantingId, careProfileId: f.properties.careProfileId });
+                });
+            }
+
+            var html = '<div class="planner-grid"><table><thead><tr><th class="planner-area-col">Fläche / Profil</th>';
+            for (var m = 1; m <= 12; m++) { html += '<th>' + monthNames[m - 1] + '</th>'; }
+            html += '</tr></thead><tbody>';
+
+            areas.forEach(function(area) {
+                var cp = getCareProfile(area.careProfileId);
+                var profileName = cp ? cp.name : area.careProfileId;
+                var color = cp ? cp.mapColor : '#999';
+                html += '<tr><td class="planner-area-col"><strong>' + escapeHtml(area.name) + '</strong><br><span class="planner-profile-label" style="color:' + color + '">' + escapeHtml(profileName) + '</span></td>';
+
+                for (var m = 1; m <= 12; m++) {
+                    var actions = [];
+                    if (cp && cp.careActions) {
+                        cp.careActions.forEach(function(ca) {
+                            if (ca.timingMonths && ca.timingMonths.indexOf(m) !== -1) {
+                                actions.push(ca.actionName);
+                            }
+                        });
+                    }
+                    if (actions.length > 0) {
+                        html += '<td class="planner-cell-active" style="background:' + color + '22;border-left:3px solid ' + color + '">' +
+                            actions.map(function(a) { return '<span class="planner-action">' + escapeHtml(a) + '</span>'; }).join('') + '</td>';
+                    } else {
+                        html += '<td class="planner-cell-empty"></td>';
+                    }
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            return html;
+        }
+
+        // ===== DASHBOARD VIEW =====
+
+        function renderDashboardView() {
+            var container = document.getElementById('dashboard-view');
+            if (!container) return;
+
+            // Calculate KPIs
+            var totalGreenArea = 0;
+            var allAreas = [];
+            if (greenAreaData && greenAreaData.features) {
+                greenAreaData.features.forEach(function(f) { totalGreenArea += (f.properties.areaM2 || 0); allAreas.push(f.properties); });
+            }
+            if (plantingData && plantingData.features) {
+                plantingData.features.forEach(function(f) { totalGreenArea += (f.properties.areaM2 || 0); allAreas.push(f.properties); });
+            }
+
+            var treeCount = treeData && treeData.features ? treeData.features.length : 0;
+            var openTasks = taskData ? taskData.filter(function(t) { return t.status === 'Geplant' || t.status === 'In Bearbeitung'; }).length : 0;
+
+            // Soll/Ist calculation
+            var sollTotal = 0;
+            allAreas.forEach(function(a) {
+                var cp = getCareProfile(a.careProfileId);
+                if (cp && a.areaM2) { sollTotal += cp.costPerM2Year * a.areaM2; }
+            });
+
+            var istTotal = 0;
+            var budgetTotal = 0;
+            var costByCategory = {};
+            if (costData) {
+                costData.forEach(function(c) {
+                    if (c.isActual) {
+                        istTotal += c.amount;
+                    } else {
+                        budgetTotal += c.amount;
+                    }
+                    if (!costByCategory[c.costCategory]) costByCategory[c.costCategory] = { budget: 0, actual: 0 };
+                    if (c.isActual) {
+                        costByCategory[c.costCategory].actual += c.amount;
+                    } else {
+                        costByCategory[c.costCategory].budget += c.amount;
+                    }
+                });
+            }
+            var budgetUtilization = budgetTotal > 0 ? Math.round(istTotal / budgetTotal * 100) : 0;
+
+            // Ecology
+            var co2SeqTotal = 0, co2StoredTotal = 0, replacementTotal = 0;
+            var nativeCount = 0, totalTrees = 0;
+            if (treeData && treeData.features) {
+                treeData.features.forEach(function(f) {
+                    var p = f.properties;
+                    co2SeqTotal += (p.co2SequestrationKgYr || 0);
+                    co2StoredTotal += (p.co2StoredKg || 0);
+                    replacementTotal += (p.replacementValueCHF || 0);
+                    totalTrees++;
+                    if (p.establishmentMeans === 'Einheimisch') nativeCount++;
+                });
+            }
+            var nativePercent = totalTrees > 0 ? Math.round(nativeCount / totalTrees * 100) : 0;
+
+            // Canopy cover from sites
+            var avgCanopy = 0;
+            if (sitesData && sitesData.features && sitesData.features.length > 0) {
+                var canopySum = 0;
+                sitesData.features.forEach(function(f) { canopySum += (f.properties.canopyCoverPercent || 0); });
+                avgCanopy = Math.round(canopySum / sitesData.features.length);
+            }
+
+            // Biodiversity: count extensive profiles
+            var extensiveCount = 0, intensiveCount = 0;
+            allAreas.forEach(function(a) {
+                var cp = getCareProfile(a.careProfileId);
+                if (cp) {
+                    if (cp.ecologyRating >= 4) extensiveCount++;
+                    else intensiveCount++;
+                }
+            });
+            var extensivePercent = (extensiveCount + intensiveCount) > 0 ? Math.round(extensiveCount / (extensiveCount + intensiveCount) * 100) : 0;
+
+            var avgBiodiversity = 0;
+            if (sitesData && sitesData.features && sitesData.features.length > 0) {
+                var bioSum = 0;
+                sitesData.features.forEach(function(f) { bioSum += (f.properties.biodiversityScore || 0); });
+                avgBiodiversity = (bioSum / sitesData.features.length).toFixed(1);
+            }
+
+            // Build HTML
+            var html = '<div class="dashboard-container">' +
+                // KPI Cards
+                '<div class="kpi-cards-row">' +
+                    '<div class="kpi-card"><span class="material-symbols-outlined kpi-icon" style="color:#4caf50">grass</span><div class="kpi-value">' + formatNumber(Math.round(totalGreenArea)) + ' m²</div><div class="kpi-label">Grünfläche gesamt</div></div>' +
+                    '<div class="kpi-card"><span class="material-symbols-outlined kpi-icon" style="color:#2e7d32">forest</span><div class="kpi-value">' + treeCount + '</div><div class="kpi-label">Bäume</div></div>' +
+                    '<div class="kpi-card"><span class="material-symbols-outlined kpi-icon" style="color:#ef6c00">task_alt</span><div class="kpi-value">' + openTasks + '</div><div class="kpi-label">Offene Aufgaben</div></div>' +
+                    '<div class="kpi-card"><span class="material-symbols-outlined kpi-icon" style="color:#1976d2">account_balance</span><div class="kpi-value">' + budgetUtilization + ' %</div><div class="kpi-label">Budget-Auslastung</div></div>' +
+                '</div>' +
+
+                // Cost section
+                '<div class="dashboard-grid">' +
+                    // Soll/Ist
+                    '<div class="dashboard-card">' +
+                        '<h3><span class="material-symbols-outlined">payments</span> Soll/Ist-Vergleich</h3>' +
+                        '<div class="cost-comparison">' +
+                            '<div class="cost-row"><span class="cost-label">Budget (Soll)</span><span class="cost-value">' + formatNumber(Math.round(budgetTotal)) + ' CHF</span></div>' +
+                            '<div class="cost-bar-container"><div class="cost-bar cost-bar-soll" style="width:100%"></div></div>' +
+                            '<div class="cost-row"><span class="cost-label">Effektiv (Ist)</span><span class="cost-value">' + formatNumber(Math.round(istTotal)) + ' CHF</span></div>' +
+                            '<div class="cost-bar-container"><div class="cost-bar cost-bar-ist" style="width:' + Math.min(100, budgetUtilization) + '%"></div></div>' +
+                            '<div class="cost-row cost-row-diff"><span class="cost-label">Differenz</span><span class="cost-value">' + (budgetTotal - istTotal >= 0 ? '+' : '') + formatNumber(Math.round(budgetTotal - istTotal)) + ' CHF</span></div>' +
+                        '</div>' +
+                        '<div class="cost-profile-estimate">' +
+                            '<h4>Profilbasierte Kostenschätzung</h4>' +
+                            '<div class="cost-row"><span class="cost-label">Σ Profil × Fläche</span><span class="cost-value">' + formatNumber(Math.round(sollTotal)) + ' CHF/Jahr</span></div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    // Cost by Category
+                    '<div class="dashboard-card">' +
+                        '<h3><span class="material-symbols-outlined">donut_large</span> Kosten nach Kategorie</h3>' +
+                        '<div class="cost-categories">';
+
+            var categoryColors = { 'Personal': '#1976d2', 'Material': '#4caf50', 'Fremdleistung': '#ef6c00', 'Maschinen': '#9c27b0', 'Entsorgung': '#795548', 'Wasser': '#00bcd4' };
+            var totalCost = budgetTotal + istTotal;
+            Object.keys(costByCategory).forEach(function(cat) {
+                var catTotal = costByCategory[cat].budget + costByCategory[cat].actual;
+                var pct = totalCost > 0 ? Math.round(catTotal / totalCost * 100) : 0;
+                var color = categoryColors[cat] || '#999';
+                html += '<div class="cost-category-row">' +
+                    '<span class="cost-category-label"><span class="cost-category-dot" style="background:' + color + '"></span>' + escapeHtml(cat) + '</span>' +
+                    '<span class="cost-category-value">' + formatNumber(Math.round(catTotal)) + ' CHF</span>' +
+                    '</div>' +
+                    '<div class="cost-bar-container"><div class="cost-bar" style="width:' + pct + '%;background:' + color + '"></div></div>';
+            });
+
+            html += '</div></div>' +
+
+                // Ecology
+                '<div class="dashboard-card">' +
+                    '<h3><span class="material-symbols-outlined">eco</span> Ökologie-Indikatoren</h3>' +
+                    '<div class="ecology-indicators">' +
+                        '<div class="ecology-row"><span class="ecology-label">Biodiversitäts-Score</span><span class="ecology-value ecology-value-highlight">' + avgBiodiversity + ' / 5</span></div>' +
+                        '<div class="ecology-row"><span class="ecology-label">Einheimische Arten</span><span class="ecology-value">' + nativePercent + ' %</span></div>' +
+                        '<div class="cost-bar-container"><div class="cost-bar" style="width:' + nativePercent + '%;background:#4caf50"></div></div>' +
+                        '<div class="ecology-row"><span class="ecology-label">Extensiv gepflegt</span><span class="ecology-value">' + extensivePercent + ' %</span></div>' +
+                        '<div class="cost-bar-container"><div class="cost-bar" style="width:' + extensivePercent + '%;background:#8bc34a"></div></div>' +
+                        '<div class="ecology-row"><span class="ecology-label">Kronendachanteil</span><span class="ecology-value">' + avgCanopy + ' %</span></div>' +
+                        '<div class="cost-bar-container"><div class="cost-bar" style="width:' + avgCanopy + '%;background:#2e7d32"></div></div>' +
+                    '</div>' +
+                '</div>' +
+
+                // Ecosystem Services
+                '<div class="dashboard-card">' +
+                    '<h3><span class="material-symbols-outlined">park</span> Ökosystemleistungen</h3>' +
+                    '<div class="ecosystem-services">' +
+                        '<div class="eco-service-row"><span class="material-symbols-outlined eco-service-icon" style="color:#4caf50">co2</span><div class="eco-service-data"><div class="eco-service-value">' + formatNumber(Math.round(co2SeqTotal)) + ' kg/Jahr</div><div class="eco-service-label">CO₂-Bindung</div></div></div>' +
+                        '<div class="eco-service-row"><span class="material-symbols-outlined eco-service-icon" style="color:#2e7d32">inventory_2</span><div class="eco-service-data"><div class="eco-service-value">' + formatNumber(Math.round(co2StoredTotal)) + ' kg</div><div class="eco-service-label">CO₂ gespeichert</div></div></div>' +
+                        '<div class="eco-service-row"><span class="material-symbols-outlined eco-service-icon" style="color:#ef6c00">account_balance_wallet</span><div class="eco-service-data"><div class="eco-service-value">' + formatNumber(Math.round(replacementTotal)) + ' CHF</div><div class="eco-service-label">Baumwert (Ersatzwert)</div></div></div>' +
+                    '</div>' +
+                '</div>' +
+
+                '</div></div>';
+
+            container.innerHTML = html;
+        }
+
+        // ===== MAP CLICK HANDLERS FOR GREEN FEATURES =====
+
+        function addGreenFeatureClickHandlers() {
+            // Tree click
+            if (treeData && treeData.features && map.getLayer('trees-points')) {
+                map.on('click', 'trees-points', function(e) {
+                    if (e.features && e.features.length > 0) {
+                        var props = e.features[0].properties;
+                        // Parse any stringified arrays/objects from Mapbox
+                        if (typeof props.safetyRelevantDefects === 'string') {
+                            try { props.safetyRelevantDefects = JSON.parse(props.safetyRelevantDefects); } catch(ex) {}
+                        }
+                        showFeatureInfoPanel('Baum', props.treeId, props);
+                    }
+                });
+                map.on('mouseenter', 'trees-points', function() { map.getCanvas().style.cursor = 'pointer'; });
+                map.on('mouseleave', 'trees-points', function() { map.getCanvas().style.cursor = ''; });
+            }
+
+            // Furniture click
+            if (furnitureData && furnitureData.features && map.getLayer('furniture-points')) {
+                map.on('click', 'furniture-points', function(e) {
+                    if (e.features && e.features.length > 0) {
+                        var props = e.features[0].properties;
+                        showFeatureInfoPanel('Mobiliar', props.furnitureId, props);
+                    }
+                });
+                map.on('mouseenter', 'furniture-points', function() { map.getCanvas().style.cursor = 'pointer'; });
+                map.on('mouseleave', 'furniture-points', function() { map.getCanvas().style.cursor = ''; });
+            }
+
+            // Green area (lawn) click
+            if (greenAreaData && greenAreaData.features && map.getLayer('gruenflaechen-fill')) {
+                map.on('click', 'gruenflaechen-fill', function(e) {
+                    if (e.features && e.features.length > 0) {
+                        var props = e.features[0].properties;
+                        var featureId = props.lawnId || props.greenAreaId;
+                        showFeatureInfoPanel('Grünfläche', featureId, props);
+                    }
+                });
+            }
+        }

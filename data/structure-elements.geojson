@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Strukturelemente",
     "description": "Ökologische und bauliche Strukturelemente: Trockenmauern, Treppen, Insektenhotels, Asthaufen, Nisthilfen und weitere Kleinstrukturen mit Biodiversitätswert.",
-    "icon": "wall",
     "geometryType": "Point",
     "source": "Green Area Inventory Intern"
   },

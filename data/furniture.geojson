@@ -3,7 +3,6 @@
   "layerInfo": {
     "name": "Mobiliar",
     "description": "Parkausstattung und Mobiliar: Sitzbänke, Trinkbrunnen, Spielgeräte, Abfallbehälter, Veloständer, Beleuchtung und Beschilderung.",
-    "icon": "chair",
     "geometryType": "Point",
     "source": "Green Area Inventory Intern"
   },
