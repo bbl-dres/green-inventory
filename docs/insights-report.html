@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Claude Code Insights</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; color: #334155; line-height: 1.65; padding: 48px 24px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 32px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 600; color: #0f172a; margin-top: 48px; margin-bottom: 16px; }
+    .subtitle { color: #64748b; font-size: 15px; margin-bottom: 32px; }
+    .nav-toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 32px 0; padding: 16px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .nav-toc a { font-size: 12px; color: #64748b; text-decoration: none; padding: 6px 12px; border-radius: 6px; background: #f1f5f9; transition: all 0.15s; }
+    .nav-toc a:hover { background: #e2e8f0; color: #334155; }
+    .stats-row { display: flex; gap: 24px; margin-bottom: 40px; padding: 20px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 24px; font-weight: 700; color: #0f172a; }
+    .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+    .at-a-glance { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; border-radius: 12px; padding: 20px 24px; margin-bottom: 32px; }
+    .glance-title { font-size: 16px; font-weight: 700; color: #92400e; margin-bottom: 16px; }
+    .glance-sections { display: flex; flex-direction: column; gap: 12px; }
+    .glance-section { font-size: 14px; color: #78350f; line-height: 1.6; }
+    .glance-section strong { color: #92400e; }
+    .see-more { color: #b45309; text-decoration: none; font-size: 13px; white-space: nowrap; }
+    .see-more:hover { text-decoration: underline; }
+    .project-areas { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+    .project-area { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .area-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .area-name { font-weight: 600; font-size: 15px; color: #0f172a; }
+    .area-count { font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; }
+    .area-desc { font-size: 14px; color: #475569; line-height: 1.5; }
+    .narrative { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    .narrative p { margin-bottom: 12px; font-size: 14px; color: #475569; line-height: 1.7; }
+    .key-insight { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-top: 12px; font-size: 14px; color: #166534; }
+    .section-intro { font-size: 14px; color: #64748b; margin-bottom: 16px; }
+    .big-wins { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .big-win { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; }
+    .big-win-title { font-weight: 600; font-size: 15px; color: #166534; margin-bottom: 8px; }
+    .big-win-desc { font-size: 14px; color: #15803d; line-height: 1.5; }
+    .friction-categories { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+    .friction-category { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 16px; }
+    .friction-title { font-weight: 600; font-size: 15px; color: #991b1b; margin-bottom: 6px; }
+    .friction-desc { font-size: 13px; color: #7f1d1d; margin-bottom: 10px; }
+    .friction-examples { margin: 0 0 0 20px; font-size: 13px; color: #334155; }
+    .friction-examples li { margin-bottom: 4px; }
+    .claude-md-section { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .claude-md-section h3 { font-size: 14px; font-weight: 600; color: #1e40af; margin: 0 0 12px 0; }
+    .claude-md-actions { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #dbeafe; }
+    .copy-all-btn { background: #2563eb; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s; }
+    .copy-all-btn:hover { background: #1d4ed8; }
+    .copy-all-btn.copied { background: #16a34a; }
+    .claude-md-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 10px 0; border-bottom: 1px solid #dbeafe; }
+    .claude-md-item:last-child { border-bottom: none; }
+    .cmd-checkbox { margin-top: 2px; }
+    .cmd-code { background: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #1e40af; border: 1px solid #bfdbfe; font-family: monospace; display: block; white-space: pre-wrap; word-break: break-word; flex: 1; }
+    .cmd-why { font-size: 12px; color: #64748b; width: 100%; padding-left: 24px; margin-top: 4px; }
+    .features-section, .patterns-section { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+    .feature-card { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 16px; }
+    .pattern-card { background: #f0f9ff; border: 1px solid #7dd3fc; border-radius: 8px; padding: 16px; }
+    .feature-title, .pattern-title { font-weight: 600; font-size: 15px; color: #0f172a; margin-bottom: 6px; }
+    .feature-oneliner { font-size: 14px; color: #475569; margin-bottom: 8px; }
+    .pattern-summary { font-size: 14px; color: #475569; margin-bottom: 8px; }
+    .feature-why, .pattern-detail { font-size: 13px; color: #334155; line-height: 1.5; }
+    .feature-examples { margin-top: 12px; }
+    .feature-example { padding: 8px 0; border-top: 1px solid #d1fae5; }
+    .feature-example:first-child { border-top: none; }
+    .example-desc { font-size: 13px; color: #334155; margin-bottom: 6px; }
+    .example-code-row { display: flex; align-items: flex-start; gap: 8px; }
+    .example-code { flex: 1; background: #f1f5f9; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #334155; overflow-x: auto; white-space: pre-wrap; }
+    .copyable-prompt-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+    .copyable-prompt-row { display: flex; align-items: flex-start; gap: 8px; }
+    .copyable-prompt { flex: 1; background: #f8fafc; padding: 10px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #334155; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
+    .feature-code { background: #f8fafc; padding: 12px; border-radius: 6px; margin-top: 12px; border: 1px solid #e2e8f0; display: flex; align-items: flex-start; gap: 8px; }
+    .feature-code code { flex: 1; font-family: monospace; font-size: 12px; color: #334155; white-space: pre-wrap; }
+    .pattern-prompt { background: #f8fafc; padding: 12px; border-radius: 6px; margin-top: 12px; border: 1px solid #e2e8f0; }
+    .pattern-prompt code { font-family: monospace; font-size: 12px; color: #334155; display: block; white-space: pre-wrap; margin-bottom: 8px; }
+    .prompt-label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+    .copy-btn { background: #e2e8f0; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; color: #475569; flex-shrink: 0; }
+    .copy-btn:hover { background: #cbd5e1; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 24px 0; }
+    .chart-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+    .chart-title { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 12px; }
+    .bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+    .bar-label { width: 100px; font-size: 11px; color: #475569; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { flex: 1; height: 6px; background: #f1f5f9; border-radius: 3px; margin: 0 8px; }
+    .bar-fill { height: 100%; border-radius: 3px; }
+    .bar-value { width: 28px; font-size: 11px; font-weight: 500; color: #64748b; text-align: right; }
+    .empty { color: #94a3b8; font-size: 13px; }
+    .horizon-section { display: flex; flex-direction: column; gap: 16px; }
+    .horizon-card { background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%); border: 1px solid #c4b5fd; border-radius: 8px; padding: 16px; }
+    .horizon-title { font-weight: 600; font-size: 15px; color: #5b21b6; margin-bottom: 8px; }
+    .horizon-possible { font-size: 14px; color: #334155; margin-bottom: 10px; line-height: 1.5; }
+    .horizon-tip { font-size: 13px; color: #6b21a8; background: rgba(255,255,255,0.6); padding: 8px 12px; border-radius: 4px; }
+    .feedback-header { margin-top: 48px; color: #64748b; font-size: 16px; }
+    .feedback-intro { font-size: 13px; color: #94a3b8; margin-bottom: 16px; }
+    .feedback-section { margin-top: 16px; }
+    .feedback-section h3 { font-size: 14px; font-weight: 600; color: #475569; margin-bottom: 12px; }
+    .feedback-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .feedback-card.team-card { background: #eff6ff; border-color: #bfdbfe; }
+    .feedback-card.model-card { background: #faf5ff; border-color: #e9d5ff; }
+    .feedback-title { font-weight: 600; font-size: 14px; color: #0f172a; margin-bottom: 6px; }
+    .feedback-detail { font-size: 13px; color: #475569; line-height: 1.5; }
+    .feedback-evidence { font-size: 12px; color: #64748b; margin-top: 8px; }
+    .fun-ending { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 24px; margin-top: 40px; text-align: center; }
+    .fun-headline { font-size: 18px; font-weight: 600; color: #78350f; margin-bottom: 8px; }
+    .fun-detail { font-size: 14px; color: #92400e; }
+    .collapsible-section { margin-top: 16px; }
+    .collapsible-header { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+    .collapsible-header h3 { margin: 0; font-size: 14px; font-weight: 600; color: #475569; }
+    .collapsible-arrow { font-size: 12px; color: #94a3b8; transition: transform 0.2s; }
+    .collapsible-content { display: none; padding-top: 16px; }
+    .collapsible-content.open { display: block; }
+    .collapsible-header.open .collapsible-arrow { transform: rotate(90deg); }
+    @media (max-width: 640px) { .charts-row { grid-template-columns: 1fr; } .stats-row { justify-content: center; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Claude Code Insights</h1>
+    <p class="subtitle">0 messages across 0 sessions |  to </p>
+
+    
+    <div class="at-a-glance">
+      <div class="glance-title">At a Glance</div>
+      <div class="glance-sections">
+        <div class="glance-section"><strong>What's working:</strong> You're starting fresh with Claude Code, which is actually a great position to be in — no bad habits to unlearn. You have the chance to build an effective workflow from day one by being intentional about how you structure your interactions. <a href="#section-wins" class="see-more">Impressive Things You Did →</a></div>
+        <div class="glance-section"><strong>What's hindering you:</strong> On Claude's side, there's nothing to report yet since you haven't had any sessions — so no friction to speak of. On your side, the main thing is simply getting started; consider picking a real project task (even a small one) to break the ice and see what Claude Code can do in practice. <a href="#section-friction" class="see-more">Where Things Go Wrong →</a></div>
+        <div class="glance-section"><strong>Quick wins to try:</strong> Before your first real session, create a `CLAUDE.md` file in your project root with key context about your codebase — this gives Claude persistent memory across sessions and dramatically improves results. Then start with a codebase exploration task (like asking Claude to document or map out your project structure) before jumping into edits, so you both get oriented together. <a href="#section-features" class="see-more">Features to Try →</a></div>
+        <div class="glance-section"><strong>Ambitious workflows:</strong> As models get more capable in the coming months, you'll be able to kick off autonomous test-driven development where Claude writes failing tests from a spec and iterates until they pass — no hand-holding required. Getting comfortable now with small, well-scoped tasks and clear specs will prepare you to hand off increasingly complex end-to-end feature work as these capabilities mature. <a href="#section-horizon" class="see-more">On the Horizon →</a></div>
+      </div>
+    </div>
+    
+
+    <nav class="nav-toc">
+      <a href="#section-work">What You Work On</a>
+      <a href="#section-usage">How You Use CC</a>
+      <a href="#section-wins">Impressive Things</a>
+      <a href="#section-friction">Where Things Go Wrong</a>
+      <a href="#section-features">Features to Try</a>
+      <a href="#section-patterns">New Usage Patterns</a>
+      <a href="#section-horizon">On the Horizon</a>
+      <a href="#section-feedback">Team Feedback</a>
+    </nav>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Messages</div></div>
+      <div class="stat"><div class="stat-value">+0/-0</div><div class="stat-label">Lines</div></div>
+      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Files</div></div>
+      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Days</div></div>
+      <div class="stat"><div class="stat-value">0</div><div class="stat-label">Msgs/Day</div></div>
+    </div>
+
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">What You Wanted</div>
+        <p class="empty">No data</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Tools Used</div>
+        <p class="empty">No data</p>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Languages</div>
+        <p class="empty">No data</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Session Types</div>
+        <p class="empty">No data</p>
+      </div>
+    </div>
+
+    
+    <h2 id="section-usage">How You Use Claude Code</h2>
+    <div class="narrative">
+      <p>Based on the data provided, <strong>there are no recorded sessions, messages, or interactions to analyze</strong>. Your usage data shows zero sessions, zero messages, zero hours, and zero commits across all tracked metrics. Every category — tools, goals, outcomes, satisfaction, friction, success, and languages — is completely empty, with no session summaries or friction details captured.</p>
+<p>This means <strong>you either haven't started using Claude Code yet, or your usage data was not properly captured or exported</strong>. Without any interaction history, it's impossible to determine whether you tend to iterate quickly, provide detailed upfront specifications, interrupt Claude mid-task, or let it run autonomously. There are no examples of tool usage patterns, preferred programming languages, or common goals to draw from. To generate a meaningful interaction style analysis, you would need to use Claude Code for at least a few sessions so that patterns in your workflow can emerge.</p>
+      <div class="key-insight"><strong>Key pattern:</strong> No interaction style can be determined as there is zero recorded usage data.</div>
+    </div>
+    
+
+    <!-- Response Time Distribution -->
+    <div class="chart-card" style="margin: 24px 0;">
+      <div class="chart-title">User Response Time Distribution</div>
+      <p class="empty">No response time data</p>
+      <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
+        Median: 0.0s &bull; Average: 0.0s
+      </div>
+    </div>
+
+    <!-- Multi-clauding Section (matching Python reference) -->
+    <div class="chart-card" style="margin: 24px 0;">
+      <div class="chart-title">Multi-Clauding (Parallel Sessions)</div>
+      
+        <p style="font-size: 14px; color: #64748b; padding: 8px 0;">
+          No parallel session usage detected. You typically work with one Claude Code session at a time.
+        </p>
+      
+    </div>
+
+    <!-- Time of Day & Tool Errors -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title" style="display: flex; align-items: center; gap: 12px;">
+          User Messages by Time of Day
+          <select id="timezone-select" style="font-size: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+            <option value="0">PT (UTC-8)</option>
+            <option value="3">ET (UTC-5)</option>
+            <option value="8">London (UTC)</option>
+            <option value="9">CET (UTC+1)</option>
+            <option value="17">Tokyo (UTC+9)</option>
+            <option value="custom">Custom offset...</option>
+          </select>
+          <input type="number" id="custom-offset" placeholder="UTC offset" style="display: none; width: 80px; font-size: 12px; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0;">
+        </div>
+        <p class="empty">No time data</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Tool Errors Encountered</div>
+        <p class="empty">No tool errors</p>
+      </div>
+    </div>
+
+    
+    <h2 id="section-wins">Impressive Things You Did</h2>
+    <p class="section-intro">Your usage data appears to be empty with no recorded sessions, so the following highlights are based on your potential as a new Claude Code user ready to explore powerful workflows.</p>
+    <div class="big-wins">
+      
+        <div class="big-win">
+          <div class="big-win-title">Fresh Start, Clean Slate</div>
+          <div class="big-win-desc">You're at the very beginning of your Claude Code journey with zero sessions recorded. This means you have the opportunity to build great habits from day one, like using clear prompts and leveraging tool integrations effectively.</div>
+        </div>
+      
+        <div class="big-win">
+          <div class="big-win-title">Unlimited Potential Ahead</div>
+          <div class="big-win-desc">With no prior friction or failed outcomes on record, you're starting without any baggage. You can dive into Claude Code with a structured approach, experimenting with commit workflows, code generation, and iterative debugging from the start.</div>
+        </div>
+      
+        <div class="big-win">
+          <div class="big-win-title">Opportunity to Define Workflows</div>
+          <div class="big-win-desc">You haven't yet established patterns, which means you can intentionally design your ideal workflows. Consider setting up custom instructions, exploring multi-file editing, and using Claude Code for test-driven development to maximize your productivity early on.</div>
+        </div>
+      
+    </div>
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">What Helped Most (Claude's Capabilities)</div>
+        <p class="empty">No data</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Outcomes</div>
+        <p class="empty">No data</p>
+      </div>
+    </div>
+
+    
+    <h2 id="section-friction">Where Things Go Wrong</h2>
+    <p class="section-intro">There is no usage data available to analyze, so no friction patterns can be identified from your Claude Code sessions.</p>
+    <div class="friction-categories">
+      
+        <div class="friction-category">
+          <div class="friction-title">No Recorded Sessions</div>
+          <div class="friction-desc">You have zero recorded sessions in the dataset, which means either you haven't started using Claude Code yet or your usage isn't being tracked. Consider starting a few sessions to build up data that can be analyzed for improvement opportunities.</div>
+          <ul class="friction-examples"><li>Zero sessions captured means there's no baseline to measure your productivity or identify recurring issues</li><li>Without session history, you can't track whether your workflows are improving over time</li></ul>
+        </div>
+      
+        <div class="friction-category">
+          <div class="friction-title">Missing Tool Engagement</div>
+          <div class="friction-desc">You have no recorded tool usage, suggesting you may not yet be leveraging Claude Code's built-in capabilities like file editing, bash commands, or search. Experimenting with these tools could significantly accelerate your development workflow.</div>
+          <ul class="friction-examples"><li>No top tools recorded indicates you haven't explored capabilities like file reading, code searching, or automated editing</li><li>Without tool engagement data, it's impossible to tell if you're underutilizing features that could save you time</li></ul>
+        </div>
+      
+        <div class="friction-category">
+          <div class="friction-title">No Goals or Outcomes Tracked</div>
+          <div class="friction-desc">You have no captured goals or outcome data, which means there's no way to assess whether your interactions are achieving what you need. Setting clear goals when starting sessions and providing feedback would help identify what's working and what isn't.</div>
+          <ul class="friction-examples"><li>Zero commits and no recorded goals suggest you haven't yet used Claude Code for concrete development tasks that produce measurable output</li><li>No satisfaction or success metrics are available, making it impossible to pinpoint where your experience could be improved</li></ul>
+        </div>
+      
+    </div>
+    
+
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">Primary Friction Types</div>
+        <p class="empty">No data</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Inferred Satisfaction (model-estimated)</div>
+        <p class="empty">No data</p>
+      </div>
+    </div>
+
+    
+    
+    <h2 id="section-features">Existing CC Features to Try</h2>
+    <div class="claude-md-section">
+      <h3>Suggested CLAUDE.md Additions</h3>
+      <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code to add it to your CLAUDE.md.</p>
+      <div class="claude-md-actions">
+        <button class="copy-all-btn" onclick="copyAllCheckedClaudeMd()">Copy All Checked</button>
+      </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-0" class="cmd-checkbox" checked data-text="Create a new CLAUDE.md file in your project root and add this as the first section. Fill in your project description, primary language, framework, and any coding conventions.\n\n## Project Overview
+
+Describe your project, tech stack, and key conventions here so Claude has context from the start of every session.">
+          <label for="cmd-0">
+            <code class="cmd-code">## Project Overview
+
+Describe your project, tech stack, and key conventions here so Claude has context from the start of every session.</code>
+            <button class="copy-btn" onclick="copyCmdItem(0)">Copy</button>
+          </label>
+          <div class="cmd-why">With no session data captured yet, establishing a CLAUDE.md foundation now means Claude will have project context from your very first real session, avoiding repetitive explanations.</div>
+        </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-1" class="cmd-checkbox" checked data-text="Add under a new ## Testing section in CLAUDE.md. Replace `&lt;your test command&gt;` with your actual test runner (e.g., `npm test`, `pytest`, `cargo test`).\n\n## Testing
+
+After modifying any source file, suggest running the relevant test suite. Use `&lt;your test command&gt;` to run tests.">
+          <label for="cmd-1">
+            <code class="cmd-code">## Testing
+
+After modifying any source file, suggest running the relevant test suite. Use `&lt;your test command&gt;` to run tests.</code>
+            <button class="copy-btn" onclick="copyCmdItem(1)">Copy</button>
+          </label>
+          <div class="cmd-why">Pre-establishing testing expectations in CLAUDE.md prevents the common friction pattern of Claude making changes without verifying them, saving you from having to repeat 'run the tests' across sessions.</div>
+        </div>
+      
+        <div class="claude-md-item">
+          <input type="checkbox" id="cmd-2" class="cmd-checkbox" checked data-text="Add under a new ## Code Style section in CLAUDE.md. Customize with your specific linting/formatting tools and any strong preferences.\n\n## Code Style
+
+Follow the existing patterns in the codebase. Do not introduce new dependencies or change tooling without asking first.">
+          <label for="cmd-2">
+            <code class="cmd-code">## Code Style
+
+Follow the existing patterns in the codebase. Do not introduce new dependencies or change tooling without asking first.</code>
+            <button class="copy-btn" onclick="copyCmdItem(2)">Copy</button>
+          </label>
+          <div class="cmd-why">Setting guardrails before you start using Claude Code heavily prevents unwanted changes and reduces back-and-forth corrections that commonly appear in early usage.</div>
+        </div>
+      
+    </div>
+    
+    
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code and it'll set it up for you.</p>
+    <div class="features-section">
+      
+        <div class="feature-card">
+          <div class="feature-title">Custom Skills</div>
+          <div class="feature-oneliner">Reusable prompts that run with a single /command for repetitive workflows.</div>
+          <div class="feature-why"><strong>Why for you:</strong> As a new Claude Code user, setting up skills like /commit and /review from the start will build efficient habits and save time on repetitive tasks as your usage grows.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code">mkdir -p .claude/skills/commit &amp;&amp; cat &gt; .claude/skills/commit/SKILL.md &lt;&lt; 'EOF'
+Review all staged changes with `git diff --cached`. Write a concise, conventional commit message. Format: `type(scope): description`. Types: feat, fix, docs, refactor, test, chore. Ask for confirmation before committing.
+EOF</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="feature-card">
+          <div class="feature-title">Hooks</div>
+          <div class="feature-oneliner">Shell commands that auto-run at specific lifecycle events like after file edits.</div>
+          <div class="feature-why"><strong>Why for you:</strong> Hooks let you enforce quality gates (linting, formatting, type-checking) automatically so Claude's output always meets your standards without manual intervention.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code">Add to .claude/settings.json:
+{
+  &quot;hooks&quot;: {
+    &quot;postToolUse&quot;: [
+      {
+        &quot;matcher&quot;: &quot;Edit|Write&quot;,
+        &quot;command&quot;: &quot;echo 'File modified — remember to run tests'&quot;
+      }
+    ]
+  }
+}</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="feature-card">
+          <div class="feature-title">Headless Mode</div>
+          <div class="feature-oneliner">Run Claude non-interactively from scripts and CI/CD pipelines.</div>
+          <div class="feature-why"><strong>Why for you:</strong> Once you're comfortable with interactive use, headless mode lets you automate repetitive tasks like fixing lint errors or generating boilerplate across multiple files in batch.</div>
+          
+          <div class="feature-examples">
+            <div class="feature-example">
+              <div class="example-code-row">
+                <code class="example-code">claude -p &quot;Review all files in src/ for obvious bugs and security issues. List findings as a markdown checklist.&quot; --allowedTools &quot;Read,Bash&quot;</code>
+                <button class="copy-btn" onclick="copyText(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      
+    </div>
+    
+    
+    <h2 id="section-patterns">New Ways to Use Claude Code</h2>
+    <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Just copy this into Claude Code and it'll walk you through it.</p>
+    <div class="patterns-section">
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Start with a CLAUDE.md file</div>
+          <div class="pattern-summary">Create a CLAUDE.md in your project root before your first real session to give Claude persistent context.</div>
+          <div class="pattern-detail">Your data shows zero sessions so far, which is the perfect time to set up CLAUDE.md. This file persists across all sessions and tells Claude about your project, conventions, and preferences. Without it, you'll end up repeating the same instructions every session. Even a minimal file with your tech stack, test commands, and code style preferences will dramatically improve first-session quality.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Create a CLAUDE.md file for this project. Analyze the codebase to determine the tech stack, project structure, testing setup, and coding conventions. Include sections for: Project Overview, Tech Stack, Testing, Code Style, and Common Commands.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Use your first sessions for codebase exploration</div>
+          <div class="pattern-summary">Start by asking Claude to explore and document your codebase before making changes.</div>
+          <div class="pattern-detail">New users get the most value by first letting Claude build a mental model of the codebase. Ask Claude to explore architecture, identify patterns, and explain complex areas. This builds trust in Claude's understanding before you rely on it for edits. The exploration also helps Claude give better suggestions in future sessions when it has CLAUDE.md context to reference.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Explore this codebase and give me a high-level architecture overview. Identify the main entry points, key modules, data flow patterns, and any areas that look complex or fragile. Summarize in a way that would help a new developer onboard.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+        <div class="pattern-card">
+          <div class="pattern-title">Build up to complex tasks gradually</div>
+          <div class="pattern-summary">Start with small, well-scoped tasks (single file edits, test writing) before attempting large refactors.</div>
+          <div class="pattern-detail">The most successful Claude Code users start with contained tasks where it's easy to verify correctness — writing tests for existing code, adding documentation, fixing a specific bug. This lets you calibrate how Claude works with your codebase and establish patterns in CLAUDE.md before tackling multi-file refactors or new features. Each session teaches you what instructions Claude needs to do well in your project.</div>
+          
+          <div class="copyable-prompt-section">
+            <div class="prompt-label">Paste into Claude Code:</div>
+            <div class="copyable-prompt-row">
+              <code class="copyable-prompt">Write unit tests for the most critical function in this project that currently has no test coverage. Identify the function, explain why it's critical, then write thorough tests covering happy paths and edge cases.</code>
+              <button class="copy-btn" onclick="copyText(this)">Copy</button>
+            </div>
+          </div>
+          
+        </div>
+      
+    </div>
+    
+    
+
+    
+    <h2 id="section-horizon">On the Horizon</h2>
+    <p class="section-intro">AI-assisted development is rapidly shifting from interactive pair programming toward fully autonomous workflows where agents plan, execute, test, and iterate independently across entire codebases.</p>
+    <div class="horizon-section">
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Autonomous Test-Driven Feature Development</div>
+          <div class="horizon-possible">Claude Code can autonomously write a failing test suite from a spec, then iteratively implement code until all tests pass — without human intervention. This creates a tight feedback loop where the agent self-corrects across dozens of iterations, producing production-ready features that are validated by design.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Use Claude Code with the --dangerously-skip-permissions flag in a sandboxed environment to let it run tests autonomously, or configure allowed tools in your settings to permit test execution loops.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>I need you to implement a complete feature using strict test-driven development. Here's the spec: [DESCRIBE FEATURE]. First, write comprehensive failing tests covering all edge cases. Then implement the code iteratively — after each implementation attempt, run the full test suite, analyze failures, fix the code, and repeat until every test passes. Do not ask me for input until all tests are green. Show me a summary of iterations and final test results when done.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Parallel Multi-Agent Codebase Migration</div>
+          <div class="horizon-possible">Multiple Claude Code agents can work in parallel across different modules of a codebase to perform large-scale migrations — upgrading frameworks, refactoring APIs, or converting languages. Each agent handles an isolated module, runs its own test suite, and the results converge into a single coherent migration branch.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Launch multiple Claude Code instances in separate terminal sessions or use shell scripting to spawn parallel agents, each targeting a different directory or module with git worktrees for isolation.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>I'm migrating our codebase from [OLD_FRAMEWORK] to [NEW_FRAMEWORK]. The project has these independent modules: [LIST MODULES]. For the module in ./[MODULE_PATH], do the following autonomously: 1) Analyze all files and map dependencies on the old framework, 2) Rewrite each file to use the new framework's patterns and APIs, 3) Update all imports and configuration files, 4) Run the existing test suite and fix any failures iteratively until all tests pass, 5) Write a MIGRATION_NOTES.md summarizing every change made and any manual follow-ups needed. Do not stop until tests pass.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+        <div class="horizon-card">
+          <div class="horizon-title">Self-Healing CI Pipeline Debug Agent</div>
+          <div class="horizon-possible">When a CI pipeline fails, Claude Code can autonomously pull the failure logs, diagnose root causes across code, configuration, and infrastructure layers, then implement and verify fixes. This transforms broken builds from 30-minute investigations into sub-5-minute autonomous resolutions that commit directly to the fix branch.</div>
+          <div class="horizon-tip"><strong>Getting started:</strong> Pipe CI failure logs directly into Claude Code via stdin or file, and grant it permission to read logs, edit source files, and run the test suite locally to verify fixes before committing.</div>
+          <div class="pattern-prompt"><div class="prompt-label">Paste into Claude Code:</div><code>Our CI pipeline just failed. Here are the logs: [PASTE LOGS OR: the failure logs are in ./ci-output.log]. Autonomously diagnose the root cause by: 1) Parsing the error messages and stack traces, 2) Tracing the failures back to specific source files, config files, or dependency issues, 3) Implementing the minimal fix required, 4) Running the relevant test suite locally to confirm the fix resolves the failure, 5) If tests still fail, iterate on the fix until they pass, 6) Create a git commit with a clear message explaining the root cause and fix. Do not ask for guidance — resolve this end-to-end and report back with your diagnosis and what you changed.</code><button class="copy-btn" onclick="copyText(this)">Copy</button></div>
+        </div>
+      
+    </div>
+    
+
+    
+    <div class="fun-ending">
+      <div class="fun-headline">"The Ghost Town Sessions: Someone set up Claude Code tracking but never actually started a single conversation — like buying a gym membership on January 1st"</div>
+      <div class="fun-detail">The usage data is completely empty: zero sessions, zero messages, zero hours, zero commits. The tooling is ready and waiting, but no one has shown up yet. A perfect monument to good intentions.</div>
+    </div>
+    
+
+    
+  </div>
+  <script>
+    function toggleCollapsible(header) {
+      header.classList.toggle('open');
+      const content = header.nextElementSibling;
+      content.classList.toggle('open');
+    }
+    function copyText(btn) {
+      const code = btn.previousElementSibling;
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    }
+    function copyCmdItem(idx) {
+      const checkbox = document.getElementById('cmd-' + idx);
+      if (checkbox) {
+        const text = checkbox.dataset.text;
+        navigator.clipboard.writeText(text).then(() => {
+          const btn = checkbox.nextElementSibling.querySelector('.copy-btn');
+          if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+        });
+      }
+    }
+    function copyAllCheckedClaudeMd() {
+      const checkboxes = document.querySelectorAll('.cmd-checkbox:checked');
+      const texts = [];
+      checkboxes.forEach(cb => {
+        if (cb.dataset.text) { texts.push(cb.dataset.text); }
+      });
+      const combined = texts.join('\n');
+      const btn = document.querySelector('.copy-all-btn');
+      if (btn) {
+        navigator.clipboard.writeText(combined).then(() => {
+          btn.textContent = 'Copied ' + texts.length + ' items!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy All Checked'; btn.classList.remove('copied'); }, 2000);
+        });
+      }
+    }
+    // Timezone selector for time of day chart (data is from our own analytics, not user input)
+    const rawHourCounts = {};
+    function updateHourHistogram(offsetFromPT) {
+      const periods = [
+        { label: "Morning (6-12)", range: [6,7,8,9,10,11] },
+        { label: "Afternoon (12-18)", range: [12,13,14,15,16,17] },
+        { label: "Evening (18-24)", range: [18,19,20,21,22,23] },
+        { label: "Night (0-6)", range: [0,1,2,3,4,5] }
+      ];
+      const adjustedCounts = {};
+      for (const [hour, count] of Object.entries(rawHourCounts)) {
+        const newHour = (parseInt(hour) + offsetFromPT + 24) % 24;
+        adjustedCounts[newHour] = (adjustedCounts[newHour] || 0) + count;
+      }
+      const periodCounts = periods.map(p => ({
+        label: p.label,
+        count: p.range.reduce((sum, h) => sum + (adjustedCounts[h] || 0), 0)
+      }));
+      const maxCount = Math.max(...periodCounts.map(p => p.count)) || 1;
+      const container = document.getElementById('hour-histogram');
+      container.textContent = '';
+      periodCounts.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = p.label;
+        const track = document.createElement('div');
+        track.className = 'bar-track';
+        const fill = document.createElement('div');
+        fill.className = 'bar-fill';
+        fill.style.width = (p.count / maxCount) * 100 + '%';
+        fill.style.background = '#8b5cf6';
+        track.appendChild(fill);
+        const value = document.createElement('div');
+        value.className = 'bar-value';
+        value.textContent = p.count;
+        row.appendChild(label);
+        row.appendChild(track);
+        row.appendChild(value);
+        container.appendChild(row);
+      });
+    }
+    document.getElementById('timezone-select').addEventListener('change', function() {
+      const customInput = document.getElementById('custom-offset');
+      if (this.value === 'custom') {
+        customInput.style.display = 'inline-block';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+        updateHourHistogram(parseInt(this.value));
+      }
+    });
+    document.getElementById('custom-offset').addEventListener('change', function() {
+      const offset = parseInt(this.value) + 8;
+      updateHourHistogram(offset);
+    });
+  </script>
+</body>
+</html>
