@@ -1,4 +1,6 @@
-# Green Area Inventory / Grünflächeninventar GIS
+# Green Area Inventory / Grünflächeninventar
+
+![Social Media PReview](assets/Preview1.jpg)
 
 > [!CAUTION]
 > **This is an unofficial mockup for demonstration purposes only.**
