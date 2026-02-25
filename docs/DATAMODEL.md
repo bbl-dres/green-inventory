@@ -23,7 +23,7 @@ This document defines the canonical data model for the Green Area Inventory — 
 
 | Principle | Description |
 |-----------|-------------|
-| **Flat Structure** | All fields live at the top level of each entity — no nested `extensionData` objects. This simplifies querying and aligns with the standalone nature of the application. |
+| **Flat Structure** | All fields live at the top level of each entity. Extension fields use dot-notation flat keys (e.g., `extensionData.numberOfFloors`) rather than nested objects. This simplifies querying, aligns with FME GeoJSON output, and keeps the structure compatible with standard GIS tooling. |
 | **Traceability** | All entities include `validFrom`/`validUntil` for temporal tracking and `eventType` for domain events. |
 | **Standards Compliance** | Uses ISO 8601 for dates, ISO 4217 for currencies (`CHF`), Darwin Core for species taxonomy, and aligns with the GSZ Profilkatalog for care profiles. |
 | **Spatial First** | Core entities carry geometry; GeoJSON files comply with RFC 7946 (WGS84 coordinates). Optional LV95 fields provide Swiss coordinate support. |
@@ -52,7 +52,7 @@ The data model aligns with the following international and Swiss standards:
 | Standard | Alignment | Mapped Entities |
 |----------|-----------|-----------------|
 | **OGC CityGML 3.0** — Vegetation Module | SolitaryVegetationObject → Tree; PlantCover → GreenArea; species, height, trunkDiameter mapped directly | Tree, GreenArea |
-| **EU INSPIRE** — Protected Sites / Land Use | Site boundary → ProtectedSite; CareProfile → PlannedLandUse; temporal model aligns with INSPIRE lifecycle | Site, GreenArea, CareProfile |
+| **EU INSPIRE** — Protected Sites / Land Use | Site location → ProtectedSite; CareProfile → PlannedLandUse; temporal model aligns with INSPIRE lifecycle | Site, GreenArea, CareProfile |
 | **FLL Baumkontrollrichtlinie** | VTA inspection zones (root/collar/trunk/crown/branches) mapped to Inspection.damageFindings; urgency levels aligned | Inspection, Tree |
 | **DIN EN 1176/1177** | Playground safety inspection protocol supported via Inspection.inspectionType = `PlaygroundDIN1176` | Inspection, Furniture |
 | **SIA 318** | Swiss landscape construction standard referenced for quality levels and maintenance categories | CareProfile, CareAction |
@@ -244,7 +244,7 @@ Entities are organized by their role in the application. **Reference layers** pr
 
 | # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Description |
 |--:|-------------|-------------|----------|--------|-------------|-------------|
-| 1 | **Building** | Gebäude | Point | MVP | `data/buildings.geojson` | Buildings from external FM master system. Type field: `primaryTypeOfBuilding` (Bürogebäude, Wohngebäude, Bildungsgebäude, Lagergebäude, Technisches Gebäude). |
+| 1 | **Building** | Gebäude | Polygon | MVP | `data/buildings.geojson` | Building footprints from external FM master system. Type field: `primaryTypeOfBuilding` (Bürogebäude, Wohngebäude, Bildungsgebäude, Lagergebäude, Technisches Gebäude). |
 | 2 | **Parcel** | Grundstück | Polygon | MVP | `data/parcels.geojson` | Land parcels from cadastral/FM system. Type field: `landUseZone` (Verwaltungszone, Wohnzone, Industriezone, Bildungszone). |
 
 ##### Vegetation Layers (editable polygons — GSZ Cat. 1, 2, 5, 7, 8)
@@ -323,7 +323,7 @@ Entities are organized into functional layers:
 For the demo stage, entities are stored in flat JSON and GeoJSON files:
 
 ```
-data/sites.geojson          → Site polygons
+data/sites.geojson          → Site points (map markers)
 data/green-areas.geojson    → GreenArea polygons
 data/trees.geojson          → Tree points
 data/furniture.geojson      → Furniture points (GeoJSON)
@@ -392,7 +392,7 @@ A site represents a top-level container for green spaces, such as a park, school
 
 #### Geometry
 
-Sites use **Polygon** or **MultiPolygon** geometry representing the site perimeter boundary. Coordinates are WGS84 (EPSG:4326) per GeoJSON RFC 7946.
+Sites use **Point** geometry representing the site location (map marker). Coordinates are WGS84 (EPSG:4326) per GeoJSON RFC 7946.
 
 #### Example: Site Object
 
@@ -427,14 +427,8 @@ Sites use **Polygon** or **MultiPolygon** geometry representing the site perimet
     "eventType": "SiteUpdated"
   },
   "geometry": {
-    "type": "Polygon",
-    "coordinates": [[
-      [8.5180, 47.3640],
-      [8.5230, 47.3640],
-      [8.5230, 47.3665],
-      [8.5180, 47.3665],
-      [8.5180, 47.3640]
-    ]]
+    "type": "Point",
+    "coordinates": [8.5204, 47.3656]
   }
 }
 ```

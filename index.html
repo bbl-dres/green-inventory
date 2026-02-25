@@ -509,18 +509,6 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="layer-item" data-layer="external-areas">
-                            <input type="checkbox" id="layer-external-areas" data-layer="external-areas" checked>
-                            <span class="layer-name">Externe Bewirtschaftung</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="external-areas" title="Externe Bewirtschaftung bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="external-areas" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
 
                         <!-- Bestockte Flächen (Polygon, large) -->
                         <div class="layer-item" data-layer="woodlands">
@@ -549,11 +537,11 @@
                         </div>
 
                         <!-- Referenz-Layer (read-only, background) -->
-                        <div class="layer-item" data-layer="portfolio">
-                            <input type="checkbox" id="layer-portfolio" data-layer="portfolio" checked>
-                            <span class="layer-name">Standorte</span>
+                        <div class="layer-item" data-layer="buildings">
+                            <input type="checkbox" id="layer-buildings" data-layer="buildings" checked>
+                            <span class="layer-name">Gebäude</span>
                             <div class="layer-actions">
-                                <button class="layer-info-btn" data-layer="portfolio" title="Layer-Info">
+                                <button class="layer-info-btn" data-layer="buildings" title="Layer-Info">
                                     <span class="material-symbols-outlined">info</span>
                                 </button>
                             </div>
@@ -580,18 +568,6 @@
                 <span id="menu-toggle-text">Menü schliessen</span>
             </div>
             
-            <aside id="info-panel" role="complementary" aria-label="Objektinformation">
-                <div id="info-header">
-                    <span id="info-header-title">Objekt-Information</span>
-                    <div id="info-header-actions">
-                        <button id="info-zoom-to" title="Hinzoomen" aria-label="Zum Objekt zoomen"><span class="material-symbols-outlined" aria-hidden="true">center_focus_strong</span></button>
-                        <button id="info-share" title="Teilen" aria-label="Objekt teilen"><span class="material-symbols-outlined" aria-hidden="true">share</span></button>
-                        <button id="info-close" title="Schliessen" aria-label="Informationspanel schliessen"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
-                    </div>
-                </div>
-                <div id="info-preview-image" role="img" aria-label="Vorschaubild des Objekts"></div>
-                <div id="info-body"></div>
-            </aside>
 
             <!-- Style Switcher (visible only in map view) -->
             <div class="style-switcher" id="style-switcher">

@@ -2033,120 +2033,6 @@
             font-size: var(--icon-md);
         }
         
-        /* ===== INFO PANEL ===== */
-        #info-panel {
-            position: absolute;
-            top: var(--space-3);
-            right: 60px;
-            width: 320px;
-            background: var(--white);
-            border-radius: var(--radius-sm);
-            box-shadow: var(--shadow-md);
-            z-index: var(--z-overlay);
-            display: none;
-        }
-
-        #info-panel.show {
-            display: block;
-        }
-        
-        #info-preview-image {
-            height: 140px;
-            background-size: cover;
-            background-position: center;
-            background-color: var(--grey-100);
-        }
-        
-        #info-header {
-            background: var(--grey-100);
-            padding: var(--space-3) var(--space-4);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--grey-300);
-        }
-        
-        #info-header-title {
-            font-weight: 600;
-            font-size: var(--text-sm);
-        }
-        
-        #info-header-actions {
-            display: flex;
-            gap: var(--space-2);
-        }
-        
-        #info-header-actions button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--grey-600);
-            padding: var(--space-1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        #info-header-actions button:hover {
-            color: var(--grey-900);
-        }
-        
-        #info-header-actions .material-symbols-outlined {
-            font-size: var(--icon-lg);
-        }
-        
-        #info-body {
-            padding: var(--space-4);
-        }
-
-        .info-row {
-            display: flex;
-            padding: var(--space-2) 0;
-            font-size: var(--text-sm);
-        }
-        
-        .info-label {
-            color: var(--grey-600);
-            width: 120px;
-            flex-shrink: 0;
-        }
-        
-        .info-value {
-            color: var(--grey-900);
-        }
-        
-        .info-footer {
-            margin-top: var(--space-4);
-            padding-top: var(--space-4);
-            border-top: 1px solid var(--grey-100);
-        }
-        
-        .info-detail-link {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--space-2);
-            background: var(--grey-900);
-            color: var(--white);
-            text-decoration: none;
-            padding: var(--space-3) var(--space-4);
-            border-radius: var(--radius-sm);
-            font-size: var(--text-sm);
-            font-weight: 500;
-            transition: background var(--transition-normal);
-            cursor: pointer;
-            border: none;
-            width: 100%;
-        }
-        
-        .info-detail-link:hover {
-            background: var(--grey-800);
-        }
-        
-        .info-detail-link .material-symbols-outlined {
-            font-size: var(--icon-md);
-        }
-        
         /* ===== FOOTER ===== */
         #footer {
             background: var(--grey-100);
@@ -3569,10 +3455,6 @@
                 margin-left: calc((320px - 160px) / 2);
             }
 
-            #info-panel {
-                width: 300px;
-                right: 10px;
-            }
 
             .detail-grid {
                 gap: var(--space-4);
@@ -3723,18 +3605,6 @@
                 bottom: 10px;
             }
 
-            /* Info panel - full width bottom sheet on mobile */
-            #info-panel {
-                position: fixed;
-                top: auto;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                width: 100%;
-                max-height: 70vh;
-                border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-                overflow-y: auto;
-            }
 
             /* Style switcher position on mobile */
             .style-switcher {
@@ -3961,13 +3831,6 @@
                 padding: var(--space-2);
             }
 
-            #info-panel {
-                max-height: 80vh;
-            }
-
-            #info-preview-image {
-                height: 100px;
-            }
 
             .gallery-image {
                 width: 100px;
@@ -4709,7 +4572,6 @@
             #header,
             #footer,
             #accordion-panel,
-            #info-panel,
             .style-switcher,
             #menu-toggle,
             .btn-back,

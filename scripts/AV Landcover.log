@@ -1,0 +1,133 @@
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Current FME version: FME 2025.0.3.0 (20250602 - Build 25241 - WIN64)
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|System Time: 20260224190457 UTC
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME_HOME is 'C:\Program Files\FME\'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Form (floating)
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Permanent License.
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Machine host name is: DESKTOP-BIEK64S
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|OS Locale Name     : en_CH
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|OS Locale Encoding : windows-1252
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Process Encoding   : UTF-8
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME API version: '4.0 20240722'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: FME_BASE is 'no'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: FME_MF_DIR is 'C:\Users\DavidRasner\Documents\GitHub\green-inventory\scripts/'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: FME_MF_NAME is 'AV Landcover.fmw'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: FME_PRODUCT_NAME is 'FME(R) 2025.0.3.0'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Operating System: Microsoft Windows 10 64-bit  (Build 19045)
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Platform: WIN64
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|System Status: 90.51 GB of disk space available in the FME temporary folder (C:\Users\DAVIDR~1\AppData\Local\Temp\wbrun_1771953087911_41264\fmetmp_16)
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|System Status: 31.72 GB of physical memory available
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|System Status: 126.88 GB of virtual memory available
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|START - ProcessID: 39560, peak process memory usage: 41804 kB, current process memory usage: 41796 kB
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Command line arguments are `C:\Program Files\FME\fme.exe' `C:\Users\DavidRasner\Documents\GitHub\green-inventory\scripts\wb-xlate-1771959896607_41264' `--FME_LAUNCH_VIEWER_APP' `WORKBENCH' `LOG_STANDARDOUT' `YES' `LOG_TIMINGS' `YES' `LogCountServerName' `55274' `LOG_STANDARDOUT' `No' `WORKBENCH_LOG_SERVER' `54804'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Connection Storage: 'C:\Users\DavidRasner\AppData\Roaming\Safe Software\FME\'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for formats are : C:\Program Files\FME\datasources;C:\Users\DavidRasner\AppData\Roaming\Safe Software\FME\FME Store\Formats;C:\Users\DavidRasner\Documents\FME\Formats
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for transformers are : C:\Users\DavidRasner\AppData\Roaming\Safe Software\FME\Packages\25241-win64\transformers;C:\Program Files\FME\transformers;C:\Users\DavidRasner\AppData\Roaming\Safe Software\FME\FME Store\Transformers
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for coordinate systems are : C:\Users\DavidRasner\Documents\FME\CoordinateSystems
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for coordinate system exceptions are : C:\Users\DavidRasner\Documents\FME\CoordinateSystemExceptions
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for coordinate system grid overrides are : C:\Users\DavidRasner\Documents\FME\CoordinateSystemGridOverrides
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for CS-MAP transformation exceptions are : C:\Users\DavidRasner\Documents\FME\CsmapTransformationExceptions
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Shared folders for transformer categories are : C:\Users\DavidRasner\Documents\FME\TransformerCategories
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: No destination coordinate system set
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Current working folder is `C:\Users\DavidRasner\Documents\GitHub\green-inventory\scripts'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Temporary folder is `C:\Users\DAVIDR~1\AppData\Local\Temp\wbrun_1771953087911_41264\fmetmp_16', set from environment variable `FME_TEMP'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Cache folder is 'C:\Users\DAVIDR~1\AppData\Local\Temp'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: FME_HOME is `C:\Program Files\FME\'
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Start freeing memory when the process exceeds 95.16 GB
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|FME Configuration: Stop freeing memory when the process is below 71.37 GB
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Creating writer for format: 
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Creating reader for format: 
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|MULTI_READER(MULTI_READER): Will fail with first member reader failure
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Using Multi Reader with keyword `MULTI_READER' to read multiple datasets
+2026-02-24 20:04:57|   0.0|  0.0|INFORM|Using MultiWriter with keyword `MULTI_DEST' to output data (ID_ATTRIBUTE is `multi_writer_id')
+2026-02-24 20:04:57|   0.1|  0.1|INFORM|Emptying factory pipeline
+2026-02-24 20:04:57|   0.1|  0.0|STATS |Restoring 528 feature(s) from FME feature store file `C:\Users\DAVIDR~1\AppData\Local\Temp\wb-cache-AV Landcover-CEpCPO\Main_Reprojector_2 -1 36 fo 0 REPROJECTED  0  f919706540993a998c9777d5cb00f9cc8e594330.ffs'
+2026-02-24 20:04:57|   0.2|  0.1|INFORM|Creating writer for format: 
+2026-02-24 20:04:57|   0.2|  0.0|INFORM|Using MultiWriter with keyword `FeatureWriter_5' to output data (ID_ATTRIBUTE is `multi_writer_id')
+2026-02-24 20:04:57|   0.3|  0.1|INFORM|Creating writer for format: GeoJSON (Geographic JavaScript Object Notation)
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|Trying to find a DYNAMIC plugin for writer named `GEOJSON'
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|FME Configuration: No destination coordinate system set
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|Writer `FeatureWriter_5_0' of type `GEOJSON' using group definition keyword `FeatureWriter_5_0_DEF'
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|GeoJSON Writer: All features not in WGS84 will be reprojected to WGS84
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|GEOJSON Writer: Opening the GEOJSON writer with destination dataset 'C:\Users\DavidRasner\Documents\GitHub\green-inventory\data\surfaces.geojson'
+2026-02-24 20:04:57|   0.3|  0.0|INFORM|FME Configuration: Destination coordinate system set to input coordinate system `LL-WGS84'
+2026-02-24 20:04:57|   0.4|  0.1|INFORM|FME Configuration: Using FME Reprojection Engine
+2026-02-24 20:04:57|   0.5|  0.1|INFORM|Creating writer for format: 
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|Using MultiWriter with keyword `FeatureWriter_2' to output data (ID_ATTRIBUTE is `multi_writer_id')
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|Creating writer for format: GeoJSON (Geographic JavaScript Object Notation)
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|Trying to find a DYNAMIC plugin for writer named `GEOJSON'
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|FME Configuration: No destination coordinate system set
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|Writer `FeatureWriter_2_0' of type `GEOJSON' using group definition keyword `FeatureWriter_2_0_DEF'
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|GeoJSON Writer: All features not in WGS84 will be reprojected to WGS84
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|GEOJSON Writer: Opening the GEOJSON writer with destination dataset 'C:\Users\DavidRasner\Documents\GitHub\green-inventory\data\buildings.geojson'
+2026-02-24 20:04:57|   0.5|  0.0|INFORM|FME Configuration: Destination coordinate system set to input coordinate system `LL-WGS84'
+2026-02-24 20:04:57|   0.6|  0.1|INFORM|Creating writer for format: 
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|Using MultiWriter with keyword `FeatureWriter_6' to output data (ID_ATTRIBUTE is `multi_writer_id')
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|Creating writer for format: GeoJSON (Geographic JavaScript Object Notation)
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|Trying to find a DYNAMIC plugin for writer named `GEOJSON'
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|FME Configuration: No destination coordinate system set
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|Writer `FeatureWriter_6_0' of type `GEOJSON' using group definition keyword `FeatureWriter_6_0_DEF'
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|GeoJSON Writer: All features not in WGS84 will be reprojected to WGS84
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|GEOJSON Writer: Opening the GEOJSON writer with destination dataset 'C:\Users\DavidRasner\Documents\GitHub\green-inventory\data\gardens.geojson'
+2026-02-24 20:04:57|   0.6|  0.0|INFORM|FME Configuration: Destination coordinate system set to input coordinate system `LL-WGS84'
+2026-02-24 20:04:57|   0.8|  0.2|STATS |TestFilter_3_INPUT (TeeFactory): Cloned 528 input feature(s) into 528 output feature(s)
+2026-02-24 20:04:57|   0.8|  0.0|STATS |TestFilter_3 (TestFactory): Tested 528 input feature(s) -- 492 feature(s) passed and 36 feature(s) failed
+2026-02-24 20:04:57|   0.8|  0.0|STATS |BulkAttributeRenamer (TeeFactory): Cloned 132 input feature(s) into 132 output feature(s)
+2026-02-24 20:04:57|   0.8|  0.0|STATS |AttributeRemover (TeeFactory): Cloned 132 input feature(s) into 132 output feature(s)
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|Closing the GEOJSON writer
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|Feature output statistics for `GEOJSON' writer using keyword `FeatureWriter_2_0':
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |                               Features Written
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |buildings                                                                  132
+2026-02-24 20:04:58|   0.8|  0.0|STATS |==============================================================================
+2026-02-24 20:04:58|   0.8|  0.0|STATS |Total Features Written                                                     132
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |BulkAttributeRenamer_3 (TeeFactory): Cloned 213 input feature(s) into 213 output feature(s)
+2026-02-24 20:04:58|   0.8|  0.0|STATS |AttributeRemover_3 (TeeFactory): Cloned 213 input feature(s) into 213 output feature(s)
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|Closing the GEOJSON writer
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|INFORM|Feature output statistics for `GEOJSON' writer using keyword `FeatureWriter_5_0':
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |                               Features Written
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |surfaces                                                                   213
+2026-02-24 20:04:58|   0.8|  0.0|STATS |==============================================================================
+2026-02-24 20:04:58|   0.8|  0.0|STATS |Total Features Written                                                     213
+2026-02-24 20:04:58|   0.8|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.8|  0.0|STATS |BulkAttributeRenamer_4 (TeeFactory): Cloned 139 input feature(s) into 139 output feature(s)
+2026-02-24 20:04:58|   0.8|  0.0|STATS |AttributeRemover_4 (TeeFactory): Cloned 139 input feature(s) into 139 output feature(s)
+2026-02-24 20:04:58|   0.9|  0.1|INFORM|Closing the GEOJSON writer
+2026-02-24 20:04:58|   0.9|  0.0|INFORM|=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.9|  0.0|INFORM|Feature output statistics for `GEOJSON' writer using keyword `FeatureWriter_6_0':
+2026-02-24 20:04:58|   0.9|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.9|  0.0|STATS |                               Features Written
+2026-02-24 20:04:58|   0.9|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.9|  0.0|STATS |gardens                                                                    139
+2026-02-24 20:04:58|   0.9|  0.0|STATS |==============================================================================
+2026-02-24 20:04:58|   0.9|  0.0|STATS |Total Features Written                                                     139
+2026-02-24 20:04:58|   0.9|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   0.9|  0.0|STATS |Destination Feature Type Routing Correlator (RoutingFactory): Tested 0 input feature(s), wrote 0 output feature(s): 0 matched merge filters, 0 were routed to output, 0 could not be routed.
+2026-02-24 20:04:58|   0.9|  0.0|STATS |Final Output Nuker (TeeFactory): Cloned 0 input feature(s) into 0 output feature(s)
+2026-02-24 20:04:58|   0.9|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.1|STATS |                            Features Read Summary
+2026-02-24 20:04:58|   1.0|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.0|STATS |==============================================================================
+2026-02-24 20:04:58|   1.0|  0.0|STATS |Total Features Read                                                          0
+2026-02-24 20:04:58|   1.0|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.0|STATS |                           Features Written Summary
+2026-02-24 20:04:58|   1.0|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.0|STATS |==============================================================================
+2026-02-24 20:04:58|   1.0|  0.0|STATS |Total Features Written                                                       0
+2026-02-24 20:04:58|   1.0|  0.0|STATS |=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~                                                                             ~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~    Feature caches have been recorded at every stage of the translation.     ~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~                      To inspect the recorded features,                      ~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~              click the feature cache icons next to the ports.               ~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~                                                                             ~-
+2026-02-24 20:04:58|   1.0|  0.0|WARN  |-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
+2026-02-24 20:04:58|   1.0|  0.0|INFORM|Translation was SUCCESSFUL with 7 warning(s) (0 feature(s) output)
+2026-02-24 20:04:58|   1.0|  0.0|INFORM|FME Session Duration: 1.2 seconds. (CPU: 0.7s user, 0.3s system)
+2026-02-24 20:04:58|   1.0|  0.0|INFORM|END - ProcessID: 39560, peak process memory usage: 110928 kB, current process memory usage: 96660 kB
