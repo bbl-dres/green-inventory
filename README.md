@@ -13,8 +13,8 @@
 Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
 
 <p align="center">
+  <img src="assets/images/preview1.jpg" width="45%" style="vertical-align: top;"/>
   <img src="assets/images/preview2.jpg" width="45%" style="vertical-align: top;"/>
-  <img src="assets/images/preview3.jpg" width="45%" style="vertical-align: top;"/>
 </p>
 
 ---
