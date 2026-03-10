@@ -1156,6 +1156,9 @@ document.getElementById('pg-size-select').addEventListener('change', (e) => {
     document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
     if (!isOpen) wrap.classList.add('open');
   });
+  // Stop clicks inside the menu from bubbling to document — otherwise the
+  // document handler closes the dropdown before <select> pickers can open.
+  wrap.querySelector('.dd-menu').addEventListener('click', e => e.stopPropagation());
 });
 document.addEventListener('click', () => {
   document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
