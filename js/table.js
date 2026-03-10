@@ -7,14 +7,21 @@
 let tableRows = [];
 let tblSortCol = 'area_m2', tblSortDir = -1;
 let tblSearch = '';
-let tblFilterAttrs = {};
+let tblFilterAttrs = {};          // { field: Set<string> }
+
+// URL-param short keys for filter columns
+const FILTER_URL_KEYS = { feature_type: 'ft', subtype: 'st', category: 'cat', source: 'src' };
+const FILTER_URL_KEYS_REV = Object.fromEntries(Object.entries(FILTER_URL_KEYS).map(([k, v]) => [v, k]));
 let tblPage = 0, tblPageSize = 25;
 
 function buildTable() {
   if (!geojsonData) return;
   tableRows = geojsonData.features.map((f, i) => ({ ...f.properties, _idx: i }));
+  restoreFiltersFromUrl();
   buildColDropdown();
   buildFilterDropdown();
+  updateFilterBadge();
+  renderFilterPills();
   renderTable();
 }
 
@@ -26,8 +33,9 @@ function getFilteredRows() {
       TABLE_COLS.some(c => String(r[c.key] ?? '').toLowerCase().includes(q))
     );
   }
-  for (const [field, val] of Object.entries(tblFilterAttrs)) {
-    if (val !== '') rows = rows.filter(r => String(r[field] ?? '') === val);
+  // AND between columns, OR within column
+  for (const [field, vals] of Object.entries(tblFilterAttrs)) {
+    if (vals.size) rows = rows.filter(r => vals.has(String(r[field] ?? '')));
   }
   return rows;
 }
@@ -181,51 +189,162 @@ function buildColDropdown() {
   });
 }
 
-// ── Filter dropdown ──────────────────────────────────────────────────────────
+// ── Filter dropdown (checkbox-based) ─────────────────────────────────────────
+const FILTER_COLS = ['feature_type', 'subtype', 'category', 'source'];
+
 function buildFilterDropdown() {
   if (!tableRows.length) return;
   const dd = document.getElementById('tbl-filter-dd');
-  const filterCols = ['feature_type', 'subtype', 'category', 'source'];
-  dd.innerHTML = `<div class="dd-menu-label">Attribut filtern</div>` +
-    filterCols.map(key => {
+  dd.innerHTML =
+    `<div class="filter-search-wrap">
+      <input type="text" class="filter-search" id="filter-dd-search" placeholder="Suche…">
+      <button class="input-clear-x" id="filter-dd-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
+    </div>` +
+    FILTER_COLS.map(key => {
       const col = TABLE_COLS.find(c => c.key === key);
       const label = col ? col.label : key;
       const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))].sort();
-      const cur = tblFilterAttrs[key] || '';
-      return `<div class="filter-row">
-        <span class="filter-label">${label}</span>
-        <select data-field="${key}">
-          <option value="">Alle</option>
-          ${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${v}</option>`).join('')}
-        </select>
+      const checked = tblFilterAttrs[key] || new Set();
+      return `<div class="filter-group">
+        <div class="filter-group-label">${label}</div>
+        ${vals.map(v => `<label class="filter-check-item">
+          <input type="checkbox" data-field="${key}" value="${v}"${checked.has(v) ? ' checked' : ''}>
+          <span class="filter-check-text">${v}</span>
+        </label>`).join('')}
       </div>`;
-    }).join('') +
-    `<div class="filter-actions"><button id="tbl-filter-clear" class="filter-clear-btn">Filter zurücksetzen</button></div>`;
+    }).join('');
 
-  dd.querySelectorAll('select').forEach(sel => {
-    sel.addEventListener('change', () => {
-      tblFilterAttrs[sel.dataset.field] = sel.value;
+  // Checkbox change → update filter state
+  dd.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const field = cb.dataset.field;
+      if (!tblFilterAttrs[field]) tblFilterAttrs[field] = new Set();
+      if (cb.checked) tblFilterAttrs[field].add(cb.value);
+      else tblFilterAttrs[field].delete(cb.value);
+      if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
       tblPage = 0;
-      updateFilterBadge();
-      renderTable();
+      onFilterChange();
     });
   });
-  const clr = dd.querySelector('#tbl-filter-clear');
-  if (clr) clr.addEventListener('click', () => {
-    tblFilterAttrs = {};
-    tblPage = 0;
-    buildFilterDropdown();
-    updateFilterBadge();
-    renderTable();
+
+  // Search within filter dropdown
+  const searchInput = dd.querySelector('#filter-dd-search');
+  const searchX = dd.querySelector('#filter-dd-search-x');
+  searchInput.addEventListener('input', () => filterDropdownSearch(searchInput.value));
+  searchX.addEventListener('click', () => {
+    searchInput.value = '';
+    searchX.style.display = 'none';
+    filterDropdownSearch('');
+    searchInput.focus();
   });
 }
 
+function filterDropdownSearch(query) {
+  const dd = document.getElementById('tbl-filter-dd');
+  const q = query.trim().toLowerCase();
+  dd.querySelector('#filter-dd-search-x').style.display = q ? 'flex' : 'none';
+
+  dd.querySelectorAll('.filter-group').forEach(group => {
+    let anyVisible = false;
+    group.querySelectorAll('.filter-check-item').forEach(item => {
+      const text = item.querySelector('.filter-check-text').textContent.toLowerCase();
+      const show = !q || text.includes(q);
+      item.style.display = show ? '' : 'none';
+      if (show) anyVisible = true;
+    });
+    group.style.display = anyVisible ? '' : 'none';
+  });
+}
+
+function onFilterChange() {
+  updateFilterBadge();
+  renderFilterPills();
+  syncFiltersToUrl();
+  renderTable();
+}
+
+function countActiveFilters() {
+  let n = 0;
+  for (const vals of Object.values(tblFilterAttrs)) n += vals.size;
+  return n;
+}
+
 function updateFilterBadge() {
-  const n = Object.values(tblFilterAttrs).filter(v => v !== '').length;
+  const n = countActiveFilters();
   const badge = document.getElementById('tbl-filter-badge');
   badge.textContent = n > 0 ? n : '';
   badge.style.display = n > 0 ? 'inline-block' : 'none';
   document.getElementById('filter-dd-btn').classList.toggle('has-active', n > 0);
+}
+
+// ── Filter pills ─────────────────────────────────────────────────────────────
+function renderFilterPills() {
+  const bar = document.getElementById('tbl-filter-pills');
+  if (!bar) return;
+  const n = countActiveFilters();
+  bar.style.display = n > 0 ? 'flex' : 'none';
+  if (!n) { bar.innerHTML = ''; return; }
+
+  let html = '';
+  for (const [field, vals] of Object.entries(tblFilterAttrs)) {
+    const col = TABLE_COLS.find(c => c.key === field);
+    const label = col ? col.label : field;
+    for (const v of vals) {
+      html += `<span class="filter-pill" data-field="${field}" data-value="${v}">${label}: ${v}<button class="pill-x" aria-label="Entfernen">&times;</button></span>`;
+    }
+  }
+  html += `<button class="filter-reset-link" id="tbl-filter-clear">Filter zurücksetzen</button>`;
+  bar.innerHTML = html;
+
+  bar.querySelectorAll('.pill-x').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pill = btn.closest('.filter-pill');
+      const { field, value } = pill.dataset;
+      if (tblFilterAttrs[field]) {
+        tblFilterAttrs[field].delete(value);
+        if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
+      }
+      tblPage = 0;
+      buildFilterDropdown();   // sync checkboxes
+      onFilterChange();
+    });
+  });
+  const clr = bar.querySelector('#tbl-filter-clear');
+  if (clr) clr.addEventListener('click', clearAllFilters);
+}
+
+function clearAllFilters() {
+  tblFilterAttrs = {};
+  tblPage = 0;
+  buildFilterDropdown();
+  onFilterChange();
+}
+
+// ── Filter URL sync ──────────────────────────────────────────────────────────
+function syncFiltersToUrl() {
+  try {
+    const url = new URL(location.href);
+    // Remove old filter params
+    for (const short of Object.values(FILTER_URL_KEYS)) url.searchParams.delete(short);
+    // Set active ones
+    for (const [field, vals] of Object.entries(tblFilterAttrs)) {
+      if (vals.size) url.searchParams.set(FILTER_URL_KEYS[field], [...vals].join(','));
+    }
+    history.replaceState(null, '', url);
+  } catch (_) { /* file:// or sandboxed */ }
+}
+
+function restoreFiltersFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    for (const [short, field] of Object.entries(FILTER_URL_KEYS_REV)) {
+      const raw = params.get(short);
+      if (raw) {
+        const vals = raw.split(',').filter(Boolean);
+        if (vals.length) tblFilterAttrs[field] = new Set(vals);
+      }
+    }
+  } catch (_) { /* ignore */ }
 }
 
 // ── Export ──────────────────────────────────────────────────────────────────
@@ -279,10 +398,21 @@ document.getElementById('tbl-toggle').addEventListener('click', () => {
 });
 
 // ── Search ────────────────────────────────────────────────────────────────────
-document.getElementById('tbl-search').addEventListener('input', (e) => {
-  tblSearch = e.target.value;
+const _tblSearchInput = document.getElementById('tbl-search');
+const _tblSearchX = document.getElementById('tbl-search-x');
+_tblSearchInput.addEventListener('input', () => {
+  tblSearch = _tblSearchInput.value;
+  _tblSearchX.style.display = tblSearch ? 'flex' : 'none';
   tblPage = 0;
   renderTable();
+});
+_tblSearchX.addEventListener('click', () => {
+  _tblSearchInput.value = '';
+  tblSearch = '';
+  _tblSearchX.style.display = 'none';
+  tblPage = 0;
+  renderTable();
+  _tblSearchInput.focus();
 });
 
 // ── Pagination buttons ────────────────────────────────────────────────────────
@@ -339,3 +469,36 @@ document.getElementById('exp-xlsx-f').addEventListener('click', () => {
 function closeExportDd() {
   document.getElementById('export-dd-wrap').classList.remove('open');
 }
+
+// ── Table panel resize by dragging top edge ──────────────────────────────────
+(() => {
+  const handle = document.getElementById('tbl-resize-handle');
+  const panel  = document.getElementById('table-panel');
+  const MIN_H = 120, MAX_FRAC = 0.75;
+  let startY, startH;
+
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    startY = e.clientY;
+    startH = panel.getBoundingClientRect().height;
+    panel.classList.add('resizing');
+    handle.classList.add('dragging');
+
+    const onMove = (ev) => {
+      const delta = startY - ev.clientY;          // drag up = grow
+      const maxH  = window.innerHeight * MAX_FRAC;
+      panel.style.height = Math.min(maxH, Math.max(MIN_H, startH + delta)) + 'px';
+      map.resize();
+    };
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      panel.classList.remove('resizing');
+      handle.classList.remove('dragging');
+      map.resize();
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
+})();

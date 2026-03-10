@@ -69,6 +69,9 @@
         </button>
       </div>
 
+      <!-- Resize handle (outside table-panel to avoid overflow:hidden clipping) -->
+      <div id="tbl-resize-handle"></div>
+
       <!-- Table panel -->
       <div id="table-panel">
 
@@ -79,6 +82,7 @@
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input type="text" id="tbl-search" placeholder="Suche…">
+            <button class="input-clear-x" id="tbl-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
           </div>
 
           <div id="tbl-action-right">
@@ -131,6 +135,9 @@
             </div>
           </div>
         </div>
+
+        <!-- Active filter pills -->
+        <div id="tbl-filter-pills" style="display:none"></div>
 
         <!-- Table -->
         <div id="table-scroll">

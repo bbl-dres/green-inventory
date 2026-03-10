@@ -232,11 +232,32 @@ html, body {
   height: var(--table-height); flex-shrink: 0;
   display: flex; flex-direction: column;
   overflow: hidden; background: var(--white);
-  border-top: 2px solid var(--grey-300);
   transition: height var(--t-slow);
   position: relative; z-index: var(--z-table); /* beat map canvas */
 }
 #table-panel.collapsed { height: 0; }
+#table-panel.resizing { transition: none; }
+
+/* Drag handle between map and table panel */
+#tbl-resize-handle {
+  flex-shrink: 0; height: 6px;
+  cursor: ns-resize; user-select: none;
+  position: relative; z-index: var(--z-table);
+  background: var(--grey-200);
+  transition: background var(--t-fast);
+}
+#tbl-resize-handle::after {
+  content: ''; position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--grey-400); opacity: 0;
+  transition: opacity var(--t-fast);
+}
+#tbl-resize-handle:hover { background: var(--grey-300); }
+#tbl-resize-handle:hover::after,
+#tbl-resize-handle.dragging::after { opacity: 1; }
+#tbl-resize-handle.dragging { background: var(--primary); }
+#tbl-resize-handle.dragging::after { background: var(--white); opacity: 1; }
 
 /* ── Table toggle pill — aligned with other map controls ── */
 #tbl-toggle {
@@ -268,7 +289,7 @@ html, body {
 }
 #tbl-search-wrap { position: relative; flex: 1; max-width: 260px; }
 #tbl-search {
-  width: 100%; height: var(--ctrl-h); padding: 0 var(--sp3) 0 30px;
+  width: 100%; height: var(--ctrl-h); padding: 0 26px 0 30px;
   border: 1px solid var(--grey-300); border-radius: var(--radius);
   font-size: var(--text-sm); background: var(--white); color: var(--grey-900);
   transition: border-color var(--t-fast);
@@ -279,6 +300,17 @@ html, body {
   position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
   pointer-events: none; color: var(--grey-400);
 }
+
+/* Shared clear-X button for search inputs */
+.input-clear-x {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: none; background: none;
+  cursor: pointer; font-size: 16px; line-height: 1; color: var(--grey-400);
+  border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
+}
+.input-clear-x:hover { color: var(--grey-700); background: var(--grey-100); }
+
 #tbl-action-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
 /* ── Dropdown buttons (extends shared btn base) ────────── */
@@ -330,17 +362,57 @@ html, body {
 .col-check-item:hover { background: var(--grey-100); }
 .col-check-item input { cursor: pointer; accent-color: var(--primary); }
 
-/* Filter rows */
-.filter-row { display: flex; align-items: center; gap: var(--sp2); padding: 3px 10px; }
-.filter-row .filter-label { font-size: var(--text-sm); color: var(--grey-600); width: 68px; flex-shrink: 0; }
-.filter-row select {
-  flex: 1; height: var(--ctrl-h-sm); font-size: var(--text-sm);
-  border: 1px solid var(--grey-300); border-radius: var(--radius-sm);
-  padding: 0 var(--sp2); background: var(--white); color: var(--grey-800);
+/* Filter dropdown — search + checkbox groups */
+#tbl-filter-dd { max-height: 340px; overflow-y: auto; }
+.filter-search-wrap {
+  position: sticky; top: 0; z-index: 1; background: var(--white);
+  padding: 4px 6px 6px; position: relative;
 }
-.filter-actions { padding: 6px 10px 4px; }
-.filter-clear-btn { width: 100%; height: var(--ctrl-h-sm); padding: 0 var(--sp3); justify-content: center; }
-.filter-clear-btn:hover { background: var(--grey-100); border-color: var(--grey-400); }
+.filter-search {
+  width: 100%; height: var(--ctrl-h-sm); padding: 0 26px 0 var(--sp3);
+  border: 1px solid var(--grey-300); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); background: var(--white); color: var(--grey-900);
+  transition: border-color var(--t-fast);
+}
+.filter-search::placeholder { color: var(--grey-400); }
+.filter-search:focus { outline: none; border-color: var(--primary); box-shadow: var(--shadow-focus); }
+.filter-group { padding: 2px 0; }
+.filter-group + .filter-group { border-top: 1px solid var(--grey-100); margin-top: 2px; padding-top: 4px; }
+.filter-group-label {
+  padding: 5px 10px 2px; font-size: var(--text-label); font-weight: var(--fw-bold);
+  color: var(--grey-400); text-transform: uppercase; letter-spacing: .06em;
+}
+.filter-check-item {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 4px 10px; font-size: var(--text-sm); color: var(--grey-700);
+  cursor: pointer; border-radius: var(--radius-sm); transition: background var(--t-fast);
+}
+.filter-check-item:hover { background: var(--grey-100); }
+.filter-check-item input { cursor: pointer; accent-color: var(--primary); }
+
+/* Filter pill bar */
+#tbl-filter-pills {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 6px var(--sp4); background: var(--grey-50); border-bottom: 1px solid var(--grey-200);
+}
+.filter-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; font-size: var(--text-sm); line-height: 22px;
+  background: var(--primary-light, #e8f0fe); color: var(--primary);
+  border: 1px solid var(--primary); border-radius: 12px;
+  white-space: nowrap;
+}
+.pill-x {
+  background: none; border: none; cursor: pointer; font-size: 14px; line-height: 1;
+  color: var(--primary); padding: 0 0 0 2px; font-weight: var(--fw-bold);
+}
+.pill-x:hover { color: var(--danger, #c00); }
+.filter-reset-link {
+  background: none; border: none; cursor: pointer;
+  font-size: var(--text-sm); color: var(--grey-500);
+  text-decoration: underline; padding: 0 4px; white-space: nowrap;
+}
+.filter-reset-link:hover { color: var(--grey-700); }
 
 .tbl-badge {
   background: var(--primary); color: var(--white);
