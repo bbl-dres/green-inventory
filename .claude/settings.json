@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import fitz; print\\(''fitz available''\\)\")",
+      "Bash(python3 -c \"import pymupdf; print\\(''pymupdf available''\\)\")",
+      "Bash(python3 -c \"import pdfplumber; print\\(''pdfplumber ok''\\)\")",
+      "Bash(python3 -c \"import shapely; print\\(''shapely ok''\\)\")",
+      "Bash(python3 -c \"import numpy; print\\(''numpy ok''\\)\")",
+      "Bash(python3 -m pip install pymupdf pdfplumber --quiet)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 extract_features.py)",
+      "Bash(python3 -m pip install scipy scikit-learn --quiet)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory"
+    ]
+  }
+}

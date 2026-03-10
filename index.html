@@ -1,793 +1,749 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grünflächeninventar GIS</title>
-    
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
-    
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-    
-    <link rel="stylesheet" href="css/tokens.css">
-    <link rel="stylesheet" href="css/main.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grünflächen Inventar – BBL</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <style>
+    :root {
+      --grey-900: #2D3236; --grey-800: #3D4347; --grey-700: #4E555A;
+      --grey-600: #5E666B; --grey-500: #6C757D; --grey-400: #A0A8AE;
+      --grey-300: #C5CCD1; --grey-200: #DDE2E6; --grey-100: #F3F5F7;
+      --grey-50:  #F9FAFB; --white: #ffffff;
+      --primary: #005ea8; --red: #cc0000;
+      --header-height: 56px; --footer-height: 32px; --panel-width: 280px;
+      --text-xs: 11px; --text-sm: 12.5px; --text-base: 14px;
+      --sp1: 2px; --sp2: 4px; --sp3: 8px; --sp4: 12px; --sp5: 16px;
+      --radius: 5px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif;
+                 font-size: var(--text-base); color: var(--grey-900); }
+
+    /* ── App shell ─────────────────────────────── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Header ────────────────────────────────── */
+    #header {
+      height: var(--header-height);
+      background: var(--white);
+      border-bottom: 1px solid var(--grey-300);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--sp5); flex-shrink: 0; z-index: 10; gap: var(--sp5);
+    }
+    .header-title { display: flex; flex-direction: column; gap: 1px; }
+    .header-agency { font-size: var(--text-xs); color: var(--grey-500); font-weight: 500; letter-spacing: .02em; }
+    .header-app    { font-size: 15px; font-weight: 700; color: var(--grey-900); }
+    .header-right  { display: flex; align-items: center; gap: var(--sp3); }
+    .badge {
+      background: var(--grey-100); border: 1px solid var(--grey-300);
+      border-radius: 20px; padding: 2px 10px;
+      font-size: var(--text-xs); color: var(--grey-600); white-space: nowrap;
+    }
+    .edit-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--white); border: 1.5px solid var(--grey-300);
+      border-radius: var(--radius); padding: 5px 12px;
+      font-size: var(--text-sm); color: var(--grey-700); cursor: pointer;
+      transition: all .15s;
+    }
+    .edit-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .edit-btn.active { background: #fff3cd; border-color: #e6a817; color: #7a5700; }
+    .edit-btn svg { flex-shrink: 0; }
+
+    /* ── Body ───────────────────────────────────── */
+    #body { flex: 1; display: flex; overflow: hidden; }
+
+    /* ── Sidebar ────────────────────────────────── */
+    #sidebar {
+      width: var(--panel-width); background: var(--white);
+      border-right: 1px solid var(--grey-300);
+      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+    }
+    #sidebar-header {
+      padding: 9px var(--sp5); border-bottom: 1px solid var(--grey-200);
+      font-size: var(--text-xs); font-weight: 700; color: var(--grey-500);
+      text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0;
+    }
+    #legend-scroll { flex: 1; overflow-y: auto; padding: var(--sp2) 0 var(--sp4); }
+
+    /* ── Legend groups ──────────────────────────── */
+    .lg-group { margin-bottom: 2px; }
+    .lg-group-head {
+      display: flex; align-items: center; gap: var(--sp2);
+      padding: 5px var(--sp4) 3px var(--sp3);
+    }
+    .lg-group-head .eye-btn {
+      flex-shrink: 0; width: 20px; height: 20px;
+      background: none; border: none; cursor: pointer;
+      color: var(--grey-400); padding: 1px;
+      border-radius: 3px; display: flex; align-items: center; justify-content: center;
+      transition: color .12s;
+    }
+    .lg-group-head .eye-btn:hover { color: var(--grey-700); }
+    .lg-group-head .eye-btn.hidden-eye { color: var(--grey-300); }
+    .lg-group-title {
+      font-size: var(--text-xs); font-weight: 700; color: var(--grey-700);
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .lg-items { padding: 0 var(--sp4) 2px 34px; }
+    .lg-item {
+      display: flex; align-items: center; gap: 7px;
+      padding: 2px 0; opacity: 1; transition: opacity .2s;
+    }
+    .lg-item.empty { opacity: 0.38; }
+    .lg-swatch {
+      width: 22px; height: 13px; border-radius: 3px; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,.12);
+    }
+    /* Pattern swatches via CSS */
+    .sw-dots    { background-image: radial-gradient(circle, #333 30%, transparent 30%);
+                  background-size: 5px 5px; }
+    .sw-vdots   { background-image: radial-gradient(circle, #856a00 40%, transparent 40%);
+                  background-size: 5px 5px; }
+    .sw-odots   { background-image: radial-gradient(circle, #804000 35%, transparent 35%);
+                  background-size: 4px 4px; }
+    .sw-pstripe { background-image: repeating-linear-gradient(45deg,#9040c0 0,#9040c0 1.5px,transparent 0,transparent 50%);
+                  background-size: 5px 5px; }
+    .sw-ostripe { background-image: repeating-linear-gradient(45deg,#c05000 0,#c05000 1.5px,transparent 0,transparent 50%);
+                  background-size: 5px 5px; }
+    .sw-hstripe { background-image: repeating-linear-gradient(45deg,#5a3800 0,#5a3800 1.5px,transparent 0,transparent 50%);
+                  background-size: 5px 5px; }
+    .sw-xhatch  { background-image:
+                    repeating-linear-gradient(45deg,  #333 0,#333 1px,transparent 0,transparent 50%),
+                    repeating-linear-gradient(-45deg, #333 0,#333 1px,transparent 0,transparent 50%);
+                  background-size: 5px 5px; }
+    .sw-gdots   { background-image: radial-gradient(circle, #555 30%, transparent 30%);
+                  background-size: 5px 5px; }
+    .sw-outline { background: transparent !important; border: 2px solid #cc0000 !important; }
+    .sw-circ    { border-radius: 50% !important; width: 13px !important; height: 13px !important;
+                  border: 2px solid rgba(0,0,0,.25) !important; }
+    .sw-circ-cross { border-radius: 50% !important; width: 13px !important; height: 13px !important;
+                     border: 2px solid rgba(0,0,0,.4) !important; position: relative; }
+    .sw-circ-cross::before, .sw-circ-cross::after {
+      content:''; position:absolute; background: rgba(0,0,0,.5);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+    }
+    .sw-circ-cross::before { width: 7px; height: 1.5px; }
+    .sw-circ-cross::after  { width: 1.5px; height: 7px; }
+    .sw-triangle { width: 0 !important; height: 0 !important; background: transparent !important;
+                   border-left: 7px solid transparent; border-right: 7px solid transparent;
+                   border-bottom: 12px solid #cc0000; border-top: none !important; border-radius: 0 !important; }
+    .lg-label { font-size: var(--text-sm); color: var(--grey-800); line-height: 1.3; }
+    .group-hidden .lg-items { opacity: 0.3; pointer-events: none; }
+
+    /* ── Map ─────────────────────────────────────── */
+    #map { flex: 1; position: relative; }
+    .maplibregl-ctrl-top-right { top: var(--sp3); right: var(--sp3); }
+    .maplibregl-popup-content {
+      padding: var(--sp4) var(--sp5); border-radius: var(--radius);
+      box-shadow: 0 4px 20px rgba(0,0,0,.16); font-size: var(--text-sm); min-width: 180px;
+    }
+    .pu-type { font-weight: 700; margin-bottom: 3px; }
+    .pu-sub  { color: var(--grey-600); margin-bottom: 6px; font-size: var(--text-xs); }
+    .pu-row  { display: flex; justify-content: space-between;
+               font-size: var(--text-xs); color: var(--grey-500); margin-top: 2px; }
+    .pu-row strong { color: var(--grey-800); }
+
+    /* ── Edit mode banner ───────────────────────── */
+    #edit-banner {
+      display: none; position: absolute; top: var(--sp3); left: 50%;
+      transform: translateX(-50%); z-index: 20;
+      background: #fff3cd; border: 1.5px solid #e6a817;
+      border-radius: var(--radius); padding: 6px 16px;
+      font-size: var(--text-sm); color: #7a5700; pointer-events: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    #edit-banner.visible { display: block; }
+    #save-banner {
+      display: none; position: absolute; bottom: var(--sp5); left: 50%;
+      transform: translateX(-50%); z-index: 20;
+      background: var(--white); border: 1.5px solid var(--grey-300);
+      border-radius: var(--radius); padding: 8px 20px;
+      font-size: var(--text-sm); color: var(--grey-800);
+      box-shadow: 0 2px 12px rgba(0,0,0,.15);
+      display: none; align-items: center; gap: var(--sp4);
+    }
+    #save-banner.visible { display: flex; }
+    #save-banner button {
+      background: var(--primary); color: var(--white); border: none;
+      border-radius: var(--radius); padding: 5px 14px; cursor: pointer;
+      font-size: var(--text-sm); font-weight: 600;
+    }
+    #save-banner button:hover { background: #004a87; }
+    #save-banner .cancel-btn {
+      background: none; color: var(--grey-600); border: 1px solid var(--grey-300);
+    }
+    #save-banner .cancel-btn:hover { background: var(--grey-100); }
+
+    /* ── Footer ──────────────────────────────────── */
+    #footer {
+      height: var(--footer-height); background: var(--grey-100);
+      border-top: 1px solid var(--grey-300);
+      padding: 0 var(--sp5); font-size: var(--text-xs); color: var(--grey-600);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0; z-index: 10;
+    }
+    #coordinates { font-family: monospace; }
+    #footer-links a { color: var(--primary); text-decoration: none; margin-left: var(--sp4); }
+    #footer-links a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
-    <!-- Loading overlay (shown during initial data fetch) -->
-    <div id="loading-overlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Daten werden geladen...</div>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header id="header">
+    <div class="header-title">
+      <span class="header-agency">Bundesamt für Bauten und Logistik</span>
+      <span class="header-app">Grünflächen Inventar</span>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="feat-badge">Lade…</span>
+      <span class="badge">1:650 · WGS 84</span>
+      <button class="edit-btn" id="edit-toggle" title="Position korrigieren">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Position bearbeiten
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Body ───────────────────────────────────────────────────────────── -->
+  <div id="body">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div id="sidebar-header">Legende</div>
+      <div id="legend-scroll" id="legend-list"></div>
+    </aside>
+
+    <!-- Map -->
+    <div id="map">
+      <div id="edit-banner">Ziehen Sie die Karte, um alle Features zu verschieben. Klicken Sie auf Speichern.</div>
+      <div id="save-banner">
+        <span id="offset-label">Verschiebung: 0 m, 0 m</span>
+        <button id="save-offset">Speichern</button>
+        <button class="cancel-btn" id="cancel-offset">Abbrechen</button>
+      </div>
     </div>
 
-    <!-- Toast notification container -->
-    <div id="toast-container" class="toast-container" role="alert" aria-live="polite"></div>
+  </div>
 
-    <!-- Layer info modal -->
-    <div id="layer-info-modal" class="layer-info-modal" role="dialog" aria-modal="true" aria-labelledby="layer-info-title">
-        <div class="layer-info-modal-content">
-            <button class="layer-info-modal-close" aria-label="Schliessen">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-            <div id="layer-info-content" class="layer-info-body">
-                <div class="layer-info-loading">Lade Informationen...</div>
-            </div>
-        </div>
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer id="footer">
+    <div id="coordinates">WGS 84 | Koordinaten: --</div>
+    <div id="footer-links">
+      <a href="https://github.com/bbl-dres/green-inventory" target="_blank">Quellcode</a>
+      <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
+      <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank">Kontakt</a>
     </div>
+  </footer>
 
-    <!-- Skip link for keyboard navigation -->
-    <a href="#main" class="skip-link">Zum Hauptinhalt springen</a>
+</div><!-- #app -->
 
-    <header id="header" role="banner">
-        <div class="header-main">
-            <div id="logo-area">
-                <img id="logo-flag" src="assets/swiss-logo-flag.svg" alt="Schweizer Flagge">
-                <img id="logo-name" src="assets/swiss-logo-name.svg" alt="Schweizerische Eidgenossenschaft">
-                <div id="logo-divider"></div>
-                <div id="logo-text">
-                    <span class="logo-line-bold">Bundesamt für Bauten und Logistik</span>
-                    <span class="logo-line">Abteilung für Objektmanagement</span>
-                    <span class="logo-line">Grünflächen Inventar</span>
-                </div>
-            </div>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGEND DEFINITION  (mirrors the plan legend exactly)
+// Each group: { id, label, category (for map filter), items[] }
+// Each item:  { label, swatchClass?, fill?, stroke?, note? }
+// ═══════════════════════════════════════════════════════════════════════════
+const LEGEND_GROUPS = [
+  {
+    id: "lawn", label: "Rasen", category: "lawn",
+    items: [
+      { label: "Geb.Rasen kf.",  fill: "#98e640" },
+      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
+    ]
+  },
+  {
+    id: "meadow", label: "Wiesen", category: "meadow",
+    items: [
+      { label: "Feuchtwiese",      fill: "#a8e3d9" },
+      { label: "Blumenwiese gf.",  fill: "#c6eeab", swatchClass: "sw-pstripe" },
+      { label: "Blumenwiese kf.",  fill: "#c6eeab" },
+      { label: "Magerrasen",       fill: "#f0f0b0", swatchClass: "sw-vdots" },
+      { label: "Saumvegetation",   fill: "#f0f0b0", swatchClass: "sw-odots" },
+    ]
+  },
+  {
+    id: "planting_bed", label: "Rabatten", category: "planting_bed",
+    items: [
+      { label: "Wechselflor",   fill: "#ff74df", swatchClass: "sw-dots" },
+      { label: "Moorbeet",      fill: "#5c45a8" },
+      { label: "Stauden. int.", fill: "#cc66ff", swatchClass: "sw-pstripe" },
+      { label: "Stauden. ext.", fill: "#cc66ff" },
+      { label: "Beetrosen",     fill: "#ff5500" },
+      { label: "Ruderalfläche", fill: "#ffaa00", swatchClass: "sw-ostripe" },
+    ]
+  },
+  {
+    id: "hedge", label: "Hecken", category: "hedge",
+    items: [
+      { label: "Wildhecke",        fill: "#d9d89e" },
+      { label: "Formhecke + 1.5 m",fill: "#c07020", swatchClass: "sw-hstripe" },
+      { label: "Formhecke - 1.5 m",fill: "#c07020" },
+    ]
+  },
+  {
+    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
+    items: [
+      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
+      { label: "Bodendecker",      fill: "#7a6e3e" },
+      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
+      { label: "Wald",             fill: "#254700" },
+    ]
+  },
+  {
+    id: "special_planting", label: "Spezielle Bepflanzungsformen", category: "special_planting",
+    items: [
+      { label: "Dach: ext. Stauden", fill: "#ffbebe" },
+    ]
+  },
+  {
+    id: "surface", label: "Beläge", category: "surface",
+    items: [
+      { label: "Asphaltbelag",             fill: "#686868" },
+      { label: "Rasengittersteine",         fill: "#70a800", swatchClass: "sw-xhatch" },
+      { label: "Holzhäckselbelag",          fill: "#8b3a00", swatchClass: "sw-xhatch" },
+      { label: "Chaussierung",              fill: "#cd8a66" },
+      { label: "Betonpl./Verbund/Naturstein",fill: "#9c9c9c" },
+      { label: "Geröllstreifen/Bollensteine",fill: "#6a6a6a", swatchClass: "sw-gdots" },
+    ]
+  },
+  {
+    id: "water", label: "Wasserflächen", category: "water",
+    items: [
+      { label: "Brunnen",          fill: "#00aae6" },
+      { label: "Gewässer, ruhend", fill: "#006fff" },
+    ]
+  },
+  {
+    id: "other", label: "Anderes", category: "other",
+    items: [
+      { label: "Anderes", fill: "#ffff00" },
+    ]
+  },
+  {
+    id: "tree", label: "Baum", category: "tree",
+    items: [
+      { label: "Laubb. Kopf-/Form",         fill: "#b0e000", swatchClass: "sw-circ-cross" },
+      { label: "Laubb. nat. kleink.",        fill: "#60c800", swatchClass: "sw-circ" },
+      { label: "Laubb. nat. grossk.",        fill: "#38b000", swatchClass: "sw-circ" },
+      { label: "Nadelb. nat.",               fill: "#1a7000", swatchClass: "sw-circ" },
+      { label: "Hochstammobst",              fill: "#60c800", swatchClass: "sw-circ-cross" },
+      { label: "Strassenb. Laub Kopf/Form",  fill: "#007a94", swatchClass: "sw-circ-cross" },
+      { label: "Strassenb. Laub nat. kleink.",fill: "#008aaa", swatchClass: "sw-circ" },
+      { label: "Strassenb. Laub nat. grossk.",fill: "#006680", swatchClass: "sw-circ" },
+    ]
+  },
+  {
+    id: "special_point", label: "Spezielle Bepflanzungsformen", category: null,
+    items: [
+      { label: "Pflanzgefäss mobil Dauerbepflanzung", fill: "#1a1a8a", swatchClass: "sw-circ" },
+      { label: "Pflanzgefäss Wechselflor",             fill: "#cc00cc", swatchClass: "sw-circ" },
+      { label: "Schling- & Kletterpf.",                fill: "#cc0000", swatchClass: "sw-triangle" },
+    ]
+  },
+  {
+    id: "kleinstrukturen", label: "Kleinstrukturen", category: null,
+    items: [
+      { label: "Asthaufen",        fill: "#c09060" },
+      { label: "Steinhaufen",      fill: "#808080" },
+      { label: "Wildbienenhotel",  fill: "#804000" },
+      { label: "Baumstämme",       fill: "#604020" },
+    ]
+  },
+];
 
-            <div id="search-area" role="search">
-                <div id="search-wrapper">
-                    <div id="search-container">
-                        <button id="search-icon-btn" aria-label="Suche starten" type="button">
-                            <span class="material-symbols-outlined" aria-hidden="true">search</span>
-                        </button>
-                        <input type="search" id="search-input" placeholder="Suche nach Objekten, Orten oder Karten" aria-label="Suchbegriff eingeben" autocomplete="off">
-                        <button id="search-clear-btn" title="Suche löschen" aria-label="Suche löschen" type="button">
-                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
-                        </button>
-                        <div id="search-spinner" class="spinner" role="status" aria-label="Suche läuft"></div>
-                    </div>
-                    <div id="search-results" role="listbox" aria-label="Suchergebnisse"></div>
-                </div>
+// ── Subtype-level fill colours for map rendering ───────────────────────────
+const SUBTYPE_FILL = {
+  'Chaussierung':          '#cd8a66',
+  'Asphaltbelag':          '#686868',
+  'Rasengittersteine':     '#70a800',
+  'Holzhaeckselbelag':     '#8b3a00',
+  'Betonpl./Naturstein':   '#9c9c9c',
+  'Geroellstreifen':       '#6a6a6a',
+  'Feuchtwiese':           '#a8e3d9',
+  'Blumenwiese':           '#c6eeab',
+  'Saumvegetation':        '#f0f0b0',
+  'Geb.Rasen kf.':         '#98e640',
+  'Gehoelz & Bodend.':     '#8a7248',
+  'Gehoelzrabatte':        '#8a9044',
+  'Wald':                  '#254700',
+  'Stauden':               '#cc66ff',
+  'Moorbeet':              '#5c45a8',
+  'Wechselflor':           '#ff74df',
+  'Beetrosen':             '#ff5500',
+  'Ruderalflaeche':        '#ffaa00',
+  'Wildhecke':             '#d9d89e',
+  'Formhecke':             '#c07020',
+  'Objekt':                '#e8edf2',
+  'Dach: ext. Stauden':    '#ffbebe',
+  'Brunnen':               '#00aae6',
+  'Gewaesser ruhend':      '#006fff',
+  'Anderes':               '#ffff00',
+};
 
-                <div class="view-toggle" role="tablist" aria-label="Ansicht wählen">
-                    <button class="view-toggle-btn active" data-view="map" title="Karte" aria-label="Kartenansicht" role="tab" aria-selected="true">
-                        <span class="material-symbols-outlined" aria-hidden="true">map</span>
-                        <span class="view-label">Karte</span>
-                    </button>
-                    <button class="view-toggle-btn" data-view="wiki" title="Wiki" aria-label="Pflegeprofile Wiki" role="tab" aria-selected="false">
-                        <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
-                        <span class="view-label">Wiki</span>
-                    </button>
-                    <button class="view-toggle-btn" data-view="tasks" title="Aufgaben" aria-label="Aufgabenverwaltung" role="tab" aria-selected="false">
-                        <span class="material-symbols-outlined" aria-hidden="true">task_alt</span>
-                        <span class="view-label">Aufgaben</span>
-                    </button>
-                    <button class="view-toggle-btn" data-view="dashboard" title="Dashboard" aria-label="Dashboard" role="tab" aria-selected="false">
-                        <span class="material-symbols-outlined" aria-hidden="true">bar_chart_4_bars</span>
-                        <span class="view-label">Dashboard</span>
-                    </button>
-                </div>
-            </div>
+const CAT_FILL = {
+  lawn:            '#98e640', meadow: '#c6eeab',
+  planting_bed:    '#cc66ff', hedge: '#c07020', woody_area: '#8a7248',
+  special_planting:'#ffbebe', surface: '#9c9c9c', water: '#00aae6',
+  other:           '#ffff00', tree: '#60c800',
+};
 
-            <div id="header-right">
-                <span id="object-count" aria-live="polite">10 Standorte</span>
-                <button class="header-btn" id="smart-drawer-btn" title="Standorte filtern" aria-label="Standorte filtern" aria-expanded="false" aria-controls="smart-drawer">
-                    <span class="material-symbols-outlined" aria-hidden="true">tune</span>
-                    Standorte filtern
-                </button>
-                <button class="header-btn" id="project-settings-btn" title="Projekteinstellungen" aria-label="Projekteinstellungen">
-                    <span class="material-symbols-outlined" aria-hidden="true">settings</span>
-                </button>
-                <div id="login-area">
-                    <button id="login-btn" title="Anmelden" aria-label="Anmelden">
-                        <span class="material-symbols-outlined" aria-hidden="true">person</span>
-                    </button>
-                </div>
-            </div>
-        </div>
+function fillExpr() {
+  return ['match', ['get', 'subtype'],
+    ...Object.entries(SUBTYPE_FILL).flatMap(([k, v]) => [k, v]),
+    ['match', ['get', 'category'],
+      ...Object.entries(CAT_FILL).flatMap(([k, v]) => [k, v]),
+      '#aaaaaa'
+    ]
+  ];
+}
+function lineColorExpr() {
+  return ['match', ['get', 'category'],
+    'water', '#0055cc',
+    'rgba(0,0,0,0.28)'
+  ];
+}
+function lineWidthExpr() {
+  return 0.8;
+}
 
-    </header>
+// ── Group visibility state ─────────────────────────────────────────────────
+const vis = {};
+for (const g of LEGEND_GROUPS) vis[g.id] = true;
 
-    <main id="main">
-        <div class="main-content">
-            <div id="map-view" class="active">
-            <div id="map"></div>
+function buildMapFilter() {
+  const onCats = LEGEND_GROUPS
+    .filter(g => vis[g.id] && g.category)
+    .map(g => g.category);
+  if (onCats.length === 0) return ['==', '1', '0'];
+  return ['in', ['get', 'category'], ['literal', onCats]];
+}
 
+// ── Map init ───────────────────────────────────────────────────────────────
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  center: [7.4742, 46.9751],
+  zoom: 16, maxZoom: 22,
+});
+map.addControl(new maplibregl.NavigationControl(), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
 
-            <!-- Edit Banner (top-center warning when editing) -->
-            <div class="edit-banner" id="edit-banner">
-                <span class="material-symbols-outlined">edit</span>
-                <span id="edit-banner-layer-name">Grünflächen bearbeiten</span>
-                <div class="edit-banner-actions">
-                    <button class="edit-banner-btn edit-banner-cancel" id="edit-banner-cancel">Abbrechen</button>
-                    <button class="edit-banner-btn edit-banner-save" id="edit-banner-save">Speichern</button>
-                </div>
-            </div>
+// ── GeoJSON offset (used by edit mode) ────────────────────────────────────
+// LV95 scale at ~47°N: 1° lat ≈ 111 320 m, 1° lon ≈ 73 500 m
+let offsetDeltaLon = 0, offsetDeltaLat = 0;
+let editMode = false;
+let editStartLngLat = null;
+let originalCenter = null;
+let geojsonData = null;
 
-            <!-- Edit Toolbar (shown when editing a layer) -->
-            <div class="edit-toolbar" id="edit-toolbar">
-                <div class="edit-toolbar-tools">
-                    <div class="edit-tool-group">
-                        <button class="edit-tool-btn" data-tool="draw-polygon" title="Polygon zeichnen">
-                            <span class="material-symbols-outlined">pentagon</span>
-                            <span class="edit-tool-label">Polygon</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="draw-point" title="Punkt setzen">
-                            <span class="material-symbols-outlined">location_on</span>
-                            <span class="edit-tool-label">Punkt</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="draw-line" title="Linie zeichnen">
-                            <span class="material-symbols-outlined">timeline</span>
-                            <span class="edit-tool-label">Linie</span>
-                        </button>
-                    </div>
-                    <div class="edit-tool-divider"></div>
-                    <div class="edit-tool-group">
-                        <button class="edit-tool-btn" data-tool="edit-vertices" title="Stützpunkte bearbeiten">
-                            <span class="material-symbols-outlined">edit</span>
-                            <span class="edit-tool-label">Bearbeiten</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="split" title="Polygon teilen">
-                            <span class="material-symbols-outlined">content_cut</span>
-                            <span class="edit-tool-label">Teilen</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="merge" title="Zusammenführen">
-                            <span class="material-symbols-outlined">join</span>
-                            <span class="edit-tool-label">Verbinden</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="delete" title="Löschen">
-                            <span class="material-symbols-outlined">delete</span>
-                            <span class="edit-tool-label">Löschen</span>
-                        </button>
-                    </div>
-                    <div class="edit-tool-divider"></div>
-                    <div class="edit-tool-group">
-                        <button class="edit-tool-btn" data-tool="undo" title="Rückgängig">
-                            <span class="material-symbols-outlined">undo</span>
-                            <span class="edit-tool-label">Undo</span>
-                        </button>
-                        <button class="edit-tool-btn" data-tool="redo" title="Wiederholen">
-                            <span class="material-symbols-outlined">redo</span>
-                            <span class="edit-tool-label">Redo</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
+// ── Load data ──────────────────────────────────────────────────────────────
+const GEOJSON_PATH =
+  'data/[838147959] 1602.GR_M\u00FChlestrasse 2+4+6+8Gr\u00FCnfl\u00E4chenpflege.geojson';
 
-            <nav id="accordion-panel">
-                <div class="accordion-item">
-                    <div class="accordion-header">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Teilen</span>
-                    </div>
-                    <div class="accordion-content">
-                        <div class="share-panel">
-                            <div class="share-icons" role="group" aria-label="Teilen über soziale Medien">
-                                <!-- Email -->
-                                <button class="share-icon-btn" onclick="shareViaEmail()" title="Per E-Mail teilen" aria-label="Per E-Mail teilen">
-                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                                    </svg>
-                                </button>
-                                <!-- Facebook -->
-                                <button class="share-icon-btn" onclick="shareViaFacebook()" title="Auf Facebook teilen" aria-label="Auf Facebook teilen">
-                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/>
-                                    </svg>
-                                </button>
-                                <!-- LinkedIn -->
-                                <button class="share-icon-btn" onclick="shareViaLinkedIn()" title="Auf LinkedIn teilen" aria-label="Auf LinkedIn teilen">
-                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
-                                    </svg>
-                                </button>
-                                <!-- X (Twitter) -->
-                                <button class="share-icon-btn" onclick="shareViaX()" title="Auf X teilen" aria-label="Auf X teilen">
-                                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="share-link-section">
-                                <span class="share-link-label">Link zum Teilen:</span>
-                                <div class="share-link-row">
-                                    <input type="text" id="share-link-input" class="share-link-input" readonly aria-label="Link zum Teilen">
-                                    <button class="share-copy-btn" onclick="copyShareLink()" aria-label="Link in die Zwischenablage kopieren">Link kopieren</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+map.on('load', async () => {
+  let resp, gj;
+  try {
+    resp = await fetch(GEOJSON_PATH);
+    gj = await resp.json();
+  } catch (e) {
+    document.getElementById('feat-badge').textContent = 'Ladefehler';
+    console.error(e);
+    return;
+  }
+  geojsonData = gj;
 
-                <div class="accordion-item">
-                    <div class="accordion-header">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Drucken</span>
-                    </div>
-                    <div class="accordion-content">
-                        <div class="print-panel">
-                            <div class="print-form-row">
-                                <label for="print-orientation" class="print-label">Orientierung</label>
-                                <select id="print-orientation" class="print-select">
-                                    <option value="landscape-a4">A4 landscape</option>
-                                    <option value="portrait-a4">A4 portrait</option>
-                                    <option value="landscape-a3">A3 landscape</option>
-                                    <option value="portrait-a3">A3 portrait</option>
-                                </select>
-                            </div>
-                            <div class="print-form-row">
-                                <label for="print-scale" class="print-label">Massstab</label>
-                                <select id="print-scale" class="print-select">
-                                    <option value="auto">Automatisch</option>
-                                    <option value="500">1:500</option>
-                                    <option value="1000">1:1'000</option>
-                                    <option value="2500">1:2'500</option>
-                                    <option value="5000">1:5'000</option>
-                                    <option value="10000">1:10'000</option>
-                                    <option value="25000">1:25'000</option>
-                                    <option value="50000">1:50'000</option>
-                                    <option value="100000">1:100'000</option>
-                                    <option value="200000">1:200'000</option>
-                                    <option value="500000">1:500'000</option>
-                                    <option value="1000000">1:1'000'000</option>
-                                    <option value="2500000">1:2'500'000</option>
-                                </select>
-                            </div>
-                            <div class="print-checkboxes">
-                                <label class="print-checkbox-label">
-                                    <input type="checkbox" id="print-legend" checked>
-                                    <span>Legende</span>
-                                </label>
-                                <label class="print-checkbox-label">
-                                    <input type="checkbox" id="print-grid">
-                                    <span>Koordinatennetz</span>
-                                </label>
-                            </div>
-                            <button id="print-pdf-btn" class="print-btn" onclick="generatePrintPDF()">
-                                Erstelle PDF für Druck
-                            </button>
-                        </div>
-                    </div>
-                </div>
+  document.getElementById('feat-badge').textContent =
+    `${gj.features.length} Features`;
 
-                <div class="accordion-item">
-                    <div class="accordion-header">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Zeichnen & Messen auf der Karte</span>
-                    </div>
-                    <div class="accordion-content">
-                        Zeichnen Sie Punkte, Linien und Polygone direkt auf der Karte. Messen Sie Distanzen in Metern oder Kilometern und berechnen Sie Flächen in Quadratmetern.
-                    </div>
-                </div>
+  map.addSource('features', {
+    type: 'geojson', data: gj, promoteId: '__AUTO__',
+  });
 
-                <div class="accordion-item">
-                    <div class="accordion-header">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Export</span>
-                    </div>
-                    <div class="accordion-content">
-                        <div class="export-panel">
-                            <div class="export-section">
-                                <label class="export-section-label">Datenauswahl</label>
-                                <select id="export-data-selection" class="export-select">
-                                    <option value="filtered">Aktuelle Ansicht</option>
-                                    <option value="all">Alle Objekte</option>
-                                    <option value="selected">Nur ausgewähltes Objekt</option>
-                                </select>
-                                <span class="export-count" id="export-count"></span>
-                            </div>
+  map.addLayer({
+    id: 'features-fill', type: 'fill', source: 'features',
+    paint: {
+      'fill-color': fillExpr(),
+      'fill-opacity': ['match', ['get', 'category'],
+        'site_boundary', 0, 'building', 0.65, 0.78],
+    },
+  });
+  map.addLayer({
+    id: 'features-line', type: 'line', source: 'features',
+    paint: {
+      'line-color': lineColorExpr(),
+      'line-width': lineWidthExpr(),
+    },
+  });
+  map.addLayer({
+    id: 'features-hover', type: 'line', source: 'features',
+    filter: ['==', ['id'], -1],
+    paint: { 'line-color': '#005ea8', 'line-width': 2.5 },
+  });
 
-                            <div class="export-section">
-                                <label class="export-section-label">Format wählen</label>
-                                <div class="export-format-grid">
-                                    <button class="export-format-card active" data-format="geojson">
-                                        <span class="export-format-icon">{ }</span>
-                                        <span class="export-format-name">GeoJSON</span>
-                                        <span class="export-format-desc">Web-Anwendungen</span>
-                                    </button>
-                                    <button class="export-format-card" data-format="csv">
-                                        <span class="export-format-icon"><span class="material-symbols-outlined">table_view</span></span>
-                                        <span class="export-format-name">CSV</span>
-                                        <span class="export-format-desc">Excel / Tabellen</span>
-                                    </button>
-                                    <button class="export-format-card" data-format="kml">
-                                        <span class="export-format-icon"><span class="material-symbols-outlined">location_on</span></span>
-                                        <span class="export-format-name">KML</span>
-                                        <span class="export-format-desc">Google Earth</span>
-                                    </button>
-                                    <button class="export-format-card" data-format="shapefile">
-                                        <span class="export-format-icon"><span class="material-symbols-outlined">hexagon</span></span>
-                                        <span class="export-format-name">Shapefile</span>
-                                        <span class="export-format-desc">GIS-Software</span>
-                                    </button>
-                                </div>
-                            </div>
+  // ── Popup / hover ──────────────────────────────────────────────────────
+  const popup = new maplibregl.Popup({
+    closeButton: false, closeOnClick: false, maxWidth: '260px',
+  });
+  let hovId = null;
 
-                            <div class="export-section">
-                                <label class="export-section-label">Optionen</label>
-                                <div class="export-options">
-                                    <label class="export-checkbox-label">
-                                        <input type="checkbox" id="export-coords" checked>
-                                        <span>Koordinaten einschliessen</span>
-                                    </label>
-                                    <label class="export-checkbox-label">
-                                        <input type="checkbox" id="export-all-fields" checked>
-                                        <span>Alle Attribute exportieren</span>
-                                    </label>
-                                    <label class="export-checkbox-label">
-                                        <input type="checkbox" id="export-visible-only">
-                                        <span>Nur sichtbare Spalten</span>
-                                    </label>
-                                    <label class="export-checkbox-label">
-                                        <input type="checkbox" id="export-parcels">
-                                        <span>Parzellen einschliessen</span>
-                                    </label>
-                                </div>
-                            </div>
+  map.on('mousemove', 'features-fill', (e) => {
+    if (editMode) return;
+    if (!e.features.length) return;
+    map.getCanvas().style.cursor = 'pointer';
+    const f = e.features[0], p = f.properties;
+    if (hovId !== f.id) {
+      hovId = f.id;
+      map.setFilter('features-hover', ['==', ['id'], hovId]);
+    }
+    popup.setLngLat(e.lngLat).setHTML(`
+      <div class="pu-type">${p.feature_type || p.category}</div>
+      <div class="pu-sub">${p.subtype}</div>
+      <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? (+p.area_m2).toFixed(1) + ' m²' : '–'}</strong></div>
+      <div class="pu-row"><span>Kategorie</span><strong>${p.category}</strong></div>
+      <div class="pu-row"><span>Quelle</span><strong>${p.source}</strong></div>
+    `).addTo(map);
+  });
+  map.on('mouseleave', 'features-fill', () => {
+    if (editMode) return;
+    map.getCanvas().style.cursor = '';
+    map.setFilter('features-hover', ['==', ['id'], -1]);
+    hovId = null;
+    popup.remove();
+  });
 
-                            <div class="export-section">
-                                <label class="export-section-label">Koordinatensystem</label>
-                                <select id="export-crs" class="export-select">
-                                    <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
-                                    <option value="EPSG:2056">CH1903+ / LV95 (EPSG:2056)</option>
-                                    <option value="EPSG:21781">CH1903 / LV03 (EPSG:21781)</option>
-                                </select>
-                            </div>
+  // ── Fit to actual feature bounds ───────────────────────────────────────
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  function scanCoords(c) {
+    if (typeof c[0] === 'number') {
+      if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
+      if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
+    } else { c.forEach(scanCoords); }
+  }
+  gj.features.forEach(f => scanCoords(f.geometry.coordinates));
+  map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 19 });
 
-                            <button id="export-btn" class="export-btn">
-                                <span class="material-symbols-outlined">download</span>
-                                <span>Exportieren</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+  // ── Build legend ───────────────────────────────────────────────────────
+  buildLegend(gj.features);
+});
 
-                <div class="accordion-item" id="geokatalog-accordion">
-                    <div class="accordion-header geokatalog-header">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Geokatalog</span>
-                        <span class="geokatalog-theme-switch">Thema wechseln</span>
-                    </div>
-                    <div class="accordion-content geokatalog-content">
-                        <div id="geokatalog-tree" class="geokatalog-tree">
-                            <div class="geokatalog-loading">Lade Katalog...</div>
-                        </div>
-                    </div>
-                </div>
+// ── Coordinate display ─────────────────────────────────────────────────────
+const coordEl = document.getElementById('coordinates');
+map.on('mousemove', e => {
+  const { lng, lat } = e.lngLat;
+  coordEl.textContent = `WGS 84 | ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+});
+map.on('mouseout', () => { coordEl.textContent = 'WGS 84 | Koordinaten: --'; });
 
-                <div class="accordion-item" id="active-layers-accordion">
-                    <div class="accordion-header active">
-                        <span class="accordion-arrow"><span class="material-symbols-outlined">chevron_right</span></span>
-                        <span>Dargestellte Karten</span>
-                    </div>
-                    <div class="accordion-content show" id="dargestellte-karten-content">
-                        <!-- Interne Daten (project layers, ordered top=frontmost on map) -->
-                        <!-- Z-order: Points > Lines > Small polygons > Large polygons > Reference -->
-                        <div class="layer-group-label">Interne Daten</div>
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGEND BUILDER
+// ═══════════════════════════════════════════════════════════════════════════
+function buildLegend(features) {
+  const catCounts = {};
+  for (const f of features) {
+    const c = f.properties.category;
+    catCounts[c] = (catCounts[c] || 0) + 1;
+  }
 
-                        <!-- Objekte (Point) -->
-                        <div class="layer-item" data-layer="trees">
-                            <input type="checkbox" id="layer-trees" data-layer="trees" checked>
-                            <span class="layer-name">Bäume</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="trees" title="Bäume bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="trees" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="furniture">
-                            <input type="checkbox" id="layer-furniture" data-layer="furniture" checked>
-                            <span class="layer-name">Mobiliar</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="furniture" title="Mobiliar bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="furniture" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="structure-elements">
-                            <input type="checkbox" id="layer-structure-elements" data-layer="structure-elements" checked>
-                            <span class="layer-name">Strukturelemente</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="structure-elements" title="Strukturelemente bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="structure-elements" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+  const el = document.getElementById('legend-scroll');
+  el.innerHTML = '';
 
-                        <!-- Linienobjekte (LineString) -->
-                        <div class="layer-item" data-layer="linear-features">
-                            <input type="checkbox" id="layer-linear-features" data-layer="linear-features" checked>
-                            <span class="layer-name">Linienobjekte</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="linear-features" title="Linienobjekte bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="linear-features" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+  for (const grp of LEGEND_GROUPS) {
+    const hasData = grp.category && (catCounts[grp.category] || 0) > 0;
 
-                        <!-- Flächen klein (Polygon) -->
-                        <div class="layer-item" data-layer="water-features">
-                            <input type="checkbox" id="layer-water-features" data-layer="water-features" checked>
-                            <span class="layer-name">Gewässer</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="water-features" title="Gewässer bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="water-features" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="surfaces">
-                            <input type="checkbox" id="layer-surfaces" data-layer="surfaces" checked>
-                            <span class="layer-name">Belagsflächen</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="surfaces" title="Belagsflächen bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="surfaces" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+    const groupEl = document.createElement('div');
+    groupEl.className = 'lg-group';
+    groupEl.dataset.gid = grp.id;
 
-                        <!-- Vegetation (Polygon) -->
-                        <div class="layer-item" data-layer="plantings">
-                            <input type="checkbox" id="layer-plantings" data-layer="plantings" checked>
-                            <span class="layer-name">Stauden & Pflanzungen</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="plantings" title="Stauden & Pflanzungen bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="plantings" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="building-greenery">
-                            <input type="checkbox" id="layer-building-greenery" data-layer="building-greenery" checked>
-                            <span class="layer-name">Gebäude-/Ausstattungsbegrünung</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="building-greenery" title="Gebäudebegrünung bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="building-greenery" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="lawns">
-                            <input type="checkbox" id="layer-lawns" data-layer="lawns" checked>
-                            <span class="layer-name">Rasen & Wiesen</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="lawns" title="Rasen & Wiesen bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="lawns" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="gardens">
-                            <input type="checkbox" id="layer-gardens" data-layer="gardens" checked>
-                            <span class="layer-name">Gärten</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="gardens" title="Gärten bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="gardens" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+    // Group header row
+    const head = document.createElement('div');
+    head.className = 'lg-group-head';
 
-                        <!-- Bestockte Flächen (Polygon, large) -->
-                        <div class="layer-item" data-layer="woodlands">
-                            <input type="checkbox" id="layer-woodlands" data-layer="woodlands" checked>
-                            <span class="layer-name">Gehölze & Parkwald</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="woodlands" title="Gehölze & Parkwald bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="woodlands" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="forest">
-                            <input type="checkbox" id="layer-forest" data-layer="forest" checked>
-                            <span class="layer-name">Wald</span>
-                            <div class="layer-actions">
-                                <button class="layer-edit-btn" data-layer="forest" title="Wald bearbeiten">
-                                    <span class="material-symbols-outlined">edit</span>
-                                </button>
-                                <button class="layer-info-btn" data-layer="forest" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
+    const eyeBtn = document.createElement('button');
+    eyeBtn.className = 'eye-btn';
+    eyeBtn.title = 'Ebene ein-/ausblenden';
+    eyeBtn.innerHTML = EYE_OPEN;
+    eyeBtn.addEventListener('click', () => {
+      if (!grp.category) return; // no map data, nothing to toggle
+      vis[grp.id] = !vis[grp.id];
+      eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
+      eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
+      groupEl.classList.toggle('group-hidden', !vis[grp.id]);
+      map.setFilter('features-fill', buildMapFilter());
+      map.setFilter('features-line', buildMapFilter());
+    });
+    if (!grp.category) {
+      eyeBtn.style.opacity = '0.25';
+      eyeBtn.style.cursor = 'default';
+    }
 
-                        <!-- Referenz-Layer (read-only, background) -->
-                        <div class="layer-item" data-layer="buildings">
-                            <input type="checkbox" id="layer-buildings" data-layer="buildings" checked>
-                            <span class="layer-name">Gebäude</span>
-                            <div class="layer-actions">
-                                <button class="layer-info-btn" data-layer="buildings" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-item" data-layer="parcels">
-                            <input type="checkbox" id="layer-parcels" data-layer="parcels" checked>
-                            <span class="layer-name">Grundstücke</span>
-                            <div class="layer-actions">
-                                <button class="layer-info-btn" data-layer="parcels" title="Layer-Info">
-                                    <span class="material-symbols-outlined">info</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="layer-divider"></div>
-                        <!-- Referenzdaten (swisstopo layers) -->
-                        <div class="layer-group-label">Referenzdaten</div>
-                        <div id="reference-layers-list"></div>
-                    </div>
-                </div>
-            </nav>
-            
-            <div id="menu-toggle">
-                <span class="material-symbols-outlined">expand_less</span>
-                <span id="menu-toggle-text">Menü schliessen</span>
-            </div>
-            
+    const title = document.createElement('span');
+    title.className = 'lg-group-title';
+    title.textContent = grp.label;
+    if (hasData) {
+      const cnt = document.createElement('span');
+      cnt.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
+      cnt.textContent = catCounts[grp.category];
+      title.appendChild(cnt);
+    }
 
-            <!-- Style Switcher (visible only in map view) -->
-            <div class="style-switcher" id="style-switcher">
-                <div class="style-switcher-panel" id="style-panel">
-                    <button class="style-option active" data-style="light-v11" title="Light">
-                        <img id="thumb-light-v11" src="" alt="Light">
-                        <span>Light</span>
-                    </button>
-                    <button class="style-option" data-style="streets-v12" title="Standard">
-                        <img id="thumb-streets-v12" src="" alt="Standard">
-                        <span>Standard</span>
-                    </button>
-                    <button class="style-option" data-style="satellite-v9" title="Luftbild">
-                        <img id="thumb-satellite-v9" src="" alt="Luftbild">
-                        <span>Luftbild</span>
-                    </button>
-                    <button class="style-option" data-style="satellite-streets-v12" title="Luftbild + Strassen">
-                        <img id="thumb-satellite-streets-v12" src="" alt="Luftbild + Strassen">
-                        <span>Hybrid</span>
-                    </button>
-                </div>
-                <button class="style-switcher-btn" id="style-switcher-btn" title="Hintergrund wechseln">
-                    <img id="current-style-thumb" src="" alt="Aktueller Stil">
-                    <span>Hintergrund</span>
-                </button>
-            </div>
+    head.append(eyeBtn, title);
+    groupEl.appendChild(head);
 
-            <!-- Map Context Menu (Right-Click) -->
-            <div id="map-context-menu" class="map-context-menu">
-                <div class="context-menu-item context-menu-coords" id="context-menu-coords" title="Klicken zum Kopieren">
-                    <span id="context-menu-coords-text">47.37623, 8.53048</span>
-                </div>
-                <div class="context-menu-item" id="context-menu-share">
-                    <span>Teilen</span>
-                </div>
-                <div class="context-menu-item" id="context-menu-measure">
-                    <span id="context-menu-measure-text">Distanz messen</span>
-                </div>
-                <div class="context-menu-item" id="context-menu-print">
-                    <span>Drucken</span>
-                </div>
-                <div class="context-menu-item" id="context-menu-report">
-                    <span>Problem melden</span>
-                </div>
-            </div>
+    // Items
+    const itemsEl = document.createElement('div');
+    itemsEl.className = 'lg-items';
 
-            <!-- Measure Distance Display -->
-            <div id="measure-distance-display" class="measure-distance-display">
-                <div class="measure-distance-header">
-                    <span class="material-symbols-outlined">straighten</span>
-                    <span>Distanz messen</span>
-                    <button id="measure-distance-close" class="measure-distance-close" title="Schliessen">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
-                </div>
-                <div class="measure-distance-info">
-                    Klicken Sie auf die Karte, um einen Pfad zu zeichnen.
-                </div>
-                <div class="measure-distance-result" id="measure-distance-result">
-                    <div class="measure-result-row">
-                        <span class="measure-result-label">Gesamtdistanz:</span>
-                        <span class="measure-result-value" id="measure-total-distance">0 m</span>
-                    </div>
-                    <div class="measure-result-row" id="measure-area-row" style="display: none;">
-                        <span class="measure-result-label">Fläche:</span>
-                        <span class="measure-result-value" id="measure-total-area">0 m²</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+    for (const item of grp.items) {
+      const row = document.createElement('div');
+      row.className = 'lg-item' + (hasData ? '' : ' empty');
 
-        <div id="wiki-view">
-            <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">menu_book</span>
-                <h2>Pflegeprofil-Wiki</h2>
-                <p>Hier werden die Pflegeprofile gemäss Profilkatalog dargestellt.</p>
-            </div>
-        </div>
+      const sw = document.createElement('span');
+      sw.className = 'lg-swatch' + (item.swatchClass ? ' ' + item.swatchClass : '');
+      if (item.fill && !item.swatchClass?.includes('sw-outline') &&
+          !item.swatchClass?.includes('sw-triangle')) {
+        sw.style.background = item.fill;
+      }
 
-        <div id="tasks-view">
-            <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">task_alt</span>
-                <h2>Aufgaben</h2>
-                <p>Hier wird die Massnahmenplanung und Aufgabenverwaltung dargestellt.</p>
-            </div>
-        </div>
+      const lbl = document.createElement('span');
+      lbl.className = 'lg-label';
+      lbl.textContent = item.label;
 
-        <div id="dashboard-view">
-            <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">bar_chart_4_bars</span>
-                <h2>Dashboard</h2>
-                <p>Hier werden die wichtigsten KPIs und Kennzahlen dargestellt.</p>
-            </div>
-        </div>
+      row.append(sw, lbl);
+      itemsEl.appendChild(row);
+    }
 
-        <div id="settings-view">
-            <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">settings</span>
-                <h2>Einstellungen</h2>
-                <p>Hier werden die Projekteinstellungen und Konfigurationen verwaltet.</p>
-            </div>
-        </div>
+    groupEl.appendChild(itemsEl);
+    el.appendChild(groupEl);
+  }
+}
 
-        <div id="api-view">
-            <div class="placeholder-view">
-                <span class="material-symbols-outlined placeholder-icon">api</span>
-                <h2>Green Area Inventory API</h2>
-                <p>Die REST-API-Dokumentation (OpenAPI / Swagger) wird hier verfügbar sein, sobald das Backend implementiert ist.</p>
-                <div class="api-placeholder-endpoints">
-                    <div class="api-endpoint-group">
-                        <h4>Geplante Endpunkte</h4>
-                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/sites</div>
-                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/green-areas</div>
-                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/trees</div>
-                        <div class="api-endpoint"><span class="api-method get">GET</span> /api/v1/furniture</div>
-                        <div class="api-endpoint"><span class="api-method post">POST</span> /api/v1/trees</div>
-                        <div class="api-endpoint"><span class="api-method put">PUT</span> /api/v1/trees/:id</div>
-                        <div class="api-endpoint"><span class="api-method delete">DEL</span> /api/v1/trees/:id</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+const EYE_OPEN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+  <circle cx="12" cy="12" r="3"/>
+</svg>`;
+const EYE_CLOSED = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+  <line x1="1" y1="1" x2="23" y2="23"/>
+</svg>`;
 
-        </div><!-- /.main-content -->
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT MODE  — drag to reposition entire GeoJSON layer
+// ═══════════════════════════════════════════════════════════════════════════
+const editToggleBtn = document.getElementById('edit-toggle');
+const editBanner    = document.getElementById('edit-banner');
+const saveBanner    = document.getElementById('save-banner');
+const offsetLabel   = document.getElementById('offset-label');
 
-        <!-- Smart Drawer (merged Filter + AI Assistant) -->
-        <aside id="smart-drawer" role="complementary" aria-label="Smart Drawer">
-            <div class="smart-drawer-resize-handle" title="Grösse ändern"></div>
-            <div class="smart-drawer-header">
-                <div class="smart-drawer-title">
-                    <span class="material-symbols-outlined">filter_list</span>
-                    Standorte filtern
-                </div>
-                <div class="smart-drawer-actions">
-                    <button class="smart-drawer-btn" id="drawer-reset-btn" title="Filter zurücksetzen">
-                        <span class="material-symbols-outlined">replay</span>
-                    </button>
-                    <button class="smart-drawer-btn" id="drawer-close-btn" title="Schliessen">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
-                </div>
-            </div>
+let dragStart = null;
+let pendingDelta = { lon: 0, lat: 0 };
 
-            <!-- Filter Content -->
-            <div class="smart-drawer-content" id="drawer-filter-content" data-drawer-content="filter" role="tabpanel">
-                <div class="filter-section open" data-filter="status">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Status</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-status-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
+editToggleBtn.addEventListener('click', () => {
+  editMode = !editMode;
+  editToggleBtn.classList.toggle('active', editMode);
+  editBanner.classList.toggle('visible', editMode);
+  saveBanner.classList.toggle('visible', editMode);
+  map.getCanvas().style.cursor = editMode ? 'grab' : '';
+  if (!editMode) { pendingDelta = { lon: 0, lat: 0 }; }
+});
 
-                <div class="filter-section open" data-filter="eigentum">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Art Eigentum</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-eigentum-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
+document.getElementById('cancel-offset').addEventListener('click', () => {
+  // Revert visual delta
+  applyDelta(-pendingDelta.lon, -pendingDelta.lat);
+  pendingDelta = { lon: 0, lat: 0 };
+  editMode = false;
+  editToggleBtn.classList.remove('active');
+  editBanner.classList.remove('visible');
+  saveBanner.classList.remove('visible');
+  map.getCanvas().style.cursor = '';
+});
 
-                <div class="filter-section open" data-filter="teilportfolio">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Teilportfolio</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-teilportfolio-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
+document.getElementById('save-offset').addEventListener('click', async () => {
+  if (!geojsonData) return;
+  // Save offset_m to metadata (approximate metre values)
+  const dLon = (geojsonData.metadata.offset_m?.[0] || 0) + pendingDelta.lon * 73500;
+  const dLat = (geojsonData.metadata.offset_m?.[1] || 0) + pendingDelta.lat * 111320;
+  geojsonData.metadata.offset_m = [Math.round(dLon * 10) / 10, Math.round(dLat * 10) / 10];
+  geojsonData.metadata.total_features = geojsonData.features.length;
 
-                <div class="filter-section open" data-filter="gebaeudeart">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Gebäudeart</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-gebaeudeart-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
+  // Apply permanent delta to all feature coordinates
+  applyDeltaPermanent(pendingDelta.lon, pendingDelta.lat);
+  pendingDelta = { lon: 0, lat: 0 };
 
-                <div class="filter-section open" data-filter="land">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Land</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-land-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
+  // Download updated GeoJSON
+  const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = '[838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.geojson';
+  a.click();
+  URL.revokeObjectURL(url);
 
-                <div class="filter-section open" data-filter="region">
-                    <div class="filter-section-header">
-                        <span class="filter-section-title">Region</span>
-                        <span class="filter-section-arrow"><span class="material-symbols-outlined">expand_more</span></span>
-                    </div>
-                    <div class="filter-section-content" id="filter-region-options">
-                        <!-- Options populated dynamically -->
-                    </div>
-                </div>
-            </div>
+  editMode = false;
+  editToggleBtn.classList.remove('active');
+  editBanner.classList.remove('visible');
+  saveBanner.classList.remove('visible');
+  map.getCanvas().style.cursor = '';
+});
 
-        </aside>
-    </main>
+// Drag handlers
+map.on('mousedown', (e) => {
+  if (!editMode) return;
+  dragStart = { lng: e.lngLat.lng, lat: e.lngLat.lat };
+  map.getCanvas().style.cursor = 'grabbing';
+  map.dragPan.disable();
+  e.preventDefault();
+});
 
-    <footer id="footer">
-        <div id="coordinates">WGS 84 | Koordinaten: --</div>
-        <div id="footer-links">
-            <a href="#" id="footer-api-link">API</a>
-            <a href="https://github.com/bbl-dres/green-inventory" target="_blank">Quellcode</a>
-            <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
-            <a href="https://www.bbl.admin.ch/de/hilfe" target="_blank">Hilfe</a>
-            <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank">Kontakt</a>
-        </div>
-    </footer>
+map.on('mousemove', (e) => {
+  if (!editMode || !dragStart) return;
+  const dLon = e.lngLat.lng - dragStart.lng;
+  const dLat = e.lngLat.lat - dragStart.lat;
+  applyDelta(dLon, dLat);
+  pendingDelta.lon += dLon;
+  pendingDelta.lat += dLat;
+  dragStart = { lng: e.lngLat.lng, lat: e.lngLat.lat };
 
-    <script src="js/app.js"></script>
+  const mEast  = Math.round(pendingDelta.lon * 73500);
+  const mNorth = Math.round(pendingDelta.lat * 111320);
+  offsetLabel.textContent = `Verschiebung: ${mEast > 0 ? '+' : ''}${mEast} m O, ${mNorth > 0 ? '+' : ''}${mNorth} m N`;
+});
+
+map.on('mouseup', () => {
+  if (!editMode || !dragStart) return;
+  dragStart = null;
+  map.getCanvas().style.cursor = 'grab';
+  map.dragPan.enable();
+});
+
+function shiftCoord(coord, dLon, dLat) {
+  if (typeof coord[0] === 'number') return [coord[0] + dLon, coord[1] + dLat];
+  return coord.map(c => shiftCoord(c, dLon, dLat));
+}
+
+function applyDelta(dLon, dLat) {
+  if (!geojsonData) return;
+  for (const f of geojsonData.features) {
+    f.geometry.coordinates = shiftCoord(f.geometry.coordinates, dLon, dLat);
+  }
+  map.getSource('features').setData(geojsonData);
+}
+
+function applyDeltaPermanent(dLon, dLat) {
+  // Already applied incrementally during drag — nothing extra to do.
+  // The geojsonData coordinates are already shifted.
+}
+</script>
 </body>
 </html>
