@@ -8,7 +8,10 @@
 
 Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
 
-**Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
+**Simple Viewer:** https://bbl-dres.github.io/green-inventory
+
+
+**Advanced Prototype:** https://bbl-dres.github.io/green-inventory/prototype1
 
 ---
 
