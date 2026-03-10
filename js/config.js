@@ -180,6 +180,9 @@ const BASEMAPS = [
   { id: 'voyager',     label: 'Reise',  bg: '#e8dfd0',
     thumb: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/7/66/45.png',
     url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+  { id: 'swisstopo',   label: 'Luftbild', bg: '#2a3a2a',
+    thumb: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/8/133/91.jpeg',
+    url: 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json' },
 ];
 
 // ── Table column definitions ───────────────────────────────────────────────
