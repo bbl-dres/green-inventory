@@ -140,14 +140,9 @@
           </table>
         </div>
 
-        <!-- Pagination bar: [size] · [nav cluster] · [info] -->
+        <!-- Pagination bar: [info] · [nav cluster] · [size] -->
         <div id="tbl-pagination">
-          <select id="pg-size-select" title="Zeilen pro Seite">
-            <option value="10">10 / Seite</option>
-            <option value="25" selected>25 / Seite</option>
-            <option value="50">50 / Seite</option>
-            <option value="100">100 / Seite</option>
-          </select>
+          <span class="pg-info" id="pg-info"></span>
           <div class="pg-spacer"></div>
           <button class="pg-btn" id="pg-first" title="Erste Seite">«</button>
           <button class="pg-btn" id="pg-prev"  title="Vorherige Seite">‹</button>
@@ -155,7 +150,12 @@
           <button class="pg-btn" id="pg-next"  title="Nächste Seite">›</button>
           <button class="pg-btn" id="pg-last"  title="Letzte Seite">»</button>
           <div class="pg-spacer"></div>
-          <span class="pg-info" id="pg-info"></span>
+          <select id="pg-size-select" title="Zeilen pro Seite">
+            <option value="10">10 / Seite</option>
+            <option value="25" selected>25 / Seite</option>
+            <option value="50">50 / Seite</option>
+            <option value="100">100 / Seite</option>
+          </select>
         </div>
       </div>
 
@@ -428,14 +428,16 @@ function applySelectedFilter() {
 }
 
 function updateSelectionUrl() {
-  const url = new URL(location.href);
-  if (selectedId !== null) url.searchParams.set('sel', selectedId);
-  else url.searchParams.delete('sel');
-  history.replaceState(null, '', url);
+  try {
+    const url = new URL(location.href);
+    if (selectedId !== null) url.searchParams.set('sel', selectedId);
+    else url.searchParams.delete('sel');
+    history.replaceState(null, '', url);
+  } catch (_) { /* file:// protocol or sandboxed iframe — skip silently */ }
 }
 
 function selectFeature(idx, lngLat) {
-  selectedId = idx;
+  selectedId = Number(idx); // coerce: MapLibre may return f.id as string
   applySelectedFilter();
   updateSelectionUrl();
   selPopup.setLngLat(lngLat).setHTML(popupHTML(geojsonData.features[idx].properties)).addTo(map);
@@ -537,9 +539,9 @@ map.on('load', async () => {
   // ── Click: select / deselect feature ───────────────────────────────────
   map.on('click', 'features-fill', (e) => {
     if (editMode) return;
-    const f = e.features[0];
-    if (f.id === selectedId) { clearSelection(); return; }
-    selectFeature(f.id, e.lngLat);
+    const fid = Number(e.features[0].id);
+    if (fid === selectedId) { clearSelection(); return; }
+    selectFeature(fid, e.lngLat);
   });
   // Click on empty map area → clear selection
   map.on('click', (e) => {
@@ -839,6 +841,7 @@ function applyDeltaPermanent(dLon, dLat) {
 // TABLE WIDGET
 // ═══════════════════════════════════════════════════════════════════════════
 const TABLE_COLS = [
+  { key: '_idx',         label: '#',         visible: true  },
   { key: 'feature_type', label: 'Typ',       visible: true  },
   { key: 'subtype',      label: 'Subtyp',    visible: true  },
   { key: 'category',     label: 'Kategorie', visible: false },
