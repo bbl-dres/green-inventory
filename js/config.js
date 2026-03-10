@@ -61,15 +61,6 @@ const LEGEND_GROUPS = [
     ]
   },
   {
-    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
-    items: [
-      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
-      { label: "Bodendecker",      fill: "#7a6e3e" },
-      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
-      { label: "Wald",             fill: "#254700" },
-    ]
-  },
-  {
     id: "hedge", label: "Hecken", category: "hedge",
     items: [
       { label: "Wildhecke",        fill: "#d9d89e" },
@@ -89,6 +80,13 @@ const LEGEND_GROUPS = [
     ]
   },
   {
+    id: "lawn", label: "Rasen", category: "lawn",
+    items: [
+      { label: "Geb.Rasen kf.",  fill: "#98e640" },
+      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
+    ]
+  },
+  {
     id: "meadow", label: "Wiesen", category: "meadow",
     items: [
       { label: "Feuchtwiese",      fill: "#a8e3d9" },
@@ -98,14 +96,16 @@ const LEGEND_GROUPS = [
       { label: "Saumvegetation",   fill: "#f0f0b0", swatchClass: "sw-odots" },
     ]
   },
+  // ── Ground / base layers (bottom of map) ─────────────
   {
-    id: "lawn", label: "Rasen", category: "lawn",
+    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
     items: [
-      { label: "Geb.Rasen kf.",  fill: "#98e640" },
-      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
+      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
+      { label: "Bodendecker",      fill: "#7a6e3e" },
+      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
+      { label: "Wald",             fill: "#254700" },
     ]
   },
-  // ── Ground / base layers (bottom of map) ─────────────
   {
     id: "water", label: "Wasserflächen", category: "water",
     items: [
