@@ -13,80 +13,25 @@ function fmtNum(v, decimals) {
   return dec != null ? grouped + '.' + dec : grouped;
 }
 
+// Legend order: top-of-stack first (points → vegetation → ground),
+// mirroring how layers appear on the map (topmost drawn last).
 const LEGEND_GROUPS = [
+  // ── Point features (top of map) ──────────────────────
   {
-    id: "lawn", label: "Rasen", category: "lawn",
+    id: "kleinstrukturen", label: "Kleinstrukturen", category: null,
     items: [
-      { label: "Geb.Rasen kf.",  fill: "#98e640" },
-      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
+      { label: "Asthaufen",        fill: "#c09060" },
+      { label: "Steinhaufen",      fill: "#808080" },
+      { label: "Wildbienenhotel",  fill: "#804000" },
+      { label: "Baumstämme",       fill: "#604020" },
     ]
   },
   {
-    id: "meadow", label: "Wiesen", category: "meadow",
+    id: "special_point", label: "Spezielle Bepflanzungsformen", category: null,
     items: [
-      { label: "Feuchtwiese",      fill: "#a8e3d9" },
-      { label: "Blumenwiese gf.",  fill: "#c6eeab", swatchClass: "sw-pstripe" },
-      { label: "Blumenwiese kf.",  fill: "#c6eeab" },
-      { label: "Magerrasen",       fill: "#f0f0b0", swatchClass: "sw-vdots" },
-      { label: "Saumvegetation",   fill: "#f0f0b0", swatchClass: "sw-odots" },
-    ]
-  },
-  {
-    id: "planting_bed", label: "Rabatten", category: "planting_bed",
-    items: [
-      { label: "Wechselflor",   fill: "#ff74df", swatchClass: "sw-dots" },
-      { label: "Moorbeet",      fill: "#5c45a8" },
-      { label: "Stauden. int.", fill: "#cc66ff", swatchClass: "sw-pstripe" },
-      { label: "Stauden. ext.", fill: "#cc66ff" },
-      { label: "Beetrosen",     fill: "#ff5500" },
-      { label: "Ruderalfläche", fill: "#ffaa00", swatchClass: "sw-ostripe" },
-    ]
-  },
-  {
-    id: "hedge", label: "Hecken", category: "hedge",
-    items: [
-      { label: "Wildhecke",        fill: "#d9d89e" },
-      { label: "Formhecke + 1.5 m",fill: "#c07020", swatchClass: "sw-hstripe" },
-      { label: "Formhecke - 1.5 m",fill: "#c07020" },
-    ]
-  },
-  {
-    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
-    items: [
-      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
-      { label: "Bodendecker",      fill: "#7a6e3e" },
-      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
-      { label: "Wald",             fill: "#254700" },
-    ]
-  },
-  {
-    id: "special_planting", label: "Spezielle Bepflanzungsformen", category: "special_planting",
-    items: [
-      { label: "Dach: ext. Stauden", fill: "#ffbebe" },
-    ]
-  },
-  {
-    id: "surface", label: "Beläge", category: "surface",
-    items: [
-      { label: "Asphaltbelag",             fill: "#686868" },
-      { label: "Rasengittersteine",         fill: "#70a800", swatchClass: "sw-xhatch" },
-      { label: "Holzhäckselbelag",          fill: "#8b3a00", swatchClass: "sw-xhatch" },
-      { label: "Chaussierung",              fill: "#cd8a66" },
-      { label: "Betonpl./Verbund/Naturstein",fill: "#9c9c9c" },
-      { label: "Geröllstreifen/Bollensteine",fill: "#6a6a6a", swatchClass: "sw-gdots" },
-    ]
-  },
-  {
-    id: "water", label: "Wasserflächen", category: "water",
-    items: [
-      { label: "Brunnen",          fill: "#00aae6" },
-      { label: "Gewässer, ruhend", fill: "#006fff" },
-    ]
-  },
-  {
-    id: "other", label: "Anderes", category: "other",
-    items: [
-      { label: "Anderes", fill: "#ffff00" },
+      { label: "Pflanzgefäss mobil Dauerbepflanzung", fill: "#1a1a8a", swatchClass: "sw-circ" },
+      { label: "Pflanzgefäss Wechselflor",             fill: "#cc00cc", swatchClass: "sw-circ" },
+      { label: "Schling- & Kletterpf.",                fill: "#cc0000", swatchClass: "sw-triangle" },
     ]
   },
   {
@@ -102,21 +47,81 @@ const LEGEND_GROUPS = [
       { label: "Strassenb. Laub nat. grossk.",fill: "#006680", swatchClass: "sw-circ" },
     ]
   },
+  // ── Vegetation (canopy → ground cover) ───────────────
   {
-    id: "special_point", label: "Spezielle Bepflanzungsformen", category: null,
+    id: "other", label: "Anderes", category: "other",
     items: [
-      { label: "Pflanzgefäss mobil Dauerbepflanzung", fill: "#1a1a8a", swatchClass: "sw-circ" },
-      { label: "Pflanzgefäss Wechselflor",             fill: "#cc00cc", swatchClass: "sw-circ" },
-      { label: "Schling- & Kletterpf.",                fill: "#cc0000", swatchClass: "sw-triangle" },
+      { label: "Anderes", fill: "#ffff00" },
     ]
   },
   {
-    id: "kleinstrukturen", label: "Kleinstrukturen", category: null,
+    id: "special_planting", label: "Spezielle Bepflanzungsformen", category: "special_planting",
     items: [
-      { label: "Asthaufen",        fill: "#c09060" },
-      { label: "Steinhaufen",      fill: "#808080" },
-      { label: "Wildbienenhotel",  fill: "#804000" },
-      { label: "Baumstämme",       fill: "#604020" },
+      { label: "Dach: ext. Stauden", fill: "#ffbebe" },
+    ]
+  },
+  {
+    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
+    items: [
+      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
+      { label: "Bodendecker",      fill: "#7a6e3e" },
+      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
+      { label: "Wald",             fill: "#254700" },
+    ]
+  },
+  {
+    id: "hedge", label: "Hecken", category: "hedge",
+    items: [
+      { label: "Wildhecke",        fill: "#d9d89e" },
+      { label: "Formhecke + 1.5 m",fill: "#c07020", swatchClass: "sw-hstripe" },
+      { label: "Formhecke - 1.5 m",fill: "#c07020" },
+    ]
+  },
+  {
+    id: "planting_bed", label: "Rabatten", category: "planting_bed",
+    items: [
+      { label: "Wechselflor",   fill: "#ff74df", swatchClass: "sw-dots" },
+      { label: "Moorbeet",      fill: "#5c45a8" },
+      { label: "Stauden. int.", fill: "#cc66ff", swatchClass: "sw-pstripe" },
+      { label: "Stauden. ext.", fill: "#cc66ff" },
+      { label: "Beetrosen",     fill: "#ff5500" },
+      { label: "Ruderalfläche", fill: "#ffaa00", swatchClass: "sw-ostripe" },
+    ]
+  },
+  {
+    id: "meadow", label: "Wiesen", category: "meadow",
+    items: [
+      { label: "Feuchtwiese",      fill: "#a8e3d9" },
+      { label: "Blumenwiese gf.",  fill: "#c6eeab", swatchClass: "sw-pstripe" },
+      { label: "Blumenwiese kf.",  fill: "#c6eeab" },
+      { label: "Magerrasen",       fill: "#f0f0b0", swatchClass: "sw-vdots" },
+      { label: "Saumvegetation",   fill: "#f0f0b0", swatchClass: "sw-odots" },
+    ]
+  },
+  {
+    id: "lawn", label: "Rasen", category: "lawn",
+    items: [
+      { label: "Geb.Rasen kf.",  fill: "#98e640" },
+      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
+    ]
+  },
+  // ── Ground / base layers (bottom of map) ─────────────
+  {
+    id: "water", label: "Wasserflächen", category: "water",
+    items: [
+      { label: "Brunnen",          fill: "#00aae6" },
+      { label: "Gewässer, ruhend", fill: "#006fff" },
+    ]
+  },
+  {
+    id: "surface", label: "Beläge", category: "surface",
+    items: [
+      { label: "Asphaltbelag",             fill: "#686868" },
+      { label: "Rasengittersteine",         fill: "#70a800", swatchClass: "sw-xhatch" },
+      { label: "Holzhäckselbelag",          fill: "#8b3a00", swatchClass: "sw-xhatch" },
+      { label: "Chaussierung",              fill: "#cd8a66" },
+      { label: "Betonpl./Verbund/Naturstein",fill: "#9c9c9c" },
+      { label: "Geröllstreifen/Bollensteine",fill: "#6a6a6a", swatchClass: "sw-gdots" },
     ]
   },
 ];
