@@ -50,9 +50,14 @@ MAP_CENTER_LOCAL = (MAP_WIDTH_M / 2, MAP_HEIGHT_M / 2)
 # smaller ones are "pattern tiles" (hatching dots, dashes, etc.)
 SIZE_THRESHOLD = 20   # PDF points
 
-# Buffer used to merge adjacent hatch stripes / pattern tiles into area polygons.
-# Tile gap measured at ~1.41 m; stripe gap similar → 1.8 m bridges reliably.
-MERGE_BUFFER_M = 1.8
+# Buffer for large f-only solid fills (e.g. Saumvegetation base polygons).
+# Just enough to close sub-pixel gaps; no real expansion intended.
+MERGE_BUFFER_M = 0.1
+
+# Buffer for small pattern tiles (Rasengittersteine, Holzhäckselbelag,
+# Geröllstreifen, etc.). Bridges the inter-tile gap (~0.3–0.6 m) without
+# filling large empty spaces between disconnected areas.
+TILE_MERGE_BUFFER_M = 0.5
 
 # Minimum polygon area to keep after merging (filters noise fragments)
 MIN_AREA_M2 = 1.5
@@ -127,12 +132,14 @@ FEATURE_COLORS = [
     {"rgb": (1.000, 0.745, 0.745), "type": "Spezielle", "subtype": "Dach: ext. Stauden",     "category": "special_planting"},
     # ---- Beläge (Surfaces) ----
     {"rgb": (0.408, 0.408, 0.408), "type": "Belag",     "subtype": "Asphaltbelag",           "category": "surface"},
-    {"rgb": (0.310, 0.310, 0.310), "type": "Belag",     "subtype": "Asphaltbelag",           "category": "surface"},
     {"rgb": (0.440, 0.660, 0.000), "type": "Belag",     "subtype": "Rasengittersteine",      "category": "surface"},
     {"rgb": (0.660, 0.220, 0.000), "type": "Belag",     "subtype": "Holzhaeckselbelag",      "category": "surface"},
     {"rgb": (0.804, 0.537, 0.400), "type": "Belag",     "subtype": "Chaussierung",           "category": "surface"},
     {"rgb": (0.612, 0.612, 0.612), "type": "Belag",     "subtype": "Betonpl./Naturstein",    "category": "surface"},
-    {"rgb": (0.450, 0.300, 0.000), "type": "Belag",     "subtype": "Geroellstreifen",        "category": "surface"},
+    # Geröllstreifen/Bollensteine: dark-grey 12-gon circle tiles (~6.5 pt each)
+    # The (0.310, 0.310, 0.310) entry previously mapped here as Asphaltbelag —
+    # the actual tile colour is (0.306, 0.306, 0.306) which are round cobblestones.
+    {"rgb": (0.306, 0.306, 0.306), "type": "Belag",     "subtype": "Geroellstreifen",        "category": "surface"},
     # ---- Wasserflächen (Water) ----
     {"rgb": (0.000, 0.663, 0.902), "type": "Wasser",    "subtype": "Brunnen",                "category": "water"},
     {"rgb": (0.000, 0.439, 1.000), "type": "Wasser",    "subtype": "Gewaesser ruhend",       "category": "water"},
@@ -288,89 +295,110 @@ def extract():
     # Restrict to map area
     map_paths = [p for p in paths if p["rect"].x1 < MAP_X_MAX]
 
-    large_fills = []   # solid-colour areas (width AND height >= SIZE_THRESHOLD)
-    small_fills = []   # pattern tiles (smaller)
-
-    for p in map_paths:
-        ptype = p.get("type", "")
-        fill  = p.get("fill")
-        if ptype in ("f", "fs") and fill:
-            w, h = p["rect"].width, p["rect"].height
-            if w >= SIZE_THRESHOLD and h >= SIZE_THRESHOLD:
-                large_fills.append(p)
-            else:
-                small_fills.append(p)
-
     print(f"Map paths total : {len(map_paths)}")
-    print(f"  Large fills   : {len(large_fills)}")
-    print(f"  Pattern tiles : {len(small_fills)}")
 
-    features = []
+    features     = []
     unclassified = set()
 
-    # ── 1. Large fills: group by type, merge hatch stripes ──────────────────
-    print("\n[1] Large fills (merge hatch stripes)...")
+    # ── Pass 1: fs (fill+stroke) paths → direct boundaries ──────────────────
+    # These are the actual drawn feature outlines. Each path is one polygon.
+    # Collect which (type, subtype, category) combos are covered so Pass 2
+    # can skip the internal hatch stripes for the same colors.
+    print("\n[1] Fill+stroke paths (direct boundaries)...")
 
-    # Bucket: key = (type, subtype, category, rgb_key)
-    large_buckets = defaultdict(lambda: {"geoms": [], "fill_rgb": None})
+    fs_covered = set()   # (type, subtype, category) tuples that have fs paths
 
-    for p in large_fills:
-        fill_rgb  = p["fill"]
+    for p in map_paths:
+        if p.get("type") != "fs":
+            continue
+        fill_rgb = p.get("fill")
+        if not fill_rgb:
+            continue
         feat_info = classify_color(fill_rgb)
         if feat_info is None:
             unclassified.add(tuple(round(c, 2) for c in fill_rgb))
-            continue   # skip unclassified fills (buildings, white areas, etc.)
-        rgb_key = tuple(round(c, 3) for c in fill_rgb)
-        key = (feat_info["type"], feat_info["subtype"], feat_info["category"], rgb_key)
+            continue
 
         geom = path_to_shapely(p)
-        if geom and not geom.is_empty:
-            large_buckets[key]["geoms"].append(geom)
-            large_buckets[key]["fill_rgb"] = fill_rgb
-            large_buckets[key]["feat_info"] = feat_info
+        if not geom or geom.is_empty:
+            continue
+
+        cat_key = (feat_info["type"], feat_info["subtype"], feat_info["category"])
+        fs_covered.add(cat_key)
+
+        # Emit each sub-polygon individually (no merging — shape is already correct)
+        polys = list(geom.geoms) if geom.geom_type in ("MultiPolygon", "GeometryCollection") else [geom]
+        for poly in polys:
+            if poly.geom_type == "Polygon" and poly.area >= MIN_AREA_M2:
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+                features.append(make_feature(poly, feat_info, fill_rgb, "area_direct"))
+
+    print(f"  -> {len(features)} direct boundary features")
+    print(f"  Categories with fs boundaries: {sorted(k[1] for k in fs_covered)}")
+
+    # ── Pass 2: f-only paths → direct (large) or tile-merge (small) ──────────
+    # Skip any color already covered in Pass 1 (those f-only paths are internal
+    # hatch stripes inside the fs boundaries, not additional geometry).
+    # Large fills (e.g. Saumvegetation base) → emit directly with light union.
+    # Small tiles (Rasengittersteine, Holzhäckselbelag, Geröllstreifen …)
+    #   → merge with TILE_MERGE_BUFFER_M (0.5 m) which bridges inter-tile gaps
+    #     (~0.3–0.6 m) without swamping larger empty spaces between areas.
+    print("\n[2] Fill-only paths (large fills direct / small tiles merged)...")
+
+    large_buckets: dict = defaultdict(lambda: {"geoms": [], "fill_rgb": None, "feat_info": None})
+    tile_buckets:  dict = defaultdict(lambda: {"geoms": [], "fill_rgb": None, "feat_info": None})
+
+    for p in map_paths:
+        if p.get("type") != "f":
+            continue
+        fill_rgb = p.get("fill")
+        if not fill_rgb:
+            continue
+        feat_info = classify_color(fill_rgb)
+        if feat_info is None:
+            unclassified.add(tuple(round(c, 2) for c in fill_rgb))
+            continue
+
+        cat_key = (feat_info["type"], feat_info["subtype"], feat_info["category"])
+        if cat_key in fs_covered:
+            continue  # internal hatch stripe — skip
+
+        rgb_key    = tuple(round(c, 3) for c in fill_rgb)
+        bucket_key = (feat_info["type"], feat_info["subtype"], feat_info["category"], rgb_key)
+
+        rect = p["rect"]
+        w, h = rect.width, rect.height
+        if w >= SIZE_THRESHOLD and h >= SIZE_THRESHOLD:
+            geom = path_to_shapely(p)
+            if geom and not geom.is_empty:
+                large_buckets[bucket_key]["geoms"].append(geom)
+                large_buckets[bucket_key]["fill_rgb"]  = fill_rgb
+                large_buckets[bucket_key]["feat_info"] = feat_info
+        else:
+            geom = rect_to_polygon_m(rect)
+            if geom:
+                tile_buckets[bucket_key]["geoms"].append(geom)
+                tile_buckets[bucket_key]["fill_rgb"]  = fill_rgb
+                tile_buckets[bucket_key]["feat_info"] = feat_info
+
+    if unclassified:
+        print(f"  Unclassified colors: {sorted(unclassified)[:8]}")
 
     n_before = len(features)
     for key, data in large_buckets.items():
-        ftype, fsubtype, fcat, rgb_key = key
-        merged_polys = merge_and_explode(data["geoms"])
+        # Light union (MERGE_BUFFER_M = 0.1 m) just closes sub-pixel gaps
+        merged_polys = merge_and_explode(data["geoms"], buffer_m=MERGE_BUFFER_M)
         for poly in merged_polys:
             features.append(make_feature(poly, data["feat_info"], data["fill_rgb"], "area_merged"))
-
-    print(f"  -> {len(features) - n_before} merged area features")
-
-    # ── 2. Pattern tiles: group by type, buffer-union ───────────────────────
-    print("\n[2] Pattern tiles (buffer-union)...")
-
-    tile_buckets = defaultdict(lambda: {"geoms": [], "fill_rgb": None})
-
-    for p in small_fills:
-        fill_rgb  = p["fill"]
-        feat_info = classify_color(fill_rgb)
-        if feat_info is None:
-            unclassified.add(tuple(round(c, 2) for c in fill_rgb))
-            continue
-
-        # Use the bounding rect as geometry (tiles are tiny, shape doesn't matter)
-        geom = rect_to_polygon_m(p["rect"])
-        if geom is None:
-            continue
-
-        rgb_key = tuple(round(c, 3) for c in fill_rgb)
-        key = (feat_info["type"], feat_info["subtype"], feat_info["category"], rgb_key)
-        tile_buckets[key]["geoms"].append(geom)
-        tile_buckets[key]["fill_rgb"]  = fill_rgb
-        tile_buckets[key]["feat_info"] = feat_info
-
-    if unclassified:
-        print(f"  Unclassified colors: {list(unclassified)[:8]}")
+    print(f"  -> {len(features) - n_before} large-fill area features")
 
     n_before = len(features)
     for key, data in tile_buckets.items():
-        merged_polys = merge_and_explode(data["geoms"])
+        merged_polys = merge_and_explode(data["geoms"], buffer_m=TILE_MERGE_BUFFER_M)
         for poly in merged_polys:
             features.append(make_feature(poly, data["feat_info"], data["fill_rgb"], "pattern_merged"))
-
-    print(f"  -> {len(features) - n_before} pattern-merged features")
+    print(f"  -> {len(features) - n_before} tile-merged features")
 
     # ── 3. Save ──────────────────────────────────────────────────────────────
     origin_lon, origin_lat = local_m_to_wgs84(0, 0)

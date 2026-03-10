@@ -131,12 +131,12 @@ Building footprints and the site boundary (red outline) are intentionally exclud
 
 | Subtype | Category | PDF colour | Match method |
 |---------|----------|-----------|--------------|
-| Asphaltbelag | `surface` | `#4e4e4e` rgb(0.306, 0.306, 0.306) | Pattern tiles (dense dark-grey marks) |
-| Rasengittersteine | `surface` | `#6fa800` rgb(0.439, 0.659, 0) | Pattern tiles (green crosshatch) |
-| Holzhäckselbelag | `surface` | `#a83800` rgb(0.659, 0.220, 0) | Pattern tiles (dark-brown crosshatch, ~7 500 tiles) |
-| Chaussierung | `surface` | `#cd8866` rgb(0.804, 0.537, 0.4) | Hatch stripes (large diagonal parallelograms) |
+| Asphaltbelag | `surface` | `#686868` rgb(0.408, 0.408, 0.408) | ➖ Not present in this plan — the dark-grey tiles (`#4e4e4e`) are 12-sided circle polygons (Bollensteine), not asphalt texture |
+| Rasengittersteine | `surface` | `#6fa800` rgb(0.439, 0.659, 0) | Pattern tiles (green diamond crosshatch, ~1 760 tiles) |
+| Holzhäckselbelag | `surface` | `#a83800` rgb(0.659, 0.220, 0) | Pattern tiles (dark-brown diamond crosshatch, ~7 500 tiles) |
+| Chaussierung | `surface` | `#cd8866` rgb(0.804, 0.537, 0.4) | Fill+stroke boundaries (17 direct polygon outlines) |
 | Betonpl./Verbund/Naturstein | `surface` | `#9c9c9c` rgb(0.612, 0.612, 0.612) | ➖ Not present in this plan |
-| Geröllstreifen/Bollensteine | `surface` | `#735000` rgb(0.450, 0.300, 0) | ➖ Not present in this plan |
+| Geröllstreifen/Bollensteine | `surface` | `#4e4e4e` rgb(0.306, 0.306, 0.306) | Pattern tiles (dark-grey 12-gon circle polygons, ~2 280 tiles) — previously misidentified as Asphaltbelag |
 
 ### Wasserflächen
 
@@ -160,6 +160,7 @@ Building footprints and the site boundary (red outline) are intentionally exclud
 | Identical base fill colour | Blumenwiese gf. vs kf. / Stauden int. vs ext. / Formhecke +1.5m vs -1.5m | The distinguishing feature is the overlay pattern colour, not the base fill. Future improvement: cross-reference tile colour with base polygon area to resolve. |
 | Magerrasen vs Saumvegetation | Both use `#f5f579` base | Tile dot colour differs (yellow vs orange-brown) — could be classified separately with a lower `COLOR_TOL`. |
 | Gehölz & Bodend. vs Bodendecker | Both use `#896e44` | These differ only by the presence/absence of dot overlay tiles. |
+| Formhecke only partially in map | 8 tiles at the east edge (x ≈ MAP_X_MAX) | The hedge runs mostly outside the plan extent; the 8 edge tiles are too small to produce a meaningful polygon after merging. |
 | Plan-specific presence | Many types absent | Only the feature types drawn in a given PDF will appear. Run the script on a different plan to get different results. |
 
 ---

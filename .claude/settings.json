@@ -9,7 +9,11 @@
       "Bash(python3 -m pip install pymupdf pdfplumber --quiet)",
       "Bash(python3 -c \":*)",
       "Bash(python3 extract_features.py)",
-      "Bash(python3 -m pip install scipy scikit-learn --quiet)"
+      "Bash(python3 -m pip install scipy scikit-learn --quiet)",
+      "Bash(python -:*)",
+      "Bash(python -c \"import fitz; print\\(fitz.__version__\\); page = fitz.open\\(''data/[838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.pdf''\\)[0]; print\\(dir\\(page\\)\\)\")",
+      "Bash(python extract_features.py)",
+      "Bash(python -c \":*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory"
