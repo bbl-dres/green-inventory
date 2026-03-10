@@ -6,9 +6,16 @@
 > **This is an unofficial mockup for demonstration purposes only.**
 > All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.
 
+**Simple Viewer:** https://bbl-dres.github.io/green-inventory
+
+**Advanced Prototype:** https://bbl-dres.github.io/green-inventory/prototype1
+
 Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
 
-**Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
+<p align="center">
+  <img src="assets/images/preview2.jpg" width="45%" style="vertical-align: top;"/>
+  <img src="assets/images/preview3.jpg" width="45%" style="vertical-align: top;"/>
+</p>
 
 ---
 
