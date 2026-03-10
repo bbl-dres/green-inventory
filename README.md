@@ -1,7 +1,14 @@
-# Grünflächen Inventar
+# Green Area Inventory / Grünflächeninventar
 
-**Bundesamt für Bauten und Logistik (BBL)**
-Prototype for extracting and visualising green space features from landscape plan PDFs.
+![Social Media Preview](assets/Preview1.jpg)
+
+> [!CAUTION]
+> **This is an unofficial mockup for demonstration purposes only.**
+> All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.
+
+Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
+
+**Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
 
 ---
 
