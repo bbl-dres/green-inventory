@@ -60,6 +60,53 @@
           <button id="save-offset">Speichern</button>
           <button class="cancel-btn" id="cancel-offset">Abbrechen</button>
         </div>
+        <!-- Context menu (right-click) -->
+        <div id="map-context-menu" class="map-context-menu">
+          <div class="context-menu-item context-menu-coords" id="context-menu-coords" title="Klicken zum Kopieren">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <span id="context-menu-coords-text">0, 0</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-share">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Teilen</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-measure">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-4 2 8 2-4h4"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+            <span id="context-menu-measure-text">Distanz messen</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-print">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Drucken</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-report">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <span>Problem melden</span>
+          </div>
+        </div>
+
+        <!-- Measure distance display -->
+        <div id="measure-distance-display" class="measure-distance-display">
+          <div class="measure-distance-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-4 2 8 2-4h4"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+            <span>Distanz messen</span>
+            <button id="measure-distance-close" class="measure-distance-close" title="Schliessen">&times;</button>
+          </div>
+          <div class="measure-distance-info">Klicken Sie auf die Karte, um einen Pfad zu zeichnen.</div>
+          <div class="measure-distance-result">
+            <div class="measure-result-row">
+              <span class="measure-result-label">Gesamtdistanz:</span>
+              <span class="measure-result-value" id="measure-total-distance">0 m</span>
+            </div>
+            <div class="measure-result-row" id="measure-area-row" style="display:none">
+              <span class="measure-result-label">Fläche:</span>
+              <span class="measure-result-value" id="measure-total-area">0 m²</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast container -->
+        <div id="toast-container"></div>
+
         <!-- Toggle lives inside #map so it stays visible when table collapses -->
         <button id="tbl-toggle" title="Tabelle ein-/ausblenden">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">

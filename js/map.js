@@ -200,14 +200,14 @@ map.on('load', async () => {
 
   // ── Click: select / deselect feature ───────────────────────────────────
   map.on('click', 'features-fill', (e) => {
-    if (editMode) return;
+    if (editMode || measureActive) return;
     const fid = Number(e.features[0].id);
     if (fid === selectedId) { clearSelection(); return; }
     selectFeature(fid, e.lngLat);
   });
   // Click on empty map area → clear selection
   map.on('click', (e) => {
-    if (editMode) return;
+    if (editMode || measureActive) return;
     const hits = map.queryRenderedFeatures(e.point, { layers: ['features-fill'] });
     if (!hits.length) clearSelection();
   });
@@ -484,3 +484,280 @@ function applyDelta(dLon, dLat) {
 function applyDeltaPermanent(dLon, dLat) {
   // Already applied incrementally during drag — nothing extra to do.
 }
+
+let measureActive = false; // shared flag — checked by feature click handlers
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOAST NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function showToast(msg, type = '') {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP CONTEXT MENU
+// ═══════════════════════════════════════════════════════════════════════════
+(() => {
+  const menu = document.getElementById('map-context-menu');
+  const coordsItem = document.getElementById('context-menu-coords');
+  const coordsText = document.getElementById('context-menu-coords-text');
+  const measureBtn = document.getElementById('context-menu-measure');
+  const measureText = document.getElementById('context-menu-measure-text');
+  const measureDisplay = document.getElementById('measure-distance-display');
+  const measureClose = document.getElementById('measure-distance-close');
+  const measureTotalDist = document.getElementById('measure-total-distance');
+  const measureTotalArea = document.getElementById('measure-total-area');
+  const measureAreaRow = document.getElementById('measure-area-row');
+
+  let ctxLngLat = null;
+
+  // ── Show / hide ──────────────────────────────────────────────────────
+  function hideMenu() { menu.classList.remove('show'); }
+
+  map.on('contextmenu', (e) => {
+    e.preventDefault();
+    ctxLngLat = e.lngLat;
+    coordsText.textContent = ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5);
+    coordsItem.classList.remove('copied');
+    measureText.textContent = ms.active ? 'Messung löschen' : 'Distanz messen';
+    measureBtn.classList.toggle('measure-active', ms.active);
+
+    const mapEl = document.getElementById('map');
+    const rect = mapEl.getBoundingClientRect();
+    const x = e.point.x, y = e.point.y;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.classList.toggle('flip-h', x + 200 > rect.width);
+    menu.classList.toggle('flip-v', y + 180 > rect.height);
+    menu.classList.add('show');
+  });
+
+  document.addEventListener('click', hideMenu);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { hideMenu(); if (ms.active) clearMeasure(); }
+  });
+
+  // ── Copy coordinates ─────────────────────────────────────────────────
+  coordsItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const txt = coordsText.textContent;
+    navigator.clipboard.writeText(txt).then(() => {
+      coordsItem.classList.add('copied');
+      showToast('Koordinaten kopiert', 'success');
+      setTimeout(hideMenu, 300);
+    }).catch(() => showToast('Kopieren fehlgeschlagen', 'error'));
+  });
+
+  // ── Share ────────────────────────────────────────────────────────────
+  document.getElementById('context-menu-share').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!ctxLngLat) return;
+    hideMenu();
+    const url = new URL(location.href);
+    url.searchParams.set('center', ctxLngLat.lng.toFixed(5) + ',' + ctxLngLat.lat.toFixed(5));
+    url.searchParams.set('zoom', Math.round(map.getZoom()));
+    const shareUrl = url.toString();
+
+    if (navigator.share) {
+      navigator.share({ title: 'Grünflächen Inventar – Standort', url: shareUrl })
+        .catch(err => {
+          if (err.name !== 'AbortError')
+            navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert', 'success'));
+        });
+    } else {
+      navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert', 'success'));
+    }
+  });
+
+  // ── Print ────────────────────────────────────────────────────────────
+  document.getElementById('context-menu-print').addEventListener('click', () => {
+    hideMenu(); window.print();
+  });
+
+  // ── Report problem ───────────────────────────────────────────────────
+  document.getElementById('context-menu-report').addEventListener('click', () => {
+    hideMenu();
+    if (!ctxLngLat) return;
+    const coords = ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5);
+    const subj = encodeURIComponent('Problem melden - Grünflächen Inventar');
+    const body = encodeURIComponent(
+      'Problembeschreibung:\n\n\n\n---\nKoordinaten: ' + coords + '\nURL: ' + location.href
+    );
+    location.href = 'mailto:info@gis-immo.ch?subject=' + subj + '&body=' + body;
+  });
+
+  // ═════════════════════════════════════════════════════════════════════
+  // MEASURE DISTANCE (Google Maps style)
+  // ═════════════════════════════════════════════════════════════════════
+  const ms = {
+    active: false, points: [], markers: [], labels: [],
+    srcId: 'measure-line-src', layerId: 'measure-line', closed: false
+  };
+
+  // Haversine
+  function hav(lat1, lon1, lat2, lon2) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // Shoelace area (m²)
+  function polyArea(pts) {
+    if (pts.length < 3) return 0;
+    const n = pts.length;
+    const avgLat = pts.reduce((s, p) => s + p[1], 0) / n;
+    const latS = 111320, lonS = 111320 * Math.cos(avgLat * Math.PI / 180);
+    let area = 0;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += pts[i][0] * lonS * pts[j][1] * latS;
+      area -= pts[j][0] * lonS * pts[i][1] * latS;
+    }
+    return Math.abs(area / 2);
+  }
+
+  function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m'; }
+  function fmtArea(a) {
+    if (a >= 1e6) return (a / 1e6).toFixed(2) + ' km²';
+    if (a >= 1e4) return (a / 1e4).toFixed(2) + ' ha';
+    return Math.round(a) + ' m²';
+  }
+
+  function addMeasurePoint(lngLat, idx) {
+    const pt = [lngLat.lng, lngLat.lat];
+    if (idx === undefined) { ms.points.push(pt); idx = ms.points.length - 1; }
+    else ms.points[idx] = pt;
+
+    if (idx >= ms.markers.length) {
+      const el = document.createElement('div'); el.className = 'measure-marker';
+      const marker = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' })
+        .setLngLat(pt).addTo(map);
+      marker._mIdx = idx;
+      marker.on('drag', () => {
+        const p = marker.getLngLat();
+        ms.points[marker._mIdx] = [p.lng, p.lat];
+        updateLine(); updateLabels(); updateDisplay();
+      });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (marker._mIdx === 0 && ms.points.length >= 3 && !ms.closed) {
+          ms.closed = true; updateLine(); updateLabels(); updateDisplay(); return;
+        }
+        removeMeasurePoint(marker._mIdx);
+      });
+      ms.markers.push(marker);
+    } else {
+      ms.markers[idx].setLngLat(pt);
+    }
+    updateLine(); updateLabels(); updateDisplay();
+  }
+
+  function removeMeasurePoint(idx) {
+    if (ms.points.length <= 1) { clearMeasure(); return; }
+    ms.points.splice(idx, 1);
+    ms.markers[idx].remove(); ms.markers.splice(idx, 1);
+    ms.markers.forEach((m, i) => m._mIdx = i);
+    if (ms.closed && ms.points.length < 3) ms.closed = false;
+    updateLine(); updateLabels(); updateDisplay();
+  }
+
+  function updateLine() {
+    const coords = ms.points.slice();
+    if (ms.closed && coords.length >= 3) coords.push(coords[0]);
+    if (map.getLayer(ms.layerId)) map.removeLayer(ms.layerId);
+    if (map.getSource(ms.srcId)) map.removeSource(ms.srcId);
+    if (coords.length < 2) return;
+    map.addSource(ms.srcId, {
+      type: 'geojson',
+      data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+    });
+    map.addLayer({
+      id: ms.layerId, type: 'line', source: ms.srcId,
+      paint: { 'line-color': '#000', 'line-width': 2 }
+    });
+  }
+
+  function updateLabels() {
+    ms.labels.forEach(m => m.remove()); ms.labels = [];
+    const pts = ms.points;
+    if (pts.length < 2) return;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = hav(pts[i][1], pts[i][0], pts[i + 1][1], pts[i + 1][0]);
+      const el = document.createElement('div'); el.className = 'measure-label'; el.textContent = fmtDist(d);
+      ms.labels.push(new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2]).addTo(map));
+    }
+    if (ms.closed && pts.length >= 3) {
+      const p0 = pts[0], pN = pts[pts.length - 1];
+      const d = hav(pN[1], pN[0], p0[1], p0[0]);
+      const el = document.createElement('div'); el.className = 'measure-label'; el.textContent = fmtDist(d);
+      ms.labels.push(new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([(pN[0] + p0[0]) / 2, (pN[1] + p0[1]) / 2]).addTo(map));
+    }
+  }
+
+  function updateDisplay() {
+    const pts = ms.points;
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++)
+      total += hav(pts[i][1], pts[i][0], pts[i + 1][1], pts[i + 1][0]);
+    if (ms.closed && pts.length >= 3)
+      total += hav(pts[pts.length - 1][1], pts[pts.length - 1][0], pts[0][1], pts[0][0]);
+    measureTotalDist.textContent = fmtDist(total);
+    if (ms.closed && pts.length >= 3) {
+      measureTotalArea.textContent = fmtArea(polyArea(pts));
+      measureAreaRow.style.display = 'flex';
+    } else {
+      measureAreaRow.style.display = 'none';
+    }
+  }
+
+  function startMeasure() {
+    ms.active = true; measureActive = true;
+    ms.points = []; ms.markers = []; ms.labels = []; ms.closed = false;
+    measureDisplay.classList.add('show');
+    measureTotalDist.textContent = '0 m';
+    measureAreaRow.style.display = 'none';
+    map.getCanvas().style.cursor = 'crosshair';
+  }
+
+  function clearMeasure() {
+    ms.active = false; measureActive = false; ms.closed = false;
+    ms.markers.forEach(m => m.remove()); ms.markers = [];
+    ms.labels.forEach(m => m.remove()); ms.labels = [];
+    ms.points = [];
+    if (map.getLayer(ms.layerId)) map.removeLayer(ms.layerId);
+    if (map.getSource(ms.srcId)) map.removeSource(ms.srcId);
+    measureDisplay.classList.remove('show');
+    map.getCanvas().style.cursor = '';
+  }
+
+  measureBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideMenu();
+    if (ms.active) clearMeasure(); else startMeasure();
+  });
+
+  measureClose.addEventListener('click', () => clearMeasure());
+
+  // Map click — add measure points (or normal behavior)
+  map.on('click', (e) => {
+    hideMenu();
+    if (!ms.active) return;
+    // Close polygon if near first point
+    if (ms.points.length >= 3 && !ms.closed) {
+      const fp = ms.points[0];
+      const px = map.project(e.lngLat).dist(map.project({ lng: fp[0], lat: fp[1] }));
+      if (px < 15) { ms.closed = true; updateLine(); updateLabels(); updateDisplay(); return; }
+    }
+    if (ms.closed) return;
+    addMeasurePoint(e.lngLat);
+  });
+})();
