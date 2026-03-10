@@ -2,6 +2,17 @@
 // CONFIG — legend definitions, colour maps, expressions, constants
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── Number formatting (Swiss style: 1'000.0) ─────────────────────────────
+function fmtNum(v, decimals) {
+  if (v == null || v === '') return '–';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  const fixed = decimals != null ? n.toFixed(decimals) : String(n);
+  const [int, dec] = fixed.split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019');
+  return dec != null ? grouped + '.' + dec : grouped;
+}
+
 const LEGEND_GROUPS = [
   {
     id: "lawn", label: "Rasen", category: "lawn",
@@ -192,6 +203,6 @@ const TABLE_COLS = [
   { key: 'subtype',      label: 'Subtyp',    visible: true  },
   { key: 'category',     label: 'Kategorie', visible: false },
   { key: 'area_m2',      label: 'Fläche m²', visible: true,
-    fmt: v => v != null ? (+v).toFixed(1) : '–' },
+    fmt: v => fmtNum(v, 1) },
   { key: 'source',       label: 'Quelle',    visible: false },
 ];

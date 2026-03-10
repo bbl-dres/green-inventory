@@ -19,7 +19,10 @@
   --primary-dark:  #004a87;
   --primary-a12:   rgba(0, 94, 168, .12);
   --primary-a18:   rgba(0, 94, 168, .18);
+  --primary-bg:    #e8f0fe;   /* light primary fill — pills, badges */
   --red:           #cc0000;
+  --success:       #2e7d32;
+  --success-bg:    #e8f5e9;
 
   --warn-bg:     #fff3cd;
   --warn-border: #e6a817;
@@ -49,7 +52,8 @@
   /* Border radius */
   --radius-sm:   3px;
   --radius:      5px;
-  --radius-full: 20px;
+  --radius-pill: 12px;  /* pills, badges */
+  --radius-full: 20px;  /* fully rounded caps */
 
   /* Shadows */
   --shadow-xs:        0 1px 3px rgba(0,0,0,.08);

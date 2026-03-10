@@ -71,12 +71,20 @@ selPopup.on('close', () => {
 
 // ── Popup HTML helper ──────────────────────────────────────────────────────
 function popupHTML(p) {
+  const fill = SUBTYPE_FILL[p.subtype] || CAT_FILL[p.category] || '#aaa';
   return `
-    <div class="pu-type">${p.feature_type || p.category}</div>
-    <div class="pu-sub">${p.subtype}</div>
-    <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? (+p.area_m2).toFixed(1) + ' m²' : '–'}</strong></div>
-    <div class="pu-row"><span>Kategorie</span><strong>${p.category}</strong></div>
-    <div class="pu-row"><span>Quelle</span><strong>${p.source}</strong></div>
+    <div class="pu-header">
+      <div class="pu-swatch" style="background:${fill}"></div>
+      <div class="pu-titles">
+        <div class="pu-type">${p.feature_type || p.category}</div>
+        <div class="pu-sub">${p.subtype || '–'}</div>
+      </div>
+    </div>
+    <div class="pu-body">
+      <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? fmtNum(p.area_m2, 1) + ' m²' : '–'}</strong></div>
+      <div class="pu-row"><span>Kategorie</span><strong>${p.category || '–'}</strong></div>
+      <div class="pu-row"><span>Quelle</span><strong>${p.source || '–'}</strong></div>
+    </div>
   `;
 }
 
@@ -399,6 +407,7 @@ editToggleBtn.addEventListener('click', () => {
   editToggleBtn.classList.toggle('active', editMode);
   editBanner.classList.toggle('visible', editMode);
   saveBanner.classList.toggle('visible', editMode);
+  document.getElementById('map').classList.toggle('edit-active', editMode);
   map.getCanvas().style.cursor = editMode ? 'grab' : '';
   if (!editMode) { pendingDelta = { lon: 0, lat: 0 }; }
 });
@@ -410,6 +419,7 @@ document.getElementById('cancel-offset').addEventListener('click', () => {
   editToggleBtn.classList.remove('active');
   editBanner.classList.remove('visible');
   saveBanner.classList.remove('visible');
+  document.getElementById('map').classList.remove('edit-active');
   map.getCanvas().style.cursor = '';
 });
 
@@ -435,6 +445,7 @@ document.getElementById('save-offset').addEventListener('click', async () => {
   editToggleBtn.classList.remove('active');
   editBanner.classList.remove('visible');
   saveBanner.classList.remove('visible');
+  document.getElementById('map').classList.remove('edit-active');
   map.getCanvas().style.cursor = '';
 });
 
@@ -760,4 +771,156 @@ function showToast(msg, type = '') {
     if (ms.closed) return;
     addMeasurePoint(e.lngLat);
   });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HEADER SEARCH — swisstopo geocoding + local features
+// ═══════════════════════════════════════════════════════════════════════════
+(() => {
+  const input   = document.getElementById('search-input');
+  const results  = document.getElementById('search-results');
+  const spinner  = document.getElementById('search-spinner');
+  const clearBtn = document.getElementById('search-clear-btn');
+  let debounce = null, abortCtrl = null, searchMarker = null;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounce);
+    const val = input.value.trim();
+    clearBtn.style.display = val ? 'flex' : 'none';
+    if (val.length < 2) { results.classList.remove('active'); spinner.style.display = 'none'; return; }
+    spinner.style.display = 'block';
+    debounce = setTimeout(() => doSearch(val), 300);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = ''; clearBtn.style.display = 'none';
+    results.classList.remove('active'); input.focus();
+    if (searchMarker) { searchMarker.remove(); searchMarker = null; }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('search-wrapper').contains(e.target))
+      results.classList.remove('active');
+  });
+
+  async function doSearch(term) {
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = new AbortController();
+    const sig = abortCtrl.signal;
+
+    // 1. Local feature search
+    const localMatches = [];
+    if (geojsonData) {
+      const q = term.toLowerCase();
+      for (const f of geojsonData.features) {
+        const p = f.properties;
+        const hay = [p.name, p.feature_type, p.subtype, p.category, p.source]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (hay.includes(q)) localMatches.push(f);
+        if (localMatches.length >= 8) break;
+      }
+    }
+
+    // 2. Swisstopo location search
+    let locations = [];
+    try {
+      const url = 'https://api3.geo.admin.ch/rest/services/ech/SearchServer?type=locations&limit=5&sr=4326&searchText=' + encodeURIComponent(term);
+      const res = await fetch(url, { signal: sig });
+      const data = await res.json();
+      locations = data.results || [];
+    } catch (e) { if (e.name !== 'AbortError') console.warn('Search error:', e); }
+
+    // 3. Swisstopo layer search (placeholder display only)
+    let layers = [];
+    try {
+      const url = 'https://api3.geo.admin.ch/rest/services/ech/SearchServer?type=layers&limit=5&lang=de&searchText=' + encodeURIComponent(term);
+      const res = await fetch(url, { signal: sig });
+      const data = await res.json();
+      layers = data.results || [];
+    } catch (e) { /* ignore */ }
+
+    spinner.style.display = 'none';
+    renderResults(localMatches, locations, layers);
+  }
+
+  function renderResults(local, locations, layers) {
+    let html = '';
+
+    if (local.length) {
+      html += '<div class="search-section-header">Objekte</div>';
+      local.forEach((f, i) => {
+        const p = f.properties;
+        const title = p.name || p.feature_type || '–';
+        const sub = [p.subtype, p.category].filter(Boolean).join(' · ');
+        html += `<div class="search-item" data-action="local" data-idx="${geojsonData.features.indexOf(f)}">
+          <div class="search-item-title">${title}</div>
+          ${sub ? `<div class="search-item-subtitle">${sub}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    if (locations.length) {
+      html += '<div class="search-section-header">Orte</div>';
+      locations.forEach(r => {
+        const a = r.attrs;
+        html += `<div class="search-item" data-action="location" data-lat="${a.lat}" data-lon="${a.lon}" data-zoom="${a.zoomlevel || 14}">
+          <div class="search-item-title">${a.label}</div>
+        </div>`;
+      });
+    }
+
+    if (layers.length) {
+      html += '<div class="search-section-header">Karten</div>';
+      layers.forEach(r => {
+        const a = r.attrs;
+        html += `<div class="search-item" data-action="layer" data-layer="${a.layer || ''}">
+          <div class="search-item-title">${a.label}</div>
+        </div>`;
+      });
+    }
+
+    if (!html) html = '<div class="search-item" style="cursor:default"><div class="search-item-subtitle">Keine Resultate</div></div>';
+
+    results.innerHTML = html;
+    results.classList.add('active');
+
+    // Event delegation
+    results.querySelectorAll('.search-item[data-action]').forEach(item => {
+      item.addEventListener('click', () => handleClick(item));
+    });
+  }
+
+  function handleClick(item) {
+    results.classList.remove('active');
+    const action = item.dataset.action;
+
+    if (action === 'local') {
+      const idx = +item.dataset.idx;
+      const feat = geojsonData.features[idx];
+      if (!feat) return;
+      if (searchMarker) { searchMarker.remove(); searchMarker = null; }
+      const bbox = geomBbox(feat.geometry);
+      const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
+      selectFeature(idx, center);
+      map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
+      input.value = item.querySelector('.search-item-title').textContent;
+      clearBtn.style.display = 'flex';
+
+    } else if (action === 'location') {
+      const lat = +item.dataset.lat, lon = +item.dataset.lon, zoom = +item.dataset.zoom;
+      if (searchMarker) searchMarker.remove();
+      searchMarker = new maplibregl.Marker({ color: '#cc0000' })
+        .setLngLat([lon, lat]).addTo(map);
+      map.flyTo({ center: [lon, lat], zoom });
+      input.value = item.querySelector('.search-item-title').textContent;
+      clearBtn.style.display = 'flex';
+
+    } else if (action === 'layer') {
+      // Placeholder — just show toast
+      showToast('Kartenebene: ' + (item.dataset.layer || '–'));
+    }
+  }
+
+  // geomBbox is defined in table.js — use it for local feature bounding
+  // (It's available globally since table.js is a plain script)
 })();
