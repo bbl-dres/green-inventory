@@ -65,73 +65,102 @@ The scale is calibrated from the plan's scale bar (174.49 PDF points = 40 m → 
 
 ## Legend layers
 
-The following feature types are extracted from the plan. Building footprints and the site boundary (red outline) are intentionally excluded — these will be sourced from official Swiss survey data (amtliche Vermessung).
+Building footprints and the site boundary (red outline) are intentionally excluded — these will be sourced from official Swiss survey data (amtliche Vermessung).
+
+**How to read the matching column:**
+- **Solid fill** — one or more large closed polygons drawn with this fill colour. Directly converted to geometry.
+- **Hatch stripes** — many overlapping diagonal parallelograms in this colour tiling the area. Merged via buffer→union→erode.
+- **Pattern tiles** — thousands of tiny (< 5 mm²) repeated dot/dash/crosshatch elements. Merged the same way.
+- ⚠️ **Cannot distinguish** — two or more legend subtypes share an identical fill colour; they are merged into a single subtype in the output.
+- ➖ **Not present** — this legend type does not appear in this particular plan file.
+
+---
 
 ### Rasen
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Geb.Rasen kf. | `lawn` | Gebundener Rasen, kurzgehalten |
-| Blumenrasen | `lawn` | Flower lawn (dotted pattern) |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Geb.Rasen kf. | `lawn` | `#97e600` rgb(0.596, 0.902, 0) | Solid fill |
+| Blumenrasen | `lawn` | `#97e600` on white | ⚠️ Same base colour as Geb.Rasen kf. — dot tiles not yet distinguished; merged into `lawn` |
 
 ### Wiesen
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Feuchtwiese | `meadow` | Wet meadow |
-| Blumenwiese gf. | `meadow` | Flower meadow, grosspflegig (stripe pattern) |
-| Blumenwiese kf. | `meadow` | Flower meadow, kleinpflegig |
-| Magerrasen | `meadow` | Dry grassland (dot pattern) |
-| Saumvegetation | `meadow` | Edge vegetation (dot pattern) |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Feuchtwiese | `meadow` | `#a8e3d9` rgb(0.659, 0.890, 0.851) | ➖ Not present in this plan |
+| Blumenwiese gf. | `meadow` | `#e9ffbd` rgb(0.914, 1.0, 0.745) | ⚠️ Same colour as Blumenwiese kf. — stripe overlay tiles not yet distinguished; both merged into `Blumenwiese` |
+| Blumenwiese kf. | `meadow` | `#e9ffbd` rgb(0.914, 1.0, 0.745) | Solid fill |
+| Magerrasen | `meadow` | `#f5f579` rgb(0.961, 0.961, 0.478) | ⚠️ Same base colour as Saumvegetation — dot tile colours differ but not yet classified separately; merged into `Saumvegetation` |
+| Saumvegetation | `meadow` | `#f5f579` rgb(0.961, 0.961, 0.478) | Solid fill |
 
 ### Rabatten
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Wechselflor | `planting_bed` | Annual/seasonal bedding |
-| Moorbeet | `planting_bed` | Bog/heath bed |
-| Stauden int. | `planting_bed` | Perennial bed, intensiv |
-| Stauden ext. | `planting_bed` | Perennial bed, extensiv |
-| Beetrosen | `planting_bed` | Rose bed |
-| Ruderalfläche | `planting_bed` | Ruderal area |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Wechselflor | `planting_bed` | `#ff73df` rgb(1.0, 0.451, 0.875) | ➖ Not present in this plan |
+| Moorbeet | `planting_bed` | `#5c45a8` rgb(0.361, 0.271, 0.659) | ➖ Not present in this plan |
+| Stauden. int. | `planting_bed` | `#df73ff` rgb(0.875, 0.451, 1.0) | ⚠️ Same base colour as Stauden ext. — stripe tiles not yet distinguished; both merged into `Stauden` |
+| Stauden. ext. | `planting_bed` | `#df73ff` rgb(0.875, 0.451, 1.0) | Solid fill |
+| Beetrosen | `planting_bed` | `#ff5500` rgb(1.0, 0.333, 0) | ➖ Not present in this plan |
+| Ruderalfläche | `planting_bed` | `#ffaa00` rgb(1.0, 0.667, 0) | ➖ Not present in this plan |
 
 ### Hecken
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Wildhecke | `hedge` | Native mixed hedge |
-| Formhecke + 1.5 m | `hedge` | Clipped hedge, height > 1.5 m |
-| Formhecke - 1.5 m | `hedge` | Clipped hedge, height ≤ 1.5 m |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Wildhecke | `hedge` | `#d9d89e` rgb(0.843, 0.843, 0.620) | ➖ Not present in this plan |
+| Formhecke + 1.5 m | `hedge` | `#a86f00` rgb(0.659, 0.439, 0) | ⚠️ Same tile colour as Formhecke - 1.5 m — height cannot be read from fill alone; merged into `Formhecke` |
+| Formhecke - 1.5 m | `hedge` | `#a86f00` rgb(0.659, 0.439, 0) | Pattern tiles (small hatch marks) |
 
 ### Gehölzflächen
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Gehölz & Bodend. | `woody_area` | Shrub planting with groundcover |
-| Bodendecker | `woody_area` | Groundcover only |
-| Gehölzrabatte | `woody_area` | Mixed shrub border |
-| Wald | `woody_area` | Forest / woodland |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Gehölz & Bodend. | `woody_area` | `#896e44` rgb(0.537, 0.439, 0.267) | ➖ Not present in this plan |
+| Bodendecker | `woody_area` | `#896e44` rgb(0.537, 0.439, 0.267) | ➖ Not present in this plan |
+| Gehölzrabatte | `woody_area` | `#718844` rgb(0.447, 0.537, 0.267) | Pattern tiles (small dots) |
+| Wald | `woody_area` | `#267300` rgb(0.150, 0.450, 0) | ➖ Not present in this plan |
 
 ### Spezielle Bepflanzungsformen
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Dach: ext. Stauden | `special_planting` | Extensive roof planting with perennials |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Dach: ext. Stauden | `special_planting` | `#ffbdbd` rgb(1.0, 0.745, 0.745) | Solid fill |
 
 ### Beläge
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Asphaltbelag | `surface` | Asphalt paving |
-| Rasengittersteine | `surface` | Grass pavers (crosshatch pattern) |
-| Holzhäckselbelag | `surface` | Wood chip surface |
-| Chaussierung | `surface` | Gravel/crushed stone path |
-| Betonpl./Verbund/Naturstein | `surface` | Concrete, composite or stone paving |
-| Geröllstreifen/Bollensteine | `surface` | Gravel strip / cobblestones |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Asphaltbelag | `surface` | `#4e4e4e` rgb(0.306, 0.306, 0.306) | Pattern tiles (dense dark-grey marks) |
+| Rasengittersteine | `surface` | `#6fa800` rgb(0.439, 0.659, 0) | Pattern tiles (green crosshatch) |
+| Holzhäckselbelag | `surface` | `#a83800` rgb(0.659, 0.220, 0) | Pattern tiles (dark-brown crosshatch, ~7 500 tiles) |
+| Chaussierung | `surface` | `#cd8866` rgb(0.804, 0.537, 0.4) | Hatch stripes (large diagonal parallelograms) |
+| Betonpl./Verbund/Naturstein | `surface` | `#9c9c9c` rgb(0.612, 0.612, 0.612) | ➖ Not present in this plan |
+| Geröllstreifen/Bollensteine | `surface` | `#735000` rgb(0.450, 0.300, 0) | ➖ Not present in this plan |
 
 ### Wasserflächen
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Brunnen | `water` | Fountain / drinking trough |
-| Gewässer, ruhend | `water` | Still water body |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Brunnen | `water` | `#00a9e6` rgb(0, 0.663, 0.902) | ➖ Not present in this plan |
+| Gewässer, ruhend | `water` | `#006fff` rgb(0, 0.439, 1.0) | ➖ Not present in this plan |
 
 ### Anderes
-| Subtype | Category | Description |
-|---------|----------|-------------|
-| Anderes | `other` | Other / unclassified green space |
+
+| Subtype | Category | PDF colour | Match method |
+|---------|----------|-----------|--------------|
+| Anderes | `other` | `#ffff00` rgb(1.0, 1.0, 0) | ➖ Not present in this plan |
+
+---
+
+### Known limitations
+
+| Issue | Affected subtypes | Workaround |
+|-------|-------------------|------------|
+| Identical base fill colour | Blumenwiese gf. vs kf. / Stauden int. vs ext. / Formhecke +1.5m vs -1.5m | The distinguishing feature is the overlay pattern colour, not the base fill. Future improvement: cross-reference tile colour with base polygon area to resolve. |
+| Magerrasen vs Saumvegetation | Both use `#f5f579` base | Tile dot colour differs (yellow vs orange-brown) — could be classified separately with a lower `COLOR_TOL`. |
+| Gehölz & Bodend. vs Bodendecker | Both use `#896e44` | These differ only by the presence/absence of dot overlay tiles. |
+| Plan-specific presence | Many types absent | Only the feature types drawn in a given PDF will appear. Run the script on a different plan to get different results. |
 
 ---
 
