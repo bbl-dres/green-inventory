@@ -400,7 +400,13 @@ def extract():
             features.append(make_feature(poly, data["feat_info"], data["fill_rgb"], "pattern_merged"))
     print(f"  -> {len(features) - n_before} tile-merged features")
 
-    # ── 3. Save ──────────────────────────────────────────────────────────────
+    # ── 3. Stamp sequential IDs ──────────────────────────────────────────────
+    # Top-level GeoJSON feature IDs are required by the map viewer for
+    # selection and hover highlighting via MapLibre filter expressions.
+    for i, feat in enumerate(features):
+        feat["id"] = i
+
+    # ── 4. Save ──────────────────────────────────────────────────────────────
     origin_lon, origin_lat = local_m_to_wgs84(0, 0)
     far_lon,    far_lat    = local_m_to_wgs84(MAP_WIDTH_M, MAP_HEIGHT_M)
 

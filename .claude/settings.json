@@ -13,7 +13,8 @@
       "Bash(python -:*)",
       "Bash(python -c \"import fitz; print\\(fitz.__version__\\); page = fitz.open\\(''data/[838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.pdf''\\)[0]; print\\(dir\\(page\\)\\)\")",
       "Bash(python extract_features.py)",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(python -c \"import json; data=json.load\\(open\\(''data/[838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.geojson'', encoding=''utf-8''\\)\\); feats=data[''features'']; print\\(''Total:'', len\\(feats\\)\\); print\\(''First 3 ids:'', [f.get\\(''id''\\) for f in feats[:3]]\\); print\\(''Last id:'', feats[-1].get\\(''id''\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory"

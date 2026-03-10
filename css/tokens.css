@@ -1,0 +1,93 @@
+/* ─────────────────────────────────────────────────────────
+   Design Tokens — Grünflächen Inventar
+───────────────────────────────────────────────────────── */
+:root {
+  /* Color palette */
+  --grey-900: #2D3236;
+  --grey-800: #3D4347;
+  --grey-700: #4E555A;
+  --grey-600: #5E666B;
+  --grey-500: #6C757D;
+  --grey-400: #A0A8AE;
+  --grey-300: #C5CCD1;
+  --grey-200: #DDE2E6;
+  --grey-100: #F3F5F7;
+  --grey-50:  #F9FAFB;
+  --white:    #ffffff;
+
+  --primary:       #005ea8;
+  --primary-dark:  #004a87;
+  --primary-a12:   rgba(0, 94, 168, .12);
+  --primary-a18:   rgba(0, 94, 168, .18);
+  --red:           #cc0000;
+
+  --warn-bg:     #fff3cd;
+  --warn-border: #e6a817;
+  --warn-text:   #7a5700;
+
+  --row-hover:  #eef4fb;
+  --row-active: #dceaf8;
+  --pg-hover:   #f0f5ff;
+
+  /* Typography */
+  --text-label: 10px;
+  --text-xs:    11px;
+  --text-sm:    12.5px;
+  --text-base:  14px;
+  --fw-medium:  500;
+  --fw-semibold: 600;
+  --fw-bold:    700;
+
+  /* Spacing */
+  --sp1: 2px;
+  --sp2: 4px;
+  --sp3: 8px;
+  --sp4: 12px;
+  --sp5: 16px;
+  --sp6: 24px;
+
+  /* Border radius */
+  --radius-sm:   3px;
+  --radius:      5px;
+  --radius-full: 20px;
+
+  /* Shadows */
+  --shadow-xs:        0 1px 3px rgba(0,0,0,.08);
+  --shadow-sm:        0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+  --shadow-md:        0 2px 8px rgba(0,0,0,.14);
+  --shadow-lg:        0 6px 20px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.07);
+  --shadow-focus:     0 0 0 2px var(--primary-a12);
+  --shadow-pill:      0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
+  --shadow-pill-hover:0 2px 8px var(--primary-a18), 0 0 0 1px rgba(0,94,168,.1);
+  --shadow-map-ctrl:  0 2px 8px rgba(0,0,0,.2);
+
+  /* Transitions */
+  --t-fast: .12s ease;
+  --t-base: .18s ease;
+  --t-slow: .25s ease;
+
+  /* Z-index scale
+     Each layer must beat everything below it.
+     Map canvas (MapLibre) sits at ~0-3 internally.
+     Table panel must beat the map; dropdowns must beat everything. */
+  --z-base:      1;
+  --z-map-ctrl:  5;   /* basemap btn, nav controls */
+  --z-toggle:    6;   /* pill straddling map/table */
+  --z-table:     7;   /* table panel above map canvas */
+  --z-table-bar: 8;   /* action bar — establishes stacking ctx for dropdowns */
+  --z-overlay:  10;   /* header, footer, edit banners */
+  --z-dropdown: 100;  /* dropdowns must beat all map/table layers */
+
+  /* Layout */
+  --header-height:   56px;
+  --footer-height:   32px;
+  --panel-width:     280px;
+  --table-height:    300px;
+  --map-ctrl-bottom: 10px;  /* MapLibre native control margin — toggle matches this */
+  --map-ctrl-right:  20px;  /* basemap sits right: 20px, bottom: 50px (above ctrl-bottom-right) */
+
+  /* Control heights — keeps all interactive elements consistently sized */
+  --ctrl-h:    30px;
+  --ctrl-h-sm: 26px;
+  --ctrl-h-pg: 28px;
+}

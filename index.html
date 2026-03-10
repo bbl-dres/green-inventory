@@ -7,191 +7,10 @@
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
-  <style>
-    :root {
-      --grey-900: #2D3236; --grey-800: #3D4347; --grey-700: #4E555A;
-      --grey-600: #5E666B; --grey-500: #6C757D; --grey-400: #A0A8AE;
-      --grey-300: #C5CCD1; --grey-200: #DDE2E6; --grey-100: #F3F5F7;
-      --grey-50:  #F9FAFB; --white: #ffffff;
-      --primary: #005ea8; --red: #cc0000;
-      --header-height: 56px; --footer-height: 32px; --panel-width: 280px;
-      --text-xs: 11px; --text-sm: 12.5px; --text-base: 14px;
-      --sp1: 2px; --sp2: 4px; --sp3: 8px; --sp4: 12px; --sp5: 16px;
-      --radius: 5px;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; font-family: system-ui, -apple-system, sans-serif;
-                 font-size: var(--text-base); color: var(--grey-900); }
-
-    /* ── App shell ─────────────────────────────── */
-    #app { display: flex; flex-direction: column; height: 100vh; }
-
-    /* ── Header ────────────────────────────────── */
-    #header {
-      height: var(--header-height);
-      background: var(--white);
-      border-bottom: 1px solid var(--grey-300);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 var(--sp5); flex-shrink: 0; z-index: 10; gap: var(--sp5);
-    }
-    .header-title { display: flex; flex-direction: column; gap: 1px; }
-    .header-agency { font-size: var(--text-xs); color: var(--grey-500); font-weight: 500; letter-spacing: .02em; }
-    .header-app    { font-size: 15px; font-weight: 700; color: var(--grey-900); }
-    .header-right  { display: flex; align-items: center; gap: var(--sp3); }
-    .badge {
-      background: var(--grey-100); border: 1px solid var(--grey-300);
-      border-radius: 20px; padding: 2px 10px;
-      font-size: var(--text-xs); color: var(--grey-600); white-space: nowrap;
-    }
-    .edit-btn {
-      display: flex; align-items: center; gap: 5px;
-      background: var(--white); border: 1.5px solid var(--grey-300);
-      border-radius: var(--radius); padding: 5px 12px;
-      font-size: var(--text-sm); color: var(--grey-700); cursor: pointer;
-      transition: all .15s;
-    }
-    .edit-btn:hover { border-color: var(--primary); color: var(--primary); }
-    .edit-btn.active { background: #fff3cd; border-color: #e6a817; color: #7a5700; }
-    .edit-btn svg { flex-shrink: 0; }
-
-    /* ── Body ───────────────────────────────────── */
-    #body { flex: 1; display: flex; overflow: hidden; }
-
-    /* ── Sidebar ────────────────────────────────── */
-    #sidebar {
-      width: var(--panel-width); background: var(--white);
-      border-right: 1px solid var(--grey-300);
-      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
-    }
-    #sidebar-header {
-      padding: 9px var(--sp5); border-bottom: 1px solid var(--grey-200);
-      font-size: var(--text-xs); font-weight: 700; color: var(--grey-500);
-      text-transform: uppercase; letter-spacing: .06em; flex-shrink: 0;
-    }
-    #legend-scroll { flex: 1; overflow-y: auto; padding: var(--sp2) 0 var(--sp4); }
-
-    /* ── Legend groups ──────────────────────────── */
-    .lg-group { margin-bottom: 2px; }
-    .lg-group-head {
-      display: flex; align-items: center; gap: var(--sp2);
-      padding: 5px var(--sp4) 3px var(--sp3);
-    }
-    .lg-group-head .eye-btn {
-      flex-shrink: 0; width: 20px; height: 20px;
-      background: none; border: none; cursor: pointer;
-      color: var(--grey-400); padding: 1px;
-      border-radius: 3px; display: flex; align-items: center; justify-content: center;
-      transition: color .12s;
-    }
-    .lg-group-head .eye-btn:hover { color: var(--grey-700); }
-    .lg-group-head .eye-btn.hidden-eye { color: var(--grey-300); }
-    .lg-group-title {
-      font-size: var(--text-xs); font-weight: 700; color: var(--grey-700);
-      text-transform: uppercase; letter-spacing: .05em;
-    }
-    .lg-items { padding: 0 var(--sp4) 2px 34px; }
-    .lg-item {
-      display: flex; align-items: center; gap: 7px;
-      padding: 2px 0; opacity: 1; transition: opacity .2s;
-    }
-    .lg-item.empty { opacity: 0.38; }
-    .lg-swatch {
-      width: 22px; height: 13px; border-radius: 3px; flex-shrink: 0;
-      border: 1px solid rgba(0,0,0,.12);
-    }
-    /* Pattern swatches via CSS */
-    .sw-dots    { background-image: radial-gradient(circle, #333 30%, transparent 30%);
-                  background-size: 5px 5px; }
-    .sw-vdots   { background-image: radial-gradient(circle, #856a00 40%, transparent 40%);
-                  background-size: 5px 5px; }
-    .sw-odots   { background-image: radial-gradient(circle, #804000 35%, transparent 35%);
-                  background-size: 4px 4px; }
-    .sw-pstripe { background-image: repeating-linear-gradient(45deg,#9040c0 0,#9040c0 1.5px,transparent 0,transparent 50%);
-                  background-size: 5px 5px; }
-    .sw-ostripe { background-image: repeating-linear-gradient(45deg,#c05000 0,#c05000 1.5px,transparent 0,transparent 50%);
-                  background-size: 5px 5px; }
-    .sw-hstripe { background-image: repeating-linear-gradient(45deg,#5a3800 0,#5a3800 1.5px,transparent 0,transparent 50%);
-                  background-size: 5px 5px; }
-    .sw-xhatch  { background-image:
-                    repeating-linear-gradient(45deg,  #333 0,#333 1px,transparent 0,transparent 50%),
-                    repeating-linear-gradient(-45deg, #333 0,#333 1px,transparent 0,transparent 50%);
-                  background-size: 5px 5px; }
-    .sw-gdots   { background-image: radial-gradient(circle, #555 30%, transparent 30%);
-                  background-size: 5px 5px; }
-    .sw-outline { background: transparent !important; border: 2px solid #cc0000 !important; }
-    .sw-circ    { border-radius: 50% !important; width: 13px !important; height: 13px !important;
-                  border: 2px solid rgba(0,0,0,.25) !important; }
-    .sw-circ-cross { border-radius: 50% !important; width: 13px !important; height: 13px !important;
-                     border: 2px solid rgba(0,0,0,.4) !important; position: relative; }
-    .sw-circ-cross::before, .sw-circ-cross::after {
-      content:''; position:absolute; background: rgba(0,0,0,.5);
-      top: 50%; left: 50%; transform: translate(-50%,-50%);
-    }
-    .sw-circ-cross::before { width: 7px; height: 1.5px; }
-    .sw-circ-cross::after  { width: 1.5px; height: 7px; }
-    .sw-triangle { width: 0 !important; height: 0 !important; background: transparent !important;
-                   border-left: 7px solid transparent; border-right: 7px solid transparent;
-                   border-bottom: 12px solid #cc0000; border-top: none !important; border-radius: 0 !important; }
-    .lg-label { font-size: var(--text-sm); color: var(--grey-800); line-height: 1.3; }
-    .group-hidden .lg-items { opacity: 0.3; pointer-events: none; }
-
-    /* ── Map ─────────────────────────────────────── */
-    #map { flex: 1; position: relative; }
-    .maplibregl-ctrl-top-right { top: var(--sp3); right: var(--sp3); }
-    .maplibregl-popup-content {
-      padding: var(--sp4) var(--sp5); border-radius: var(--radius);
-      box-shadow: 0 4px 20px rgba(0,0,0,.16); font-size: var(--text-sm); min-width: 180px;
-    }
-    .pu-type { font-weight: 700; margin-bottom: 3px; }
-    .pu-sub  { color: var(--grey-600); margin-bottom: 6px; font-size: var(--text-xs); }
-    .pu-row  { display: flex; justify-content: space-between;
-               font-size: var(--text-xs); color: var(--grey-500); margin-top: 2px; }
-    .pu-row strong { color: var(--grey-800); }
-
-    /* ── Edit mode banner ───────────────────────── */
-    #edit-banner {
-      display: none; position: absolute; top: var(--sp3); left: 50%;
-      transform: translateX(-50%); z-index: 20;
-      background: #fff3cd; border: 1.5px solid #e6a817;
-      border-radius: var(--radius); padding: 6px 16px;
-      font-size: var(--text-sm); color: #7a5700; pointer-events: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,.12);
-    }
-    #edit-banner.visible { display: block; }
-    #save-banner {
-      display: none; position: absolute; bottom: var(--sp5); left: 50%;
-      transform: translateX(-50%); z-index: 20;
-      background: var(--white); border: 1.5px solid var(--grey-300);
-      border-radius: var(--radius); padding: 8px 20px;
-      font-size: var(--text-sm); color: var(--grey-800);
-      box-shadow: 0 2px 12px rgba(0,0,0,.15);
-      display: none; align-items: center; gap: var(--sp4);
-    }
-    #save-banner.visible { display: flex; }
-    #save-banner button {
-      background: var(--primary); color: var(--white); border: none;
-      border-radius: var(--radius); padding: 5px 14px; cursor: pointer;
-      font-size: var(--text-sm); font-weight: 600;
-    }
-    #save-banner button:hover { background: #004a87; }
-    #save-banner .cancel-btn {
-      background: none; color: var(--grey-600); border: 1px solid var(--grey-300);
-    }
-    #save-banner .cancel-btn:hover { background: var(--grey-100); }
-
-    /* ── Footer ──────────────────────────────────── */
-    #footer {
-      height: var(--footer-height); background: var(--grey-100);
-      border-top: 1px solid var(--grey-300);
-      padding: 0 var(--sp5); font-size: var(--text-xs); color: var(--grey-600);
-      display: flex; justify-content: space-between; align-items: center;
-      flex-shrink: 0; z-index: 10;
-    }
-    #coordinates { font-family: monospace; }
-    #footer-links a { color: var(--primary); text-decoration: none; margin-left: var(--sp4); }
-    #footer-links a:hover { text-decoration: underline; }
-  </style>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <div id="app">
@@ -203,9 +22,7 @@
       <span class="header-app">Grünflächen Inventar</span>
     </div>
     <div class="header-right">
-      <span class="badge" id="feat-badge">Lade…</span>
-      <span class="badge">1:650 · WGS 84</span>
-      <button class="edit-btn" id="edit-toggle" title="Position korrigieren">
+<button class="edit-btn" id="edit-toggle" title="Position korrigieren">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -224,15 +41,125 @@
       <div id="legend-scroll" id="legend-list"></div>
     </aside>
 
-    <!-- Map -->
-    <div id="map">
-      <div id="edit-banner">Ziehen Sie die Karte, um alle Features zu verschieben. Klicken Sie auf Speichern.</div>
-      <div id="save-banner">
-        <span id="offset-label">Verschiebung: 0 m, 0 m</span>
-        <button id="save-offset">Speichern</button>
-        <button class="cancel-btn" id="cancel-offset">Abbrechen</button>
+    <!-- Map + Table column -->
+    <div id="main-content">
+
+      <!-- Map -->
+      <div id="map">
+        <div id="edit-banner">Ziehen Sie die Karte, um alle Features zu verschieben. Klicken Sie auf Speichern.</div>
+        <!-- Basemap switcher -->
+        <div id="basemap-switcher">
+          <div class="bm-panel" id="bm-panel"></div>
+          <button class="bm-btn" id="bm-btn" title="Hintergrund wechseln">
+            <img id="bm-current-thumb" alt="Hintergrund">
+            <span>Hintergrund</span>
+          </button>
+        </div>
+        <div id="save-banner">
+          <span id="offset-label">Verschiebung: 0 m, 0 m</span>
+          <button id="save-offset">Speichern</button>
+          <button class="cancel-btn" id="cancel-offset">Abbrechen</button>
+        </div>
+        <!-- Toggle lives inside #map so it stays visible when table collapses -->
+        <button id="tbl-toggle" title="Tabelle ein-/ausblenden">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          Attributtabelle
+        </button>
       </div>
-    </div>
+
+      <!-- Table panel -->
+      <div id="table-panel">
+
+        <!-- Action bar -->
+        <div id="tbl-action-bar">
+          <div id="tbl-search-wrap">
+            <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="tbl-search" placeholder="Suche…">
+          </div>
+
+          <div id="tbl-action-right">
+            <div class="dd-wrap" id="col-dd-wrap">
+              <button class="dd-btn" id="col-dd-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+                Spalten
+                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="dd-menu" id="tbl-col-dd" style="right:0;left:auto"></div>
+            </div>
+
+            <div class="dd-wrap" id="filter-dd-wrap">
+              <button class="dd-btn" id="filter-dd-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                Filter
+                <span class="tbl-badge" id="tbl-filter-badge" style="display:none"></span>
+                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="dd-menu" id="tbl-filter-dd" style="min-width:230px;right:0;left:auto"></div>
+            </div>
+
+            <div class="dd-wrap" id="export-dd-wrap">
+              <button class="dd-btn" id="export-dd-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export
+                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="dd-menu" id="tbl-export-dd" style="right:0;left:auto">
+                <div class="dd-menu-label">Alle Daten</div>
+                <div class="dd-item" id="exp-csv">CSV</div>
+                <div class="dd-item" id="exp-geojson">GeoJSON</div>
+                <div class="dd-item" id="exp-xlsx">Excel</div>
+                <div class="dd-divider"></div>
+                <div class="dd-menu-label">Gefilterte Daten</div>
+                <div class="dd-item" id="exp-csv-f">CSV</div>
+                <div class="dd-item" id="exp-geojson-f">GeoJSON</div>
+                <div class="dd-item" id="exp-xlsx-f">Excel</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div id="table-scroll">
+          <table id="tbl">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination bar: [size] · [nav cluster] · [info] -->
+        <div id="tbl-pagination">
+          <select id="pg-size-select" title="Zeilen pro Seite">
+            <option value="10">10 / Seite</option>
+            <option value="25" selected>25 / Seite</option>
+            <option value="50">50 / Seite</option>
+            <option value="100">100 / Seite</option>
+          </select>
+          <div class="pg-spacer"></div>
+          <button class="pg-btn" id="pg-first" title="Erste Seite">«</button>
+          <button class="pg-btn" id="pg-prev"  title="Vorherige Seite">‹</button>
+          <div id="pg-pages"></div>
+          <button class="pg-btn" id="pg-next"  title="Nächste Seite">›</button>
+          <button class="pg-btn" id="pg-last"  title="Letzte Seite">»</button>
+          <div class="pg-spacer"></div>
+          <span class="pg-info" id="pg-info"></span>
+        </div>
+      </div>
+
+    </div><!-- #main-content -->
 
   </div>
 
@@ -421,12 +348,32 @@ function lineWidthExpr() {
 const vis = {};
 for (const g of LEGEND_GROUPS) vis[g.id] = true;
 
-function buildMapFilter() {
+function buildLegendFilter() {
   const onCats = LEGEND_GROUPS
     .filter(g => vis[g.id] && g.category)
     .map(g => g.category);
   if (onCats.length === 0) return ['==', '1', '0'];
   return ['in', ['get', 'category'], ['literal', onCats]];
+}
+// Keep alias for initial addLayers() call
+function buildMapFilter() { return buildLegendFilter(); }
+
+let tblActiveIds = null; // null = no table filter; array of feature indices
+let selectedId   = null; // currently selected feature index (null = none)
+
+function applyMapFilters() {
+  if (!map.getLayer('features-fill')) return;
+  const legendF = buildLegendFilter();
+  let combined;
+  if (tblActiveIds === null) {
+    combined = legendF;
+  } else if (tblActiveIds.length === 0) {
+    combined = ['==', '1', '0'];
+  } else {
+    combined = ['all', legendF, ['in', ['id'], ['literal', tblActiveIds]]];
+  }
+  map.setFilter('features-fill', combined);
+  map.setFilter('features-line', combined);
 }
 
 // ── Map init ───────────────────────────────────────────────────────────────
@@ -437,7 +384,7 @@ const map = new maplibregl.Map({
   zoom: 16, maxZoom: 22,
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
-map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
 // ── GeoJSON offset (used by edit mode) ────────────────────────────────────
 // LV95 scale at ~47°N: 1° lat ≈ 111 320 m, 1° lon ≈ 73 500 m
@@ -451,25 +398,72 @@ let geojsonData = null;
 const GEOJSON_PATH =
   'data/[838147959] 1602.GR_M\u00FChlestrasse 2+4+6+8Gr\u00FCnfl\u00E4chenpflege.geojson';
 
-map.on('load', async () => {
-  let resp, gj;
-  try {
-    resp = await fetch(GEOJSON_PATH);
-    gj = await resp.json();
-  } catch (e) {
-    document.getElementById('feat-badge').textContent = 'Ladefehler';
-    console.error(e);
-    return;
-  }
-  geojsonData = gj;
+// ── Popup instances ─────────────────────────────────────────────────────────────
+const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '260px' });
+selPopup.on('close', () => {
+  if (selectedId === null) return; // already cleared programmatically
+  selectedId = null;
+  applySelectedFilter();
+  updateSelectionUrl();
+  renderTable();
+});
 
-  document.getElementById('feat-badge').textContent =
-    `${gj.features.length} Features`;
+// ── Popup HTML helper ────────────────────────────────────────────────────────────
+function popupHTML(p) {
+  return `
+    <div class="pu-type">${p.feature_type || p.category}</div>
+    <div class="pu-sub">${p.subtype}</div>
+    <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? (+p.area_m2).toFixed(1) + ' m²' : '–'}</strong></div>
+    <div class="pu-row"><span>Kategorie</span><strong>${p.category}</strong></div>
+    <div class="pu-row"><span>Quelle</span><strong>${p.source}</strong></div>
+  `;
+}
 
+// ── Selection helpers ─────────────────────────────────────────────────────────────
+function applySelectedFilter() {
+  if (!map.getLayer('features-selected-fill')) return;
+  const f = selectedId !== null ? ['==', ['id'], selectedId] : ['==', '1', '0'];
+  map.setFilter('features-selected-fill', f);
+  map.setFilter('features-selected-line', f);
+}
+
+function updateSelectionUrl() {
+  const url = new URL(location.href);
+  if (selectedId !== null) url.searchParams.set('sel', selectedId);
+  else url.searchParams.delete('sel');
+  history.replaceState(null, '', url);
+}
+
+function selectFeature(idx, lngLat) {
+  selectedId = idx;
+  applySelectedFilter();
+  updateSelectionUrl();
+  selPopup.setLngLat(lngLat).setHTML(popupHTML(geojsonData.features[idx].properties)).addTo(map);
+  // Navigate table to the selected row's page
+  const sorted = getSortedRows(getFilteredRows());
+  const rowIdx = sorted.findIndex(r => r._idx === idx);
+  if (rowIdx !== -1) tblPage = Math.floor(rowIdx / tblPageSize);
+  renderTable();
+  setTimeout(() => {
+    document.querySelector('#tbl tbody tr.selected')?.scrollIntoView({ block: 'nearest' });
+  }, 0);
+}
+
+function clearSelection() {
+  if (selectedId === null) return;
+  selectedId = null;
+  applySelectedFilter();
+  updateSelectionUrl();
+  selPopup.remove(); // close event fires but guard above short-circuits it
+  renderTable();
+}
+
+// ── Add GeoJSON source + layers (called on initial load and after style change) ─
+function addLayers() {
+  if (!geojsonData || map.getSource('features')) return;
   map.addSource('features', {
-    type: 'geojson', data: gj, promoteId: '__AUTO__',
+    type: 'geojson', data: geojsonData,
   });
-
   map.addLayer({
     id: 'features-fill', type: 'fill', source: 'features',
     paint: {
@@ -480,46 +474,78 @@ map.on('load', async () => {
   });
   map.addLayer({
     id: 'features-line', type: 'line', source: 'features',
-    paint: {
-      'line-color': lineColorExpr(),
-      'line-width': lineWidthExpr(),
-    },
+    paint: { 'line-color': lineColorExpr(), 'line-width': lineWidthExpr() },
   });
   map.addLayer({
     id: 'features-hover', type: 'line', source: 'features',
     filter: ['==', ['id'], -1],
     paint: { 'line-color': '#005ea8', 'line-width': 2.5 },
   });
-
-  // ── Popup / hover ──────────────────────────────────────────────────────
-  const popup = new maplibregl.Popup({
-    closeButton: false, closeOnClick: false, maxWidth: '260px',
+  map.addLayer({
+    id: 'features-selected-fill', type: 'fill', source: 'features',
+    filter: ['==', '1', '0'],
+    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.22 },
   });
+  map.addLayer({
+    id: 'features-selected-line', type: 'line', source: 'features',
+    filter: ['==', '1', '0'],
+    paint: { 'line-color': '#005ea8', 'line-width': 3 },
+  });
+  applySelectedFilter(); // restore if selection persists across basemap change
+  const f = buildMapFilter();
+  map.setFilter('features-fill', f);
+  map.setFilter('features-line', f);
+}
+
+map.on('load', async () => {
+  let resp, gj;
+  try {
+    resp = await fetch(GEOJSON_PATH);
+    gj = await resp.json();
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+  // Ensure every feature has a top-level integer id matching its array index.
+  // Existing files from extract_features.py may predate this requirement.
+  gj.features.forEach((f, i) => { if (f.id == null) f.id = i; });
+  geojsonData = gj;
+
+  addLayers();
+  buildTable();
+
+  // ── Hover ──────────────────────────────────────────────────────────────
   let hovId = null;
 
   map.on('mousemove', 'features-fill', (e) => {
     if (editMode) return;
     if (!e.features.length) return;
     map.getCanvas().style.cursor = 'pointer';
-    const f = e.features[0], p = f.properties;
+    const f = e.features[0];
     if (hovId !== f.id) {
       hovId = f.id;
       map.setFilter('features-hover', ['==', ['id'], hovId]);
     }
-    popup.setLngLat(e.lngLat).setHTML(`
-      <div class="pu-type">${p.feature_type || p.category}</div>
-      <div class="pu-sub">${p.subtype}</div>
-      <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? (+p.area_m2).toFixed(1) + ' m²' : '–'}</strong></div>
-      <div class="pu-row"><span>Kategorie</span><strong>${p.category}</strong></div>
-      <div class="pu-row"><span>Quelle</span><strong>${p.source}</strong></div>
-    `).addTo(map);
   });
   map.on('mouseleave', 'features-fill', () => {
     if (editMode) return;
     map.getCanvas().style.cursor = '';
     map.setFilter('features-hover', ['==', ['id'], -1]);
     hovId = null;
-    popup.remove();
+  });
+
+  // ── Click: select / deselect feature ───────────────────────────────────
+  map.on('click', 'features-fill', (e) => {
+    if (editMode) return;
+    const f = e.features[0];
+    if (f.id === selectedId) { clearSelection(); return; }
+    selectFeature(f.id, e.lngLat);
+  });
+  // Click on empty map area → clear selection
+  map.on('click', (e) => {
+    if (editMode) return;
+    const hits = map.queryRenderedFeatures(e.point, { layers: ['features-fill'] });
+    if (!hits.length) clearSelection();
   });
 
   // ── Fit to actual feature bounds ───────────────────────────────────────
@@ -535,7 +561,72 @@ map.on('load', async () => {
 
   // ── Build legend ───────────────────────────────────────────────────────
   buildLegend(gj.features);
+
+  // ── Restore selection from URL (?sel=<idx>) ────────────────────────────
+  const urlSel = parseInt(new URLSearchParams(location.search).get('sel'));
+  if (!isNaN(urlSel) && urlSel >= 0 && urlSel < gj.features.length) {
+    const feat = gj.features[urlSel];
+    const bbox = geomBbox(feat.geometry);
+    const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
+    selectFeature(urlSel, center);
+  }
 });
+
+// ── Basemap switcher ────────────────────────────────────────────────────────
+const BASEMAPS = [
+  { id: 'positron',    label: 'Hell',   bg: '#f2f0ec',
+    thumb: 'https://a.basemaps.cartocdn.com/light_all/7/66/45.png',
+    url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
+  { id: 'dark-matter', label: 'Dunkel', bg: '#1c1c24',
+    thumb: 'https://a.basemaps.cartocdn.com/dark_all/7/66/45.png',
+    url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
+  { id: 'voyager',     label: 'Reise',  bg: '#e8dfd0',
+    thumb: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/7/66/45.png',
+    url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
+];
+let currentBasemap = 'positron';
+let bmPanelOpen = false;
+
+(function initBasemapUI() {
+  const panel = document.getElementById('bm-panel');
+  BASEMAPS.forEach(bm => {
+    const btn = document.createElement('button');
+    btn.className = 'bm-option' + (bm.id === currentBasemap ? ' active' : '');
+    btn.dataset.id = bm.id;
+    btn.innerHTML =
+      `<img src="${bm.thumb}" alt="${bm.label}">` +
+      `<span class="bm-opt-label">${bm.label}</span>`;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (bm.id === currentBasemap) { closeBmPanel(); return; }
+      currentBasemap = bm.id;
+      updateBmBtn();
+      map.setStyle(bm.url);
+      map.once('idle', addLayers);
+      closeBmPanel();
+    });
+    panel.appendChild(btn);
+  });
+  updateBmBtn();
+})();
+
+function updateBmBtn() {
+  const bm = BASEMAPS.find(b => b.id === currentBasemap);
+  document.getElementById('bm-current-thumb').src = bm.thumb;
+  document.querySelectorAll('.bm-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.id === currentBasemap);
+  });
+}
+function closeBmPanel() {
+  bmPanelOpen = false;
+  document.getElementById('bm-panel').classList.remove('open');
+}
+document.getElementById('bm-btn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  bmPanelOpen = !bmPanelOpen;
+  document.getElementById('bm-panel').classList.toggle('open', bmPanelOpen);
+});
+document.addEventListener('click', () => { if (bmPanelOpen) closeBmPanel(); });
 
 // ── Coordinate display ─────────────────────────────────────────────────────
 const coordEl = document.getElementById('coordinates');
@@ -579,8 +670,7 @@ function buildLegend(features) {
       eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
       eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
       groupEl.classList.toggle('group-hidden', !vis[grp.id]);
-      map.setFilter('features-fill', buildMapFilter());
-      map.setFilter('features-line', buildMapFilter());
+      applyMapFilters();
     });
     if (!grp.category) {
       eyeBtn.style.opacity = '0.25';
@@ -743,6 +833,352 @@ function applyDelta(dLon, dLat) {
 function applyDeltaPermanent(dLon, dLat) {
   // Already applied incrementally during drag — nothing extra to do.
   // The geojsonData coordinates are already shifted.
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABLE WIDGET
+// ═══════════════════════════════════════════════════════════════════════════
+const TABLE_COLS = [
+  { key: 'feature_type', label: 'Typ',       visible: true  },
+  { key: 'subtype',      label: 'Subtyp',    visible: true  },
+  { key: 'category',     label: 'Kategorie', visible: false },
+  { key: 'area_m2',      label: 'Fläche m²', visible: true,
+    fmt: v => v != null ? (+v).toFixed(1) : '–' },
+  { key: 'source',       label: 'Quelle',    visible: false },
+];
+
+let tableRows = [];
+let tblSortCol = 'area_m2', tblSortDir = -1;
+let tblSearch = '';
+let tblFilterAttrs = {};
+let tblPage = 0, tblPageSize = 25;
+
+function buildTable() {
+  if (!geojsonData) return;
+  tableRows = geojsonData.features.map((f, i) => ({ ...f.properties, _idx: i }));
+  buildColDropdown();
+  buildFilterDropdown();
+  renderTable();
+}
+
+function getFilteredRows() {
+  let rows = tableRows;
+  if (tblSearch) {
+    const q = tblSearch.toLowerCase();
+    rows = rows.filter(r =>
+      TABLE_COLS.some(c => String(r[c.key] ?? '').toLowerCase().includes(q))
+    );
+  }
+  for (const [field, val] of Object.entries(tblFilterAttrs)) {
+    if (val !== '') rows = rows.filter(r => String(r[field] ?? '') === val);
+  }
+  return rows;
+}
+
+function getSortedRows(rows) {
+  return [...rows].sort((a, b) => {
+    const av = a[tblSortCol], bv = b[tblSortCol];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * tblSortDir;
+    return String(av).localeCompare(String(bv)) * tblSortDir;
+  });
+}
+
+function renderTable() {
+  const filtered = getFilteredRows();
+  const sorted = getSortedRows(filtered);
+
+  // Clamp page
+  const totalPages = Math.max(1, Math.ceil(sorted.length / tblPageSize));
+  if (tblPage >= totalPages) tblPage = totalPages - 1;
+  const pageRows = sorted.slice(tblPage * tblPageSize, (tblPage + 1) * tblPageSize);
+
+  // Sync table filter to map
+  tblActiveIds = filtered.length < tableRows.length ? filtered.map(r => r._idx) : null;
+  applyMapFilters();
+
+  // thead
+  const visCols = TABLE_COLS.filter(c => c.visible);
+  const thead = document.querySelector('#tbl thead');
+  thead.innerHTML = '<tr>' + visCols.map(c =>
+    `<th data-col="${c.key}" class="${tblSortCol === c.key ? 'sort-' + (tblSortDir > 0 ? 'asc' : 'desc') : ''}">${c.label}</th>`
+  ).join('') + '</tr>';
+  thead.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (tblSortCol === col) tblSortDir *= -1;
+      else { tblSortCol = col; tblSortDir = -1; }
+      tblPage = 0;
+      renderTable();
+    });
+  });
+
+  // tbody — current page only
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = '';
+  for (const row of pageRows) {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = row._idx;
+    if (row._idx === selectedId) tr.classList.add('selected');
+    for (const c of visCols) {
+      const td = document.createElement('td');
+      td.textContent = c.fmt ? c.fmt(row[c.key]) : (row[c.key] ?? '–');
+      tr.appendChild(td);
+    }
+    tr.addEventListener('mouseenter', () => {
+      if (map.getLayer('features-hover'))
+        map.setFilter('features-hover', ['==', ['id'], row._idx]);
+    });
+    tr.addEventListener('mouseleave', () => {
+      if (map.getLayer('features-hover'))
+        map.setFilter('features-hover', ['==', ['id'], -1]);
+    });
+    tr.addEventListener('click', () => {
+      const feat = geojsonData.features[row._idx];
+      if (!feat) return;
+      const bbox = geomBbox(feat.geometry);
+      if (row._idx === selectedId) { clearSelection(); return; }
+      const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
+      selectFeature(row._idx, center);
+      map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
+    });
+    tbody.appendChild(tr);
+  }
+
+  // Pagination controls
+  renderPagination(sorted.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+  const start = tblPage * tblPageSize + 1;
+  const end   = Math.min((tblPage + 1) * tblPageSize, total);
+  document.getElementById('pg-info').textContent =
+    total === 0 ? 'Keine Einträge' : `${start}–${end} von ${total}`;
+
+  document.getElementById('pg-first').disabled = tblPage === 0;
+  document.getElementById('pg-prev').disabled  = tblPage === 0;
+  document.getElementById('pg-next').disabled  = tblPage >= totalPages - 1;
+  document.getElementById('pg-last').disabled  = tblPage >= totalPages - 1;
+
+  // Page number buttons (max 5 around current)
+  const pagesEl = document.getElementById('pg-pages');
+  pagesEl.innerHTML = '';
+  const range = pageRange(tblPage, totalPages, 5);
+  for (const p of range) {
+    if (p === '…') {
+      const sp = document.createElement('span');
+      sp.textContent = '…'; sp.style.padding = '0 4px'; sp.style.color = 'var(--grey-400)';
+      pagesEl.appendChild(sp);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'pg-btn' + (p === tblPage ? ' pg-active' : '');
+      btn.textContent = p + 1;
+      btn.addEventListener('click', () => { tblPage = p; renderTable(); });
+      pagesEl.appendChild(btn);
+    }
+  }
+}
+
+function pageRange(current, total, window) {
+  if (total <= window + 2) return Array.from({ length: total }, (_, i) => i);
+  const half = Math.floor(window / 2);
+  let start = Math.max(1, current - half);
+  let end   = Math.min(total - 2, start + window - 1);
+  if (end - start < window - 1) start = Math.max(1, end - window + 1);
+  const pages = [0];
+  if (start > 1) pages.push('…');
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < total - 2) pages.push('…');
+  pages.push(total - 1);
+  return pages;
+}
+
+function geomBbox(geom) {
+  let mn = [Infinity, Infinity], mx = [-Infinity, -Infinity];
+  function scan(c) {
+    if (typeof c[0] === 'number') {
+      if (c[0] < mn[0]) mn[0] = c[0]; if (c[0] > mx[0]) mx[0] = c[0];
+      if (c[1] < mn[1]) mn[1] = c[1]; if (c[1] > mx[1]) mx[1] = c[1];
+    } else c.forEach(scan);
+  }
+  scan(geom.coordinates);
+  return [mn, mx];
+}
+
+// ── Column selector ─────────────────────────────────────────────────────────
+function buildColDropdown() {
+  const dd = document.getElementById('tbl-col-dd');
+  dd.innerHTML = `<div class="dd-menu-label">Sichtbare Spalten</div>` +
+    TABLE_COLS.map(c =>
+      `<label class="col-check-item">
+        <input type="checkbox" data-col="${c.key}" ${c.visible ? 'checked' : ''}>
+        ${c.label}
+      </label>`
+    ).join('');
+  dd.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const col = TABLE_COLS.find(c => c.key === cb.dataset.col);
+      if (col) { col.visible = cb.checked; renderTable(); }
+    });
+  });
+}
+
+// ── Filter dropdown ──────────────────────────────────────────────────────────
+function buildFilterDropdown() {
+  if (!tableRows.length) return;
+  const dd = document.getElementById('tbl-filter-dd');
+  const filterCols = ['feature_type', 'subtype', 'category', 'source'];
+  dd.innerHTML = `<div class="dd-menu-label">Attribut filtern</div>` +
+    filterCols.map(key => {
+      const col = TABLE_COLS.find(c => c.key === key);
+      const label = col ? col.label : key;
+      const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))].sort();
+      const cur = tblFilterAttrs[key] || '';
+      return `<div class="filter-row">
+        <span class="filter-label">${label}</span>
+        <select data-field="${key}">
+          <option value="">Alle</option>
+          ${vals.map(v => `<option value="${v}"${cur === v ? ' selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join('') +
+    `<div class="filter-actions"><button id="tbl-filter-clear" class="filter-clear-btn">Filter zurücksetzen</button></div>`;
+
+  dd.querySelectorAll('select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      tblFilterAttrs[sel.dataset.field] = sel.value;
+      tblPage = 0;
+      updateFilterBadge();
+      renderTable();
+    });
+  });
+  const clr = dd.querySelector('#tbl-filter-clear');
+  if (clr) clr.addEventListener('click', () => {
+    tblFilterAttrs = {};
+    tblPage = 0;
+    buildFilterDropdown();
+    updateFilterBadge();
+    renderTable();
+  });
+}
+
+function updateFilterBadge() {
+  const n = Object.values(tblFilterAttrs).filter(v => v !== '').length;
+  const badge = document.getElementById('tbl-filter-badge');
+  badge.textContent = n > 0 ? n : '';
+  badge.style.display = n > 0 ? 'inline-block' : 'none';
+  document.getElementById('filter-dd-btn').classList.toggle('has-active', n > 0);
+}
+
+// ── Export ──────────────────────────────────────────────────────────────────
+function exportCSV(rows) {
+  const header = TABLE_COLS.map(c => `"${c.label}"`).join(',');
+  const lines = rows.map(r =>
+    TABLE_COLS.map(c => {
+      const v = c.fmt ? c.fmt(r[c.key]) : (r[c.key] ?? '');
+      return `"${String(v).replace(/"/g, '""')}"`;
+    }).join(',')
+  );
+  downloadBlob(new Blob(['\ufeff' + [header, ...lines].join('\n')],
+    { type: 'text/csv;charset=utf-8' }), 'features.csv');
+}
+
+function exportGeoJSON(rows) {
+  const idxSet = new Set(rows.map(r => r._idx));
+  const fc = {
+    type: 'FeatureCollection',
+    features: geojsonData.features.filter((_, i) => idxSet.has(i))
+  };
+  downloadBlob(new Blob([JSON.stringify(fc, null, 2)], { type: 'application/json' }),
+    'features.geojson');
+}
+
+function exportExcel(rows) {
+  const wsData = [
+    TABLE_COLS.map(c => c.label),
+    ...rows.map(r => TABLE_COLS.map(c => c.fmt ? c.fmt(r[c.key]) : (r[c.key] ?? '')))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Features');
+  XLSX.writeFile(wb, 'features.xlsx');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Table toggle ─────────────────────────────────────────────────────────────
+let tableOpen = true;
+document.getElementById('tbl-toggle').addEventListener('click', () => {
+  tableOpen = !tableOpen;
+  document.getElementById('table-panel').classList.toggle('collapsed', !tableOpen);
+  document.getElementById('tbl-toggle').classList.toggle('collapsed', !tableOpen);
+  setTimeout(() => map.resize(), 280);
+});
+
+// ── Search ────────────────────────────────────────────────────────────────────
+document.getElementById('tbl-search').addEventListener('input', (e) => {
+  tblSearch = e.target.value;
+  tblPage = 0;
+  renderTable();
+});
+
+// ── Pagination buttons ────────────────────────────────────────────────────────
+document.getElementById('pg-first').addEventListener('click', () => { tblPage = 0; renderTable(); });
+document.getElementById('pg-prev').addEventListener('click',  () => { tblPage--; renderTable(); });
+document.getElementById('pg-next').addEventListener('click',  () => { tblPage++; renderTable(); });
+document.getElementById('pg-last').addEventListener('click',  () => {
+  const total = getSortedRows(getFilteredRows()).length;
+  tblPage = Math.max(0, Math.ceil(total / tblPageSize) - 1);
+  renderTable();
+});
+document.getElementById('pg-size-select').addEventListener('change', (e) => {
+  tblPageSize = +e.target.value;
+  tblPage = 0;
+  renderTable();
+});
+
+// ── Dropdown toggle logic ────────────────────────────────────────────────────
+['col-dd-wrap', 'filter-dd-wrap', 'export-dd-wrap'].forEach(wrapId => {
+  const wrap = document.getElementById(wrapId);
+  wrap.querySelector('.dd-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) wrap.classList.add('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
+});
+
+// ── Export buttons ────────────────────────────────────────────────────────────
+document.getElementById('exp-csv').addEventListener('click', (e) => {
+  e.stopPropagation(); exportCSV(tableRows); closeExportDd();
+});
+document.getElementById('exp-csv-f').addEventListener('click', () => {
+  exportCSV(getSortedRows(getFilteredRows())); closeExportDd();
+});
+document.getElementById('exp-geojson').addEventListener('click', () => {
+  exportGeoJSON(tableRows); closeExportDd();
+});
+document.getElementById('exp-geojson-f').addEventListener('click', () => {
+  exportGeoJSON(getFilteredRows()); closeExportDd();
+});
+document.getElementById('exp-xlsx').addEventListener('click', () => {
+  exportExcel(tableRows); closeExportDd();
+});
+document.getElementById('exp-xlsx-f').addEventListener('click', () => {
+  exportExcel(getSortedRows(getFilteredRows())); closeExportDd();
+});
+function closeExportDd() {
+  document.getElementById('export-dd-wrap').classList.remove('open');
 }
 </script>
 </body>
