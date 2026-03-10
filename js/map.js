@@ -112,13 +112,33 @@ function selectFeature(idx, lngLat) {
   _suppressPopupClose = true;
   selPopup.setLngLat(lngLat).setHTML(popupHTML(geojsonData.features[idx].properties)).addTo(map);
   _suppressPopupClose = false;
+
+  // Open table panel if collapsed
+  if (!tableOpen) document.getElementById('tbl-toggle').click();
+
+  // If the row is hidden by filters/search, clear them so it becomes visible
+  let sorted = getSortedRows(getFilteredRows());
+  if (sorted.findIndex(r => r._idx === idx) === -1) {
+    // Clear text search
+    const si = document.getElementById('tbl-search');
+    const sx = document.getElementById('tbl-search-x');
+    if (si && si.value) { si.value = ''; tblSearch = ''; if (sx) sx.style.display = 'none'; }
+    // Clear column filters
+    for (const key of Object.keys(tblFilterAttrs)) tblFilterAttrs[key].clear();
+    onFilterChange();
+    sorted = getSortedRows(getFilteredRows());
+  }
+
   // Navigate table to the selected row's page
-  const sorted = getSortedRows(getFilteredRows());
   const rowIdx = sorted.findIndex(r => r._idx === idx);
   if (rowIdx !== -1) tblPage = Math.floor(rowIdx / tblPageSize);
   renderTable();
+
+  // Scroll the row into view
   setTimeout(() => {
-    document.querySelector('#tbl tbody tr.selected')?.scrollIntoView({ block: 'nearest' });
+    const scroll = document.getElementById('table-scroll');
+    const tr = document.querySelector('#tbl tbody tr.selected');
+    if (scroll && tr) { scroll.scrollTop = 0; tr.scrollIntoView({ block: 'nearest' }); }
   }, 0);
 }
 
@@ -243,6 +263,26 @@ map.on('load', async () => {
     selectFeature(urlSel, center);
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIDEBAR (LEGEND) TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+(function initSidebarToggle() {
+  const sidebar     = document.getElementById('sidebar');
+  const closeBtn    = document.getElementById('sidebar-close');
+  const legendBtn   = document.getElementById('legend-toggle');
+
+  closeBtn.addEventListener('click', () => {
+    sidebar.classList.add('collapsed');
+    legendBtn.style.display = 'flex';
+    setTimeout(() => map.resize(), 280);
+  });
+  legendBtn.addEventListener('click', () => {
+    sidebar.classList.remove('collapsed');
+    legendBtn.style.display = 'none';
+    setTimeout(() => map.resize(), 280);
+  });
+})();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BASEMAP SWITCHER
