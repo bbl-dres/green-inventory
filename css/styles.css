@@ -249,6 +249,35 @@ html, body {
 
 .maplibregl-ctrl-top-right { top: var(--sp3); right: var(--sp3); }
 
+/* Custom IconCtrl buttons (Home, 2D/3D toggle) — match the look of the
+   built-in MapLibre nav buttons.  SVG icons centered; text-only buttons
+   (the 3D toggle) get a tighter font. */
+.maplibregl-ctrl-group button > svg {
+  display: block; margin: auto; color: var(--grey-700);
+}
+.maplibregl-ctrl-group button:hover > svg { color: var(--primary); }
+
+/* Text-content buttons - target buttons whose direct text is "2D" or "3D"
+   via :not([class*=zoom]) is too broad; instead key on a single rule that
+   styles letter-content reliably regardless of which IconCtrl uses text. */
+.maplibregl-ctrl-group button {
+  font-family: inherit;
+  font-weight: var(--fw-bold);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--grey-700);
+}
+.maplibregl-ctrl-group button:hover { color: var(--primary); }
+
+/* Pressed/active state for the 3D toggle */
+.maplibregl-ctrl-group button.ctrl-active {
+  background: var(--primary);
+  color: var(--white);
+}
+.maplibregl-ctrl-group button.ctrl-active > svg { color: var(--white); }
+.maplibregl-ctrl-group button.ctrl-active:hover { color: var(--white); }
+.maplibregl-ctrl-group button.ctrl-active:hover > svg { color: var(--white); }
+
 /* ── Map popup ─────────────────────────────────────────── */
 .maplibregl-popup-content {
   padding: 0; border-radius: var(--radius); overflow: hidden;

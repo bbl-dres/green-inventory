@@ -34,9 +34,18 @@ from pathlib import Path
 
 import pandas as pd
 import pyogrio
+import pyproj
 from pyproj import Transformer
-from shapely.geometry import mapping
+from shapely.geometry import MultiPolygon, mapping
+from shapely.geometry.polygon import orient
 from shapely.ops import transform as sh_transform
+from shapely.validation import make_valid
+
+# Enable the PROJ CDN so pyproj fetches the CHENyx06 NTv2 grid the first
+# time a CH1903 -> WGS84 transform runs.  Without this, pyproj silently
+# falls back to a 7-parameter Helmert approximation that's ~1.0-1.6 m off
+# in parts of Switzerland - exactly the order of magnitude as a tree crown.
+pyproj.network.set_network_enabled(True)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -46,12 +55,83 @@ GDB_PATH = Path(r"C:\Users\DavidRasner\Downloads\Daten_Bundesgärtnerei\GFMBunde
 XLS_PATH = Path(r"C:\Users\DavidRasner\Downloads\Daten_Bundesgärtnerei\Liste_Objekte.xls")
 OUT_PATH = ROOT / "data" / "data.geojson"
 
-SRC_CRS = "EPSG:21781"   # CH1903 / LV03 (the GDB's stated CRS)
-LV95_CRS = "EPSG:2056"   # CH1903+ / LV95
+EXPECTED_SRC_CRS = ("EPSG:21781", "EPSG:2056")  # LV03 (Bessel) or LV95 (Bessel+)
+LV95_CRS = "EPSG:2056"
 WGS84 = "EPSG:4326"
 
-to_wgs = Transformer.from_crs(SRC_CRS, WGS84, always_xy=True).transform
-to_lv95 = Transformer.from_crs(SRC_CRS, LV95_CRS, always_xy=True).transform
+# SRC_CRS, to_wgs, to_lv95, lv95_to_wgs are populated by configure_transforms()
+# once we've read the actual GDB layer's CRS and verified it matches.
+SRC_CRS = None
+to_wgs = None
+to_lv95 = None
+lv95_to_wgs = None
+
+
+def _best_transformer(src, dst):
+    """Pick the most accurate transformer pyproj knows about for src -> dst.
+
+    The default Transformer.from_crs returns the operation pyproj judges
+    "best", but its accuracy heuristic doesn't always pick the lowest-
+    accuracy-value candidate.  Enumerate the group and pick by the smallest
+    nominal accuracy in metres; tie-breaks fall back to pyproj's order.
+    """
+    from pyproj.transformer import TransformerGroup
+    tg = TransformerGroup(src, dst, always_xy=True)
+    if not tg.transformers:
+        raise SystemExit(f"pyproj has no transform path for {src} -> {dst}")
+    # Filter out "ballpark" (accuracy = -1.0) candidates if better ones exist
+    rated = [t for t in tg.transformers if t.accuracy is not None and t.accuracy >= 0]
+    if rated:
+        return min(rated, key=lambda t: t.accuracy)
+    return tg.transformers[0]
+
+
+def configure_transforms(layer_crs):
+    """Verify the source CRS and build pyproj transformers.
+
+    Called once we know the GDB's actual CRS.  Asserts we got one of the
+    two CH1903 variants we support; refuses to run otherwise so silent
+    double-reprojection can't happen if a future GDB drop changes CRS.
+
+    Practical accuracy bounds for our pipeline (Switzerland):
+      LV03 -> LV95:  ~0.2 m   (CHENyx06 grid, bundled with pyproj)
+      LV95 -> WGS84: ~1.0 m   (7-parameter Helmert; PROJ has no better
+                                grid for this leg.  Sub-decimetre needs
+                                swisstopo's Reframe Web API.)
+      LV03 -> WGS84: ~1.5 m   (compound of the above)
+    """
+    global SRC_CRS, to_wgs, to_lv95, lv95_to_wgs
+    if str(layer_crs) not in EXPECTED_SRC_CRS:
+        raise SystemExit(
+            f"Unexpected source CRS '{layer_crs}'. Supported: {EXPECTED_SRC_CRS}. "
+            "Update configure_transforms() if this is intentional."
+        )
+    SRC_CRS = str(layer_crs)
+
+    t_wgs    = _best_transformer(SRC_CRS, WGS84)
+    t_lv     = _best_transformer(SRC_CRS, LV95_CRS)
+    t_lv_wgs = _best_transformer(LV95_CRS, WGS84)
+
+    # Surface the accuracy and operation chain so a future change to PROJ /
+    # data files is visible in the run log.  An accuracy worse than ~2 m on
+    # SRC -> WGS84 indicates a missing grid (re-check pyproj install).
+    print(f"  {SRC_CRS} -> WGS84:  acc={t_wgs.accuracy} m   {t_wgs.description}")
+    print(f"  {SRC_CRS} -> LV95:   acc={t_lv.accuracy} m   {t_lv.description}")
+    print(f"  LV95 -> WGS84:      acc={t_lv_wgs.accuracy} m   {t_lv_wgs.description}")
+    if t_wgs.accuracy is not None and t_wgs.accuracy > 2.0:
+        print("  WARNING: WGS84 accuracy worse than 2 m - CHENyx06 grid may "
+              "be missing.  Run with PROJ_NETWORK=ON and verify proj-data "
+              "package is installed.")
+
+    to_wgs = t_wgs.transform
+    to_lv95 = t_lv.transform
+    lv95_to_wgs = t_lv_wgs.transform
+    # Cache for metadata
+    configure_transforms.accuracy_m = {
+        f"{SRC_CRS}->WGS84": t_wgs.accuracy,
+        f"{SRC_CRS}->LV95":  t_lv.accuracy,
+        "LV95->WGS84":       t_lv_wgs.accuracy,
+    }
 
 # ---------------------------------------------------------------------------
 # Codelist decoders (Objekt only - decoded from Liste_Objekte.xls)
@@ -124,6 +204,14 @@ def jsonify(v):
 
 CANOPY_MIN_AREA_M2 = 1.5  # below this we treat circle polygons as ornamental
                           # area features (Bollensteine etc.), not tree crowns.
+# Circularity ratio thresholds for regular n-gons:
+#   n=12: ratio = 1.023
+#   n=10: ratio = 1.034
+#   n=8:  ratio = 1.052
+# The historical convention in the source GDB is 12-gon circles, but loosening
+# the bound to 8 % means we still catch octagons / decagons if the convention
+# ever changes.  A square (n=4, ratio = 1.273) still fails clearly.
+CANOPY_CIRCULARITY_TOL = 0.08
 
 def is_canopy(geom_length: float | None, geom_area: float | None) -> bool:
     """Detect tree-canopy circles in the polygon layer.
@@ -133,9 +221,8 @@ def is_canopy(geom_length: float | None, geom_area: float | None) -> bool:
     holds for any circle regardless of size, so we test that ratio.
 
     We also require a minimum area: many decorative "Bollenstein" features
-    (round paving stones) are also 12-gon circles in the data, but at
-    ~0.05 m² they're not tree crowns.  Anything smaller than
-    CANOPY_MIN_AREA_M2 is left as a regular `area` feature.
+    (round paving stones) are also small n-gon circles in the data, but at
+    ~0.05 m² they're not tree crowns.
     """
     if not geom_length or not geom_area:
         return False
@@ -144,7 +231,44 @@ def is_canopy(geom_length: float | None, geom_area: float | None) -> bool:
     if geom_area < CANOPY_MIN_AREA_M2:
         return False
     ratio = (geom_length * geom_length) / (4 * math.pi * geom_area)
-    return abs(ratio - 1.0) < 0.05
+    return abs(ratio - 1.0) < CANOPY_CIRCULARITY_TOL
+
+
+# Douglas-Peucker simplification tolerance applied in LV95 (metres).  10 cm
+# is well below the source data's nominal precision and visually invisible
+# at any practical zoom.  Its main job is to trim digitization artifacts on
+# the two outlier polygons (41 823 and 30 847 vertices) where vertex spacing
+# is < 10 cm of perimeter.
+SIMPLIFY_TOL_M = 0.10
+
+
+def clean_polygon(geom):
+    """Repair invalid geometry, simplify in-place at SIMPLIFY_TOL_M, and
+    enforce GeoJSON right-hand rule (outer ring CCW, inner rings CW).
+
+    Caller is expected to pass a Shapely geometry already in LV95 metres so
+    the simplification tolerance is meaningful in real-world units.
+    """
+    if geom is None or geom.is_empty:
+        return geom
+    if not geom.is_valid:
+        # make_valid can return GeometryCollection on some pathological
+        # inputs; for our polygon-only pipeline pick the largest poly part.
+        geom = make_valid(geom)
+        if geom.geom_type not in ("Polygon", "MultiPolygon"):
+            polys = [g for g in getattr(geom, "geoms", [geom])
+                     if g.geom_type in ("Polygon", "MultiPolygon")]
+            if not polys:
+                return None
+            geom = max(polys, key=lambda g: g.area)
+    geom = geom.simplify(SIMPLIFY_TOL_M, preserve_topology=True)
+    if geom.is_empty:
+        return geom
+    if geom.geom_type == "Polygon":
+        return orient(geom, sign=1.0)
+    if geom.geom_type == "MultiPolygon":
+        return MultiPolygon([orient(p, sign=1.0) for p in geom.geoms])
+    return geom
 
 
 def reproject(geom, transformer):
@@ -194,10 +318,15 @@ def load_sites():
         geom = row.geometry
         props = row.drop("geometry").to_dict()
         oid = int(oid) if oid is not None else None
-    # (existing logic resumes below — vars: oid, props, geom)
 
-        geom_lv95 = reproject(geom, to_lv95)
-        geom_wgs = round_coords(reproject(geom, to_wgs))
+        # Reproject to LV95, then clean (validity + simplify + orient).
+        # Cleaning happens in metric LV95 so SIMPLIFY_TOL_M is real metres.
+        # WGS84 view is derived from the cleaned LV95, so the two stay
+        # geometrically consistent down to the simplification tolerance.
+        geom_lv95 = clean_polygon(reproject(geom, to_lv95))
+        if geom_lv95 is None or geom_lv95.is_empty:
+            continue
+        geom_wgs = round_coords(reproject(geom_lv95, lv95_to_wgs))
 
         centroid_src = geom.representative_point()  # always inside polygon
         centroid_lv95 = reproject(centroid_src, to_lv95)
@@ -415,8 +544,25 @@ def load_polygons(site_lookup):
         geom = row.geometry
         props = row.drop("geometry").to_dict()
 
+        # Reproject + clean (validity, DP-simplify in metres, orient CCW).
+        # Skip canopy candidates from the simplification step - they're
+        # circular by design and we don't want to flatten the curvature.
+        is_circle_candidate = is_canopy(props.get("geom_Length"),
+                                        props.get("geom_Area"))
         geom_lv95 = reproject(geom, to_lv95)
-        geom_wgs = round_coords(reproject(geom, to_wgs))
+        if not is_circle_candidate:
+            geom_lv95 = clean_polygon(geom_lv95)
+        else:
+            # Still validate, just don't simplify.
+            if not geom_lv95.is_valid:
+                geom_lv95 = make_valid(geom_lv95)
+            if geom_lv95.geom_type == "Polygon":
+                geom_lv95 = orient(geom_lv95, sign=1.0)
+            elif geom_lv95.geom_type == "MultiPolygon":
+                geom_lv95 = MultiPolygon([orient(p, sign=1.0) for p in geom_lv95.geoms])
+        if geom_lv95 is None or geom_lv95.is_empty:
+            continue
+        geom_wgs = round_coords(reproject(geom_lv95, lv95_to_wgs))
 
         site_oid = props.get("fk_objektbezeichnung")
         if pd.isna(site_oid):
@@ -450,7 +596,7 @@ def load_polygons(site_lookup):
             "geom_area_m2": round(geom_lv95.area, 2),
         }
 
-        if is_canopy(props.get("geom_Length"), props.get("geom_Area")):
+        if is_circle_candidate:
             # Tree-canopy circle - rendered as a circle outline on the map.
             # Area gives crown surface; radius = sqrt(area/pi).
             radius_m = math.sqrt(props["geom_Area"] / math.pi)
@@ -498,6 +644,13 @@ def load_polygons(site_lookup):
 # ---------------------------------------------------------------------------
 def main():
     print(f"Reading: {GDB_PATH}")
+    # Verify the source CRS by reading layer info before the heavy load.
+    # Refuse to run silently against an unexpected CRS - that would otherwise
+    # produce garbage coordinates without any visible error.
+    info = pyogrio.read_info(GDB_PATH, layer="Objekt")
+    print(f"  Source CRS: {info['crs']}")
+    configure_transforms(info["crs"])
+
     sites, dots, lookup = load_sites()
     trees, others = load_points(lookup)
     canopies, areas = load_polygons(lookup)
@@ -529,14 +682,42 @@ def main():
         if f["properties"].get("entity_type") == "area"
     )
 
+    # Compute the FeatureCollection bounding box (RFC 7946 §5 - lets
+    # consumers fit/zoom without walking every coordinate of every feature).
+    minLon = minLat = float("inf")
+    maxLon = maxLat = float("-inf")
+    def _scan(c):
+        nonlocal minLon, minLat, maxLon, maxLat
+        if isinstance(c[0], (int, float)):
+            if c[0] < minLon: minLon = c[0]
+            if c[0] > maxLon: maxLon = c[0]
+            if c[1] < minLat: minLat = c[1]
+            if c[1] > maxLat: maxLat = c[1]
+        else:
+            for x in c: _scan(x)
+    for f in features:
+        if f.get("geometry") and f["geometry"].get("coordinates"):
+            _scan(f["geometry"]["coordinates"])
+    bbox = [round(minLon, 6), round(minLat, 6),
+            round(maxLon, 6), round(maxLat, 6)] if minLon != float("inf") else None
+
     fc = {
+        # RFC 7946 mandates WGS84 (longitude, latitude) and explicitly forbids
+        # the legacy `crs` member - downstream tooling should assume WGS84.
+        # Source CRS is recorded in metadata.src_crs for traceability only.
         "type": "FeatureCollection",
-        "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+        **({"bbox": bbox} if bbox else {}),
         "metadata": {
             "source": str(GDB_PATH),
+            "attribution": "© Bundesamt für Bauten und Logistik (BBL) — Bundesgärtnerei",
+            "license": "Internal use only",
             "extracted_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
             "src_crs": SRC_CRS,
             "out_crs": "EPSG:4326 (WGS84, RFC 7946)",
+            "transform_accuracy_m": configure_transforms.accuracy_m,
+            "simplify_tolerance_m_lv95": SIMPLIFY_TOL_M,
+            "canopy_min_area_m2": CANOPY_MIN_AREA_M2,
+            "canopy_circularity_tol": CANOPY_CIRCULARITY_TOL,
             "lv95_in_properties": True,
             "counts": {
                 "sites": len(sites),

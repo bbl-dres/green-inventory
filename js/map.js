@@ -496,6 +496,215 @@ const INTERACTIVE_LAYERS = ['site-fill', 'area-fill', 'canopy-fill',
                              'tree-circle', 'point-circle', 'site-location-circle'];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM MAP CONTROLS (Home + 2D/3D toggle)
+// ───────────────────────────────────────────────────────────────────────────
+// IconCtrl is a thin reusable wrapper that produces a single-button MapLibre
+// IControl matching the visual style of the built-in zoom / compass buttons.
+// ═══════════════════════════════════════════════════════════════════════════
+class IconCtrl {
+  constructor({ title, html, onClick }) {
+    this._title = title; this._html = html; this._onClick = onClick;
+  }
+  onAdd(map) {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+    this._btn = document.createElement('button');
+    this._btn.type = 'button';
+    this._btn.title = this._title;
+    this._btn.setAttribute('aria-label', this._title);
+    this._btn.innerHTML = this._html;
+    this._btn.addEventListener('click', (e) => this._onClick(e, this._btn));
+    this._container.appendChild(this._btn);
+    return this._container;
+  }
+  onRemove() { this._container.parentNode.removeChild(this._container); this._map = undefined; }
+  setActive(on) { if (this._btn) this._btn.classList.toggle('ctrl-active', on); }
+  setHtml(html) { if (this._btn) this._btn.innerHTML = html; }
+  setTitle(t) {
+    if (!this._btn) return;
+    this._btn.title = t;
+    this._btn.setAttribute('aria-label', t);
+  }
+}
+
+const ICON_HOME = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+  <polyline points="9 22 9 12 15 12 15 22"/>
+</svg>`;
+
+function goHome() {
+  const bbox = geojsonData && geojsonData.bbox;
+  if (Array.isArray(bbox) && bbox.length === 4) {
+    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+                  { padding: 60, maxZoom: 14, pitch: 0, bearing: 0, duration: 600 });
+  } else {
+    map.easeTo({ pitch: 0, bearing: 0, duration: 400 });
+  }
+}
+
+const homeCtrl = new IconCtrl({
+  title: 'Zur Übersicht',
+  html: ICON_HOME,
+  onClick: goHome,
+});
+map.addControl(homeCtrl, 'top-right');
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2D / 3D TOGGLE
+// ───────────────────────────────────────────────────────────────────────────
+// 3D mode adds:
+//   - osm-buildings-3d   : OSM building footprints extruded by render_height
+//                          (OpenFreeMap, free, no API key; OSM attribution
+//                          declared on the source).  Buildings without
+//                          height info fall back to BUILDING_DEFAULT_M.
+//   - tree-3d            : per-tree cylinder built from each tree Point as a
+//                          12-gon polygon at TREE_RADIUS_M, extruded to the
+//                          tree's max_hoehe_m or TREE_DEFAULT_M.
+// And hides our flat tree/canopy markers so they don't ghost-render at
+// ground level beneath the cylinders.
+// ═══════════════════════════════════════════════════════════════════════════
+const BUILDING_DEFAULT_M = 8;       // single-storey + roof, conservative European default
+const TREE_DEFAULT_M     = 8;       // urban shade tree height when no measurement exists
+const TREE_RADIUS_M      = 1.2;     // crown radius for the cylinder approximation
+const D3_PITCH           = 60;      // camera tilt in 3D mode
+
+let is3D = false;
+let _treeExtrusionData = null;
+
+function buildTreeExtrusionData() {
+  // Generated once and cached.  1620 trees × 13 coords each = ~21k coords -
+  // negligible payload, no need to keep in the conversion script output.
+  if (_treeExtrusionData) return _treeExtrusionData;
+  const features = [];
+  const trees = geojsonData
+    ? geojsonData.features.filter(f =>
+        f.properties.entity_type === 'tree' &&
+        f.geometry && f.geometry.type === 'Point')
+    : [];
+  const N_SIDES = 12;
+  for (const t of trees) {
+    const [lng, lat] = t.geometry.coordinates;
+    // Convert metric radius to lat/lng degrees at this latitude.
+    const dLat = TREE_RADIUS_M / 111320;
+    const dLng = TREE_RADIUS_M / (111320 * Math.cos(lat * Math.PI / 180));
+    const ring = [];
+    for (let i = 0; i < N_SIDES; i++) {
+      const a = (i / N_SIDES) * Math.PI * 2;
+      ring.push([
+        +(lng + Math.cos(a) * dLng).toFixed(7),
+        +(lat + Math.sin(a) * dLat).toFixed(7),
+      ]);
+    }
+    ring.push(ring[0]);
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [ring] },
+      properties: {
+        height: t.properties.max_hoehe_m || TREE_DEFAULT_M,
+        baumart: t.properties.baumart || null,
+      },
+    });
+  }
+  _treeExtrusionData = { type: 'FeatureCollection', features };
+  return _treeExtrusionData;
+}
+
+function add3DLayers() {
+  // OSM buildings.  Inserted *below* our local data so site polygons / tree
+  // dots render on top.
+  if (!map.getSource('osm-buildings-3d')) {
+    map.addSource('osm-buildings-3d', {
+      type: 'vector',
+      url: 'https://tiles.openfreemap.org/planet',
+      attribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · ' +
+                   '© <a href="https://openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+    });
+  }
+  if (!map.getLayer('osm-buildings-3d')) {
+    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    map.addLayer({
+      id: 'osm-buildings-3d',
+      source: 'osm-buildings-3d',
+      'source-layer': 'building',
+      type: 'fill-extrusion',
+      minzoom: 14,
+      paint: {
+        'fill-extrusion-color': ['coalesce', ['get', 'colour'], '#cdc4b0'],
+        // Smooth grow-in between z14 and z15 to avoid visual pop-up.
+        'fill-extrusion-height': [
+          'interpolate', ['linear'], ['zoom'],
+          14, 0,
+          15, ['coalesce', ['get', 'render_height'], BUILDING_DEFAULT_M],
+        ],
+        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+        'fill-extrusion-opacity': 0.85,
+      },
+    }, beforeId);
+  }
+
+  // Tree cylinders.  Sit above buildings (added later = on top).
+  if (!map.getSource('tree-3d')) {
+    map.addSource('tree-3d', { type: 'geojson', data: buildTreeExtrusionData() });
+  }
+  if (!map.getLayer('tree-3d')) {
+    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    map.addLayer({
+      id: 'tree-3d',
+      source: 'tree-3d',
+      type: 'fill-extrusion',
+      minzoom: 15,
+      paint: {
+        'fill-extrusion-color': '#4a7c2a',
+        'fill-extrusion-height': ['coalesce', ['get', 'height'], TREE_DEFAULT_M],
+        'fill-extrusion-base': 0,
+        'fill-extrusion-opacity': 0.9,
+      },
+    }, beforeId);
+  }
+
+  // Hide flat tree/canopy markers so they don't ghost-render through the
+  // cylinders at ground level when the camera is tilted.
+  for (const id of ['tree-circle', 'canopy-fill']) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+  }
+}
+
+function remove3DLayers() {
+  for (const id of ['tree-3d', 'osm-buildings-3d']) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  // Sources retained so re-toggling 3D doesn't refetch tiles or rebuild
+  // the tree polygon geometry.
+  for (const id of ['tree-circle', 'canopy-fill']) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+  }
+}
+
+function set3D(on) {
+  is3D = on;
+  threeDCtrl.setActive(on);
+  // Button shows the destination mode: in 2D it reads "3D" (tap to enter 3D)
+  // and vice versa.  Same convention as Mapbox / Cesium toggles.
+  threeDCtrl.setHtml(on ? '2D' : '3D');
+  threeDCtrl.setTitle(on ? 'Zur 2D-Ansicht wechseln' : 'Zur 3D-Ansicht wechseln');
+  if (on) {
+    map.easeTo({ pitch: D3_PITCH, duration: 500 });
+    add3DLayers();
+  } else {
+    map.easeTo({ pitch: 0, duration: 500 });
+    remove3DLayers();
+  }
+}
+
+const threeDCtrl = new IconCtrl({
+  title: 'Zur 3D-Ansicht wechseln',
+  html: '3D',
+  onClick: () => set3D(!is3D),
+});
+map.addControl(threeDCtrl, 'top-right');
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EXTERNAL LAYERS  (swisstopo / federal data via search → add to map)
 // ───────────────────────────────────────────────────────────────────────────
 // On click: identify-on-the-active-set, show htmlPopup, optionally highlight
@@ -761,15 +970,26 @@ async function runIdentify(lngLat) {
   const cont = map.getContainer();
   const w = cont.clientWidth || 1024;
   const h = cont.clientHeight || 768;
+  // Zoom-aware tolerance: identify tolerance is in pixels, but the value
+  // gets converted to ground units server-side as `tol_px × extent_m / w_px`.
+  // A fixed 8 px works well at z18 (~12 m) but is far too lenient at z14
+  // (~75 m, picks up features blocks away) and too strict at z21 (~0.5 m,
+  // misses anything not exactly under the click).  Anchor on a 3 m ground
+  // tolerance and back-compute the pixel value for the current view.
+  // Clamp to [4, 20] px so we never become unusably permissive or strict.
+  const groundTolM = 3;
+  const widthM = (maxE - minE);
+  const tolPx = Math.max(4, Math.min(20, Math.round(groundTolM * w / widthM)));
   const params = new URLSearchParams({
     geometry: px.toFixed(2) + ',' + py.toFixed(2),
     geometryType: 'esriGeometryPoint',
     geometryFormat: 'geojson',
     sr: '2056',
     layers: 'all:' + targets.join(','),
+    // swisstopo uses ESRI lng,lat ordering for `geometry` (not OGC lat,lng).
     mapExtent: [minE, minN, maxE, maxN].map(v => v.toFixed(2)).join(','),
     imageDisplay: w + ',' + h + ',96',
-    tolerance: '8',
+    tolerance: String(tolPx),
     lang: 'de',
     returnGeometry: 'true',
   });
@@ -965,15 +1185,24 @@ map.on('load', async () => {
   // user where the sender was looking, not on the data-bbox fit.
   const viewFromUrl = applyViewFromUrl();
   if (!viewFromUrl) {
-    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-    function scanCoords(c) {
-      if (typeof c[0] === 'number') {
-        if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
-        if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
-      } else { c.forEach(scanCoords); }
+    // Use the FeatureCollection-level bbox (RFC 7946 §5) the conversion
+    // script writes into the GeoJSON.  Falls back to walking every
+    // coordinate of every feature if missing — a couple hundred ms saved
+    // on cold load.
+    if (Array.isArray(gj.bbox) && gj.bbox.length === 4) {
+      map.fitBounds([[gj.bbox[0], gj.bbox[1]], [gj.bbox[2], gj.bbox[3]]],
+                    { padding: 60, maxZoom: 14 });
+    } else {
+      let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+      function scanCoords(c) {
+        if (typeof c[0] === 'number') {
+          if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
+          if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
+        } else { c.forEach(scanCoords); }
+      }
+      gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
+      if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
     }
-    gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
-    if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
   }
 
   // Persist view changes to the URL on every settled view (debounced via rAF
@@ -1072,6 +1301,10 @@ let bmPanelOpen = false;
         // Re-add externals first so they sit BELOW our local data.
         await restoreExternalLayersOnStyle();
         addLayers();
+        // 3D layers are also dropped by setStyle; re-add if active.  Note:
+        // the cached `is3D` flag survives the style change because it lives
+        // in module scope, not in MapLibre.
+        if (is3D) add3DLayers();
         attachInteractionHandlers();
         // Refresh the legend so the "Externe Ebenen" section's row state
         // reflects the rebuilt layers.
@@ -1103,12 +1336,24 @@ document.getElementById('bm-btn').addEventListener('click', (e) => {
 document.addEventListener('click', () => { if (bmPanelOpen) closeBmPanel(); });
 
 // ── Coordinate display ─────────────────────────────────────────────────────
+// Show both WGS84 and LV95 — the latter is the canonical Swiss reference
+// surveyors and BBL staff actually work in, so showing it alongside makes
+// the footer useful as a coordinate read-out instead of a curiosity.
 const coordEl = document.getElementById('coordinates');
+function fmtThousand(n) {
+  // Swiss-style thousand separator (apostrophe), no decimals: 2'600'370
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '’');
+}
 map.on('mousemove', e => {
   const { lng, lat } = e.lngLat;
-  coordEl.textContent = `WGS 84 | ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  // wgs84ToLv95 is defined further down for identify; use it here too.  It's
+  // hoisted because it's a function declaration.
+  const [E, N] = wgs84ToLv95(lng, lat);
+  coordEl.textContent =
+    `WGS 84  ${lat.toFixed(5)}, ${lng.toFixed(5)}   |   ` +
+    `LV95  ${fmtThousand(E)} / ${fmtThousand(N)}`;
 });
-map.on('mouseout', () => { coordEl.textContent = 'WGS 84 | Koordinaten: --'; });
+map.on('mouseout', () => { coordEl.textContent = 'WGS 84 | LV95 | Koordinaten: --'; });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LEGEND BUILDER
@@ -1327,7 +1572,10 @@ function showToast(msg, type = '') {
   map.on('contextmenu', (e) => {
     e.preventDefault();
     ctxLngLat = e.lngLat;
-    coordsText.textContent = ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5);
+    const [E, N] = wgs84ToLv95(ctxLngLat.lng, ctxLngLat.lat);
+    coordsText.textContent =
+      ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5) +
+      '  |  LV95  ' + fmtThousand(E) + ' / ' + fmtThousand(N);
     coordsItem.classList.remove('copied');
     measureText.textContent = ms.active ? 'Messung löschen' : 'Distanz messen';
     measureBtn.classList.toggle('measure-active', ms.active);
