@@ -5,12 +5,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 let tableRows = [];
-let tblSortCol = 'area_m2', tblSortDir = -1;
+let tblSortCol = 'entity_type', tblSortDir = 1;
 let tblSearch = '';
 let tblFilterAttrs = {};          // { field: Set<string> }
 
 // URL-param short keys for filter columns
-const FILTER_URL_KEYS = { feature_type: 'ft', subtype: 'st', category: 'cat', source: 'src' };
+const FILTER_URL_KEYS = {
+  entity_type: 'ent', site_lose: 'lo', pflegeklasse: 'pk',
+  eigentuemer: 'eg', fk_profil: 'pr', baumart: 'ba', site_name: 'sn',
+};
 const FILTER_URL_KEYS_REV = Object.fromEntries(Object.entries(FILTER_URL_KEYS).map(([k, v]) => [v, k]));
 let tblPage = 0, tblPageSize = 25;
 
@@ -167,7 +170,14 @@ function geomBbox(geom) {
       if (c[1] < mn[1]) mn[1] = c[1]; if (c[1] > mx[1]) mx[1] = c[1];
     } else c.forEach(scan);
   }
+  if (!geom || !geom.coordinates) return [[0, 0], [0, 0]];
   scan(geom.coordinates);
+  // Point geometries leave min === max which makes fitBounds collapse.
+  if (mn[0] === mx[0] && mn[1] === mx[1]) {
+    const eps = 0.0001;
+    mn = [mn[0] - eps, mn[1] - eps];
+    mx = [mx[0] + eps, mx[1] + eps];
+  }
   return [mn, mx];
 }
 
@@ -190,7 +200,11 @@ function buildColDropdown() {
 }
 
 // ── Filter dropdown (checkbox-based) ─────────────────────────────────────────
-const FILTER_COLS = ['feature_type', 'subtype', 'category', 'source'];
+// FILTER_COLS_DEFAULT comes from config.js; copy here so we keep a stable
+// reference even if config later toggles columns.
+const FILTER_COLS = (typeof FILTER_COLS_DEFAULT !== 'undefined' && FILTER_COLS_DEFAULT)
+  ? FILTER_COLS_DEFAULT.slice()
+  : ['entity_type', 'subtype', 'site_name'];
 
 function buildFilterDropdown() {
   if (!tableRows.length) return;

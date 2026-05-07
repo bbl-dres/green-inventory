@@ -1,54 +1,79 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // MAP — MapLibre init, layers, legend, basemap switcher, edit mode, selection
-// Depends on: config.js (LEGEND_GROUPS, fillExpr, lineColorExpr, lineWidthExpr,
-//              GEOJSON_PATH, BASEMAPS)
-// Cross-uses: buildTable, renderTable, getFilteredRows, getSortedRows, tblPage,
-//             tblPageSize (table.js — safe because only called in event handlers)
+// Depends on: config.js (LEGEND_GROUPS, ENTITY_COLORS, profilColor,
+//              installAreaFillExpr, AREA_FILL_EXPR, GEOJSON_PATH, BASEMAPS)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Group visibility state ─────────────────────────────────────────────────
 const vis = {};
 for (const g of LEGEND_GROUPS) vis[g.id] = true;
 
-function buildLegendFilter() {
-  const onCats = LEGEND_GROUPS
-    .filter(g => vis[g.id] && g.category)
-    .map(g => g.category);
-  if (onCats.length === 0) return ['==', '1', '0'];
-  return ['in', ['get', 'category'], ['literal', onCats]];
+// Entity types that are hidden via the legend eye toggle.
+function hiddenEntityTypes() {
+  const out = [];
+  for (const g of LEGEND_GROUPS) {
+    if (!vis[g.id] && g.entity_type) out.push(g.entity_type);
+  }
+  return out;
 }
-// Keep alias for initial addLayers() call
-function buildMapFilter() { return buildLegendFilter(); }
 
 let tblActiveIds = null; // null = no table filter; array of feature indices
 let selectedId   = null; // currently selected feature index (null = none)
 
+// All map layers we add - kept in one place so filters/visibility/cleanup are simple.
+const MAP_LAYERS = {
+  polygons: ['site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill', 'canopy-line'],
+  points:   ['tree-circle', 'point-circle', 'site-location-circle', 'site-location-label'],
+  selection:['selection-fill', 'selection-line', 'selection-circle'],
+  hover:    ['hover-line', 'hover-circle'],
+};
+const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points];
+
 function applyMapFilters() {
-  if (!map.getLayer('features-fill')) return;
-  const legendF = buildLegendFilter();
-  let combined;
-  if (tblActiveIds === null) {
-    combined = legendF;
-  } else if (tblActiveIds.length === 0) {
-    combined = ['==', '1', '0'];
-  } else {
-    combined = ['all', legendF, ['in', ['id'], ['literal', tblActiveIds]]];
+  const hidden = hiddenEntityTypes();
+  const idFilter = tblActiveIds === null
+    ? ['literal', true]
+    : (tblActiveIds.length === 0 ? ['literal', false] : ['in', ['id'], ['literal', tblActiveIds]]);
+
+  // Per layer: combine entity_type match + table id filter.  Each layer is
+  // already restricted to a single entity_type via its filter at creation,
+  // so we only need to AND in the visibility + table-id constraints.
+  const baseEntityFilters = {
+    'site-fill':            ['==', ['get', 'entity_type'], 'site'],
+    'site-line':            ['==', ['get', 'entity_type'], 'site'],
+    'area-fill':            ['==', ['get', 'entity_type'], 'area'],
+    'area-line':            ['==', ['get', 'entity_type'], 'area'],
+    'canopy-fill':          ['==', ['get', 'entity_type'], 'tree_canopy'],
+    'canopy-line':          ['==', ['get', 'entity_type'], 'tree_canopy'],
+    'tree-circle':          ['==', ['get', 'entity_type'], 'tree'],
+    'point-circle':         ['==', ['get', 'entity_type'], 'point'],
+    'site-location-circle': ['==', ['get', 'entity_type'], 'site_location'],
+    'site-location-label':  ['==', ['get', 'entity_type'], 'site_location'],
+  };
+
+  for (const id of ALL_LAYERS) {
+    if (!map.getLayer(id)) continue;
+    const entFilter = baseEntityFilters[id];
+    const ent = entFilter[2];
+    if (hidden.includes(ent)) {
+      map.setFilter(id, ['==', ['literal', '0'], ['literal', '1']]); // hide
+    } else {
+      map.setFilter(id, ['all', entFilter, idFilter]);
+    }
   }
-  map.setFilter('features-fill', combined);
-  map.setFilter('features-line', combined);
 }
 
 // ── Map init ───────────────────────────────────────────────────────────────
 const map = new maplibregl.Map({
   container: 'map',
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  center: [7.4742, 46.9751],
-  zoom: 16, maxZoom: 22,
+  center: [7.45, 46.95],   // Bern - actual bounds applied after data loads
+  zoom: 12, maxZoom: 22,
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-// ── GeoJSON offset (used by edit mode) ────────────────────────────────────
+// ── State ──────────────────────────────────────────────────────────────────
 let offsetDeltaLon = 0, offsetDeltaLat = 0;
 let editMode = false;
 let editStartLngLat = null;
@@ -56,10 +81,7 @@ let originalCenter = null;
 let geojsonData = null;
 
 // ── Popup instance ─────────────────────────────────────────────────────────
-const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '260px' });
-// MapLibre calls remove() inside addTo() when the popup is already on the map,
-// which fires 'close' synchronously. Guard against that with this flag so only
-// genuine user-initiated closes (clicking the X) trigger deselection.
+const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '320px' });
 let _suppressPopupClose = false;
 selPopup.on('close', () => {
   if (_suppressPopupClose || selectedId === null) return;
@@ -69,31 +91,133 @@ selPopup.on('close', () => {
   renderTable();
 });
 
-// ── Popup HTML helper ──────────────────────────────────────────────────────
+// ── Popup HTML — shows all defined fields for the feature ─────────────────
 function popupHTML(p) {
-  const fill = SUBTYPE_FILL[p.subtype] || CAT_FILL[p.category] || '#aaa';
+  // Pick a swatch color matching the rendered map style.
+  let swatch = '#aaa';
+  switch (p.entity_type) {
+    case 'site':          swatch = ENTITY_COLORS.site.fill; break;
+    case 'site_location': swatch = ENTITY_COLORS.site_location.fill; break;
+    case 'tree':          swatch = ENTITY_COLORS.tree.fill; break;
+    case 'tree_canopy':   swatch = ENTITY_COLORS.tree_canopy.fill; break;
+    case 'point':         swatch = ENTITY_COLORS.point.fill; break;
+    case 'area':          swatch = profilColor(p.fk_profil); break;
+  }
+
+  // Field order: identity → site → measurements → care attributes → free-form.
+  // Hide fields that are null/empty/zero-only-placeholder.
+  const FIELD_GROUPS = [
+    {
+      title: 'Standort',
+      keys: [
+        ['site_name',         'Name'],
+        ['site_objektnummer', 'Objekt-Nr.'],
+        ['site_adresse',      'Adresse'],
+        ['site_lose',         'Los'],
+        // For Standort entities themselves, properties.name etc. are populated
+        // (the same site_* key family is empty since it's the site itself):
+        ['name',              'Name'],
+        ['objektnummer',      'Objekt-Nr.'],
+        ['adresse',           'Adresse'],
+        ['lose',              'Los'],
+        ['parzelle',          'Parzelle'],
+        ['erstellungsjahr',   'Baujahr'],
+        ['erfassungsdatum',   'Erfasst'],
+      ],
+    },
+    {
+      title: 'Klassifikation',
+      keys: [
+        ['baumart',                'Baumart'],
+        ['baumnummer',             'Baum-Nr.'],
+        ['fk_baumart',             'fk_baumart'],
+        ['profil_label',           'Profil'],
+        ['fk_profil',              'fk_profil'],
+        ['fk_pflegedurchfuehrung', 'fk_pflegedurchf.'],
+        ['fk_pflegeklasse',        'fk_pflegeklasse'],
+        ['pflegeklasse',           'Pflegeklasse'],
+        ['eigentuemer',            'Eigentümer'],
+        ['pflegeverantwortung',    'Pflegeverantw.'],
+        ['fk_pflegeverantwortung', 'fk_pflegeverantw.'],
+        ['fk_zustand',             'fk_zustand'],
+        ['fk_winterdienst',        'fk_winterdienst'],
+        ['fk_kostenstelle',        'fk_kostenstelle'],
+        ['kostenstelle_name',      'Kostenstelle'],
+        ['bewaesserung',           'Bewässerung'],
+        ['lauben',                 'Lauben'],
+        ['ausmass',                'Ausmass'],
+        ['naturobjekt',            'Naturobjekt'],
+        ['kontrolle',              'Kontrolle'],
+        ['reinigung',              'Reinigung'],
+      ],
+    },
+    {
+      title: 'Geometrie',
+      keys: [
+        ['area_m2',           'Fläche m²',     v => fmtNum(v, 1)],
+        ['shape_area_m2',     'Standort m²',   v => fmtNum(v, 1)],
+        ['shape_length_m',    'Umfang m',      v => fmtNum(v, 1)],
+        ['crown_diameter_m',  'Kronen-Ø m'],
+        ['crown_radius_m',    'Kronen-Radius m'],
+        ['max_hoehe_m',       'Max. Höhe m'],
+        ['hoehe',             'Höhe'],
+        ['lv95_east',         'LV95 Ost',      v => fmtNum(v, 0)],
+        ['lv95_north',        'LV95 Nord',     v => fmtNum(v, 0)],
+        ['lv95_east_centroid', 'LV95 Ost (Z.)', v => fmtNum(v, 0)],
+        ['lv95_north_centroid','LV95 Nord (Z.)',v => fmtNum(v, 0)],
+      ],
+    },
+    {
+      title: 'Anderes',
+      keys: [
+        ['bemerkung',            'Bemerkung'],
+        ['titel_objektblatt',    'Objektblatt'],
+        ['titel_kalkulation',    'Kalkulation'],
+        ['letzte_aenderung',     'Letzte Änderung'],
+        ['source',               'Quelle'],
+      ],
+    },
+  ];
+
+  function isEmpty(v) {
+    if (v === null || v === undefined) return true;
+    if (v === '') return true;
+    if (typeof v === 'string' && v.trim() === '') return true;
+    if (typeof v === 'string' && v.trim() === '0') return true;
+    if (v === 0) return true;
+    return false;
+  }
+
+  let body = '';
+  for (const grp of FIELD_GROUPS) {
+    const rows = grp.keys
+      .filter(([k]) => !isEmpty(p[k]))
+      .map(([k, lbl, fmt]) => {
+        const v = fmt ? fmt(p[k]) : p[k];
+        return `<div class="pu-row"><span>${lbl}</span><strong>${v}</strong></div>`;
+      });
+    if (rows.length === 0) continue;
+    body += `<div class="pu-section">${grp.title}</div>` + rows.join('');
+  }
+
   return `
     <div class="pu-header">
-      <div class="pu-swatch" style="background:${fill}"></div>
+      <div class="pu-swatch" style="background:${swatch}"></div>
       <div class="pu-titles">
-        <div class="pu-type">${p.feature_type || p.category}</div>
-        <div class="pu-sub">${p.subtype || '–'}</div>
+        <div class="pu-type">${p.feature_type || p.entity_type || '–'}</div>
+        <div class="pu-sub">${p.subtype || ''}</div>
       </div>
     </div>
-    <div class="pu-body">
-      <div class="pu-row"><span>Fläche</span><strong>${p.area_m2 != null ? fmtNum(p.area_m2, 1) + ' m²' : '–'}</strong></div>
-      <div class="pu-row"><span>Kategorie</span><strong>${p.category || '–'}</strong></div>
-      <div class="pu-row"><span>Quelle</span><strong>${p.source || '–'}</strong></div>
-    </div>
+    <div class="pu-body">${body}</div>
   `;
 }
 
 // ── Selection helpers ──────────────────────────────────────────────────────
 function applySelectedFilter() {
-  if (!map.getLayer('features-selected-fill')) return;
-  const f = selectedId !== null ? ['==', ['id'], selectedId] : ['==', '1', '0'];
-  map.setFilter('features-selected-fill', f);
-  map.setFilter('features-selected-line', f);
+  const f = selectedId !== null ? ['==', ['id'], selectedId] : ['==', ['literal', '0'], ['literal', '1']];
+  for (const id of MAP_LAYERS.selection) {
+    if (map.getLayer(id)) map.setFilter(id, f);
+  }
 }
 
 function updateSelectionUrl() {
@@ -102,39 +226,33 @@ function updateSelectionUrl() {
     if (selectedId !== null) url.searchParams.set('sel', selectedId);
     else url.searchParams.delete('sel');
     history.replaceState(null, '', url);
-  } catch (_) { /* file:// protocol or sandboxed iframe — skip silently */ }
+  } catch (_) { /* file:// or sandboxed iframe — skip silently */ }
 }
 
 function selectFeature(idx, lngLat) {
-  selectedId = Number(idx); // coerce: MapLibre may return f.id as string
+  selectedId = Number(idx);
   applySelectedFilter();
   updateSelectionUrl();
   _suppressPopupClose = true;
   selPopup.setLngLat(lngLat).setHTML(popupHTML(geojsonData.features[idx].properties)).addTo(map);
   _suppressPopupClose = false;
 
-  // Open table panel if collapsed
   if (!tableOpen) document.getElementById('tbl-toggle').click();
 
-  // If the row is hidden by filters/search, clear them so it becomes visible
   let sorted = getSortedRows(getFilteredRows());
   if (sorted.findIndex(r => r._idx === idx) === -1) {
-    // Clear text search
     const si = document.getElementById('tbl-search');
     const sx = document.getElementById('tbl-search-x');
     if (si && si.value) { si.value = ''; tblSearch = ''; if (sx) sx.style.display = 'none'; }
-    // Clear column filters
     for (const key of Object.keys(tblFilterAttrs)) tblFilterAttrs[key].clear();
     onFilterChange();
     sorted = getSortedRows(getFilteredRows());
   }
 
-  // Navigate table to the selected row's page
   const rowIdx = sorted.findIndex(r => r._idx === idx);
   if (rowIdx !== -1) tblPage = Math.floor(rowIdx / tblPageSize);
   renderTable();
 
-  // Scroll the row into view
   setTimeout(() => {
     const scroll = document.getElementById('table-scroll');
     const tr = document.querySelector('#tbl tbody tr.selected');
@@ -147,48 +265,161 @@ function clearSelection() {
   selectedId = null;
   applySelectedFilter();
   updateSelectionUrl();
-  selPopup.remove(); // close event fires but guard above short-circuits it
+  selPopup.remove();
   renderTable();
 }
 
-// ── Add GeoJSON source + layers (called on initial load and after style change) ─
+// ── Add GeoJSON source + layers ────────────────────────────────────────────
 function addLayers() {
   if (!geojsonData || map.getSource('features')) return;
-  map.addSource('features', {
-    type: 'geojson', data: geojsonData,
+  map.addSource('features', { type: 'geojson', data: geojsonData });
+
+  // Site boundaries — bottom of stack, very subtle fill, visible stroke.
+  map.addLayer({
+    id: 'site-fill', type: 'fill', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'site'],
+    paint: { 'fill-color': ENTITY_COLORS.site.fill, 'fill-opacity': 0.10 },
   });
   map.addLayer({
-    id: 'features-fill', type: 'fill', source: 'features',
+    id: 'site-line', type: 'line', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'site'],
     paint: {
-      'fill-color': fillExpr(),
-      'fill-opacity': ['match', ['get', 'category'],
-        'site_boundary', 0, 'building', 0.65, 0.78],
+      'line-color': ENTITY_COLORS.site.stroke,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 16, 1.4, 20, 2.0],
+      'line-dasharray': [3, 2],
+    },
+  });
+
+  // Pflegeflächen (areas) — coloured by hashed fk_profil.
+  map.addLayer({
+    id: 'area-fill', type: 'fill', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'area'],
+    paint: { 'fill-color': AREA_FILL_EXPR, 'fill-opacity': 0.62 },
+  });
+  map.addLayer({
+    id: 'area-line', type: 'line', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'area'],
+    paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': 0.5 },
+  });
+
+  // Tree-canopy circles.
+  map.addLayer({
+    id: 'canopy-fill', type: 'fill', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'tree_canopy'],
+    paint: { 'fill-color': ENTITY_COLORS.tree_canopy.fill, 'fill-opacity': 0.30 },
+  });
+  map.addLayer({
+    id: 'canopy-line', type: 'line', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'tree_canopy'],
+    paint: { 'line-color': ENTITY_COLORS.tree_canopy.stroke, 'line-width': 0.8 },
+  });
+
+  // Tree points.
+  map.addLayer({
+    id: 'tree-circle', type: 'circle', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'tree'],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 3.5, 20, 6],
+      'circle-color': ENTITY_COLORS.tree.fill,
+      'circle-stroke-color': ENTITY_COLORS.tree.stroke,
+      'circle-stroke-width': 0.8,
+      'circle-opacity': 0.9,
+    },
+  });
+
+  // Other points.
+  map.addLayer({
+    id: 'point-circle', type: 'circle', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'point'],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 16, 3, 20, 5],
+      'circle-color': ENTITY_COLORS.point.fill,
+      'circle-stroke-color': ENTITY_COLORS.point.stroke,
+      'circle-stroke-width': 0.8,
+      'circle-opacity': 0.9,
+    },
+  });
+
+  // Standort dots — large at low zoom, smaller as you zoom in (feature-level
+  // detail takes over).  Always visible — these are the "where are the
+  // parcels?" markers the user asked for.
+  map.addLayer({
+    id: 'site-location-circle', type: 'circle', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'site_location'],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 13, 7, 17, 5, 20, 3],
+      'circle-color': ENTITY_COLORS.site_location.fill,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.95,
     },
   });
   map.addLayer({
-    id: 'features-line', type: 'line', source: 'features',
-    paint: { 'line-color': lineColorExpr(), 'line-width': lineWidthExpr() },
+    id: 'site-location-label', type: 'symbol', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'site_location'],
+    layout: {
+      'text-field': ['get', 'name'],
+      'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 16, 13],
+      'text-anchor': 'top',
+      'text-offset': [0, 0.9],
+      'text-allow-overlap': false,
+      'text-optional': true,
+    },
+    paint: {
+      'text-color': '#3a1010',
+      'text-halo-color': 'rgba(255,255,255,0.92)',
+      'text-halo-width': 1.2,
+    },
+    minzoom: 13,
+  });
+
+  // ── Selection overlays ───────────────────────────────────────────────
+  map.addLayer({
+    id: 'selection-fill', type: 'fill', source: 'features',
+    filter: ['==', ['literal', '0'], ['literal', '1']],
+    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.25 },
   });
   map.addLayer({
-    id: 'features-hover', type: 'line', source: 'features',
-    filter: ['==', ['id'], -1],
-    paint: { 'line-color': '#005ea8', 'line-width': 2.5 },
-  });
-  map.addLayer({
-    id: 'features-selected-fill', type: 'fill', source: 'features',
-    filter: ['==', '1', '0'],
-    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.22 },
-  });
-  map.addLayer({
-    id: 'features-selected-line', type: 'line', source: 'features',
-    filter: ['==', '1', '0'],
+    id: 'selection-line', type: 'line', source: 'features',
+    filter: ['==', ['literal', '0'], ['literal', '1']],
     paint: { 'line-color': '#005ea8', 'line-width': 3 },
   });
-  applySelectedFilter(); // restore if selection persists across basemap change
-  const f = buildMapFilter();
-  map.setFilter('features-fill', f);
-  map.setFilter('features-line', f);
+  map.addLayer({
+    id: 'selection-circle', type: 'circle', source: 'features',
+    filter: ['==', ['literal', '0'], ['literal', '1']],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 5, 18, 9],
+      'circle-color': 'rgba(0,0,0,0)',
+      'circle-stroke-color': '#005ea8',
+      'circle-stroke-width': 3,
+    },
+  });
+
+  // ── Hover overlays ───────────────────────────────────────────────────
+  map.addLayer({
+    id: 'hover-line', type: 'line', source: 'features',
+    filter: ['==', ['id'], -1],
+    paint: { 'line-color': '#005ea8', 'line-width': 2.4 },
+  });
+  map.addLayer({
+    id: 'hover-circle', type: 'circle', source: 'features',
+    filter: ['==', ['id'], -1],
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 7],
+      'circle-color': 'rgba(0,0,0,0)',
+      'circle-stroke-color': '#005ea8',
+      'circle-stroke-width': 2.4,
+    },
+  });
+
+  applySelectedFilter();
+  applyMapFilters();
 }
+
+// All map layers that should be hit-tested for click / hover.
+const INTERACTIVE_LAYERS = ['site-fill', 'area-fill', 'canopy-fill',
+                             'tree-circle', 'point-circle', 'site-location-circle'];
 
 map.on('load', async () => {
   let resp, gj;
@@ -199,48 +430,71 @@ map.on('load', async () => {
     console.error(e);
     return;
   }
-  // Ensure every feature has a top-level integer id matching its array index.
+  // Normalise feature ids to array index.
   gj.features.forEach((f, i) => { if (f.id == null) f.id = i; });
   geojsonData = gj;
+
+  // Build the area fill expression from observed fk_profil values.
+  const profileCodes = (gj.metadata && gj.metadata.fk_profil_values) ||
+    [...new Set(gj.features.map(f => f.properties.fk_profil).filter(p => p != null))];
+  installAreaFillExpr(profileCodes);
+
+  // Pre-populate the dynamic Pflegeflächen legend items (top profiles by area count).
+  const areaCounts = (gj.metadata && gj.metadata.fk_profil_area_counts) || {};
+  const sortedProfiles = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
+  const areaGroup = LEGEND_GROUPS.find(g => g.id === 'area');
+  if (areaGroup) {
+    areaGroup.items = sortedProfiles.slice(0, 12).map(([p, n]) => ({
+      label: `Profil ${p} · ${n}`,
+      fill: profilColor(Number(p)),
+    }));
+    if (sortedProfiles.length > 12) {
+      const rest = sortedProfiles.slice(12).reduce((s, [, n]) => s + n, 0);
+      areaGroup.items.push({ label: `… ${sortedProfiles.length - 12} weitere Profile · ${rest}`, fill: '#bbbbbb' });
+    }
+  }
 
   addLayers();
   buildTable();
 
   // ── Hover ──────────────────────────────────────────────────────────────
   let hovId = null;
+  function setHover(id) {
+    hovId = id;
+    const filt = id != null ? ['==', ['id'], id] : ['==', ['id'], -1];
+    if (map.getLayer('hover-line')) map.setFilter('hover-line', filt);
+    if (map.getLayer('hover-circle')) map.setFilter('hover-circle', filt);
+  }
 
-  map.on('mousemove', 'features-fill', (e) => {
-    if (editMode) return;
-    if (!e.features.length) return;
-    map.getCanvas().style.cursor = 'pointer';
-    const f = e.features[0];
-    if (hovId !== f.id) {
-      hovId = f.id;
-      map.setFilter('features-hover', ['==', ['id'], hovId]);
-    }
-  });
-  map.on('mouseleave', 'features-fill', () => {
-    if (editMode) return;
-    map.getCanvas().style.cursor = '';
-    map.setFilter('features-hover', ['==', ['id'], -1]);
-    hovId = null;
-  });
-
-  // ── Click: select / deselect feature ───────────────────────────────────
-  map.on('click', 'features-fill', (e) => {
-    if (editMode || measureActive) return;
-    const fid = Number(e.features[0].id);
-    if (fid === selectedId) { clearSelection(); return; }
-    selectFeature(fid, e.lngLat);
-  });
-  // Click on empty map area → clear selection
+  for (const lyr of INTERACTIVE_LAYERS) {
+    map.on('mousemove', lyr, (e) => {
+      if (editMode) return;
+      if (!e.features.length) return;
+      map.getCanvas().style.cursor = 'pointer';
+      const f = e.features[0];
+      if (hovId !== f.id) setHover(f.id);
+    });
+    map.on('mouseleave', lyr, () => {
+      if (editMode) return;
+      map.getCanvas().style.cursor = '';
+      setHover(null);
+    });
+    map.on('click', lyr, (e) => {
+      if (editMode || measureActive) return;
+      const fid = Number(e.features[0].id);
+      if (fid === selectedId) { clearSelection(); return; }
+      // Use the actual click point for popup placement when feature is large.
+      selectFeature(fid, e.lngLat);
+    });
+  }
+  // Click on empty map → clear
   map.on('click', (e) => {
     if (editMode || measureActive) return;
-    const hits = map.queryRenderedFeatures(e.point, { layers: ['features-fill'] });
+    const hits = map.queryRenderedFeatures(e.point, { layers: INTERACTIVE_LAYERS });
     if (!hits.length) clearSelection();
   });
 
-  // ── Fit to actual feature bounds ───────────────────────────────────────
+  // ── Fit to data ────────────────────────────────────────────────────────
   let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
   function scanCoords(c) {
     if (typeof c[0] === 'number') {
@@ -248,13 +502,12 @@ map.on('load', async () => {
       if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
     } else { c.forEach(scanCoords); }
   }
-  gj.features.forEach(f => scanCoords(f.geometry.coordinates));
-  map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 19 });
+  gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
+  if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
 
-  // ── Build legend ───────────────────────────────────────────────────────
   buildLegend(gj.features);
 
-  // ── Restore selection from URL (?sel=<idx>) ────────────────────────────
+  // Restore selection from URL (?sel=<idx>)
   const urlSel = parseInt(new URLSearchParams(location.search).get('sel'));
   if (!isNaN(urlSel) && urlSel >= 0 && urlSel < gj.features.length) {
     const feat = gj.features[urlSel];
@@ -353,23 +606,23 @@ const EYE_CLOSED = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
 </svg>`;
 
 function buildLegend(features) {
-  const catCounts = {};
+  const entityCounts = {};
   for (const f of features) {
-    const c = f.properties.category;
-    catCounts[c] = (catCounts[c] || 0) + 1;
+    const e = f.properties.entity_type;
+    entityCounts[e] = (entityCounts[e] || 0) + 1;
   }
 
   const el = document.getElementById('legend-scroll');
   el.innerHTML = '';
 
   for (const grp of LEGEND_GROUPS) {
-    const hasData = grp.category && (catCounts[grp.category] || 0) > 0;
+    const cnt = grp.entity_type ? (entityCounts[grp.entity_type] || 0) : 0;
+    const hasData = cnt > 0;
 
     const groupEl = document.createElement('div');
     groupEl.className = 'lg-group';
     groupEl.dataset.gid = grp.id;
 
-    // Group header row
     const head = document.createElement('div');
     head.className = 'lg-group-head';
 
@@ -378,14 +631,14 @@ function buildLegend(features) {
     eyeBtn.title = 'Ebene ein-/ausblenden';
     eyeBtn.innerHTML = EYE_OPEN;
     eyeBtn.addEventListener('click', () => {
-      if (!grp.category) return; // no map data, nothing to toggle
+      if (!grp.entity_type) return;
       vis[grp.id] = !vis[grp.id];
       eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
       eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
       groupEl.classList.toggle('group-hidden', !vis[grp.id]);
       applyMapFilters();
     });
-    if (!grp.category) {
+    if (!hasData) {
       eyeBtn.style.opacity = '0.25';
       eyeBtn.style.cursor = 'default';
     }
@@ -394,16 +647,15 @@ function buildLegend(features) {
     title.className = 'lg-group-title';
     title.textContent = grp.label;
     if (hasData) {
-      const cnt = document.createElement('span');
-      cnt.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
-      cnt.textContent = catCounts[grp.category];
-      title.appendChild(cnt);
+      const c = document.createElement('span');
+      c.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
+      c.textContent = cnt;
+      title.appendChild(c);
     }
 
     head.append(eyeBtn, title);
     groupEl.appendChild(head);
 
-    // Items
     const itemsEl = document.createElement('div');
     itemsEl.className = 'lg-items';
 
@@ -413,10 +665,7 @@ function buildLegend(features) {
 
       const sw = document.createElement('span');
       sw.className = 'lg-swatch' + (item.swatchClass ? ' ' + item.swatchClass : '');
-      if (item.fill && !item.swatchClass?.includes('sw-outline') &&
-          !item.swatchClass?.includes('sw-triangle')) {
-        sw.style.background = item.fill;
-      }
+      if (item.fill) sw.style.background = item.fill;
 
       const lbl = document.createElement('span');
       lbl.className = 'lg-label';
@@ -465,10 +714,11 @@ document.getElementById('cancel-offset').addEventListener('click', () => {
 
 document.getElementById('save-offset').addEventListener('click', async () => {
   if (!geojsonData) return;
-  const dLon = (geojsonData.metadata.offset_m?.[0] || 0) + pendingDelta.lon * 73500;
-  const dLat = (geojsonData.metadata.offset_m?.[1] || 0) + pendingDelta.lat * 111320;
+  if (!geojsonData.metadata) geojsonData.metadata = {};
+  const prev = geojsonData.metadata.offset_m || [0, 0];
+  const dLon = prev[0] + pendingDelta.lon * 73500;
+  const dLat = prev[1] + pendingDelta.lat * 111320;
   geojsonData.metadata.offset_m = [Math.round(dLon * 10) / 10, Math.round(dLat * 10) / 10];
-  geojsonData.metadata.total_features = geojsonData.features.length;
 
   applyDeltaPermanent(pendingDelta.lon, pendingDelta.lat);
   pendingDelta = { lon: 0, lat: 0 };
@@ -477,7 +727,7 @@ document.getElementById('save-offset').addEventListener('click', async () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
-  a.download = '[838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.geojson';
+  a.download = 'data.geojson';
   a.click();
   URL.revokeObjectURL(url);
 
@@ -489,7 +739,6 @@ document.getElementById('save-offset').addEventListener('click', async () => {
   map.getCanvas().style.cursor = '';
 });
 
-// Drag handlers
 map.on('mousedown', (e) => {
   if (!editMode) return;
   dragStart = { lng: e.lngLat.lng, lat: e.lngLat.lat };
@@ -527,7 +776,7 @@ function shiftCoord(coord, dLon, dLat) {
 function applyDelta(dLon, dLat) {
   if (!geojsonData) return;
   for (const f of geojsonData.features) {
-    f.geometry.coordinates = shiftCoord(f.geometry.coordinates, dLon, dLat);
+    if (f.geometry) f.geometry.coordinates = shiftCoord(f.geometry.coordinates, dLon, dLat);
   }
   map.getSource('features').setData(geojsonData);
 }
@@ -536,7 +785,7 @@ function applyDeltaPermanent(dLon, dLat) {
   // Already applied incrementally during drag — nothing extra to do.
 }
 
-let measureActive = false; // shared flag — checked by feature click handlers
+let measureActive = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TOAST NOTIFICATIONS
@@ -551,7 +800,7 @@ function showToast(msg, type = '') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MAP CONTEXT MENU
+// MAP CONTEXT MENU + MEASURE  (unchanged from previous version)
 // ═══════════════════════════════════════════════════════════════════════════
 (() => {
   const menu = document.getElementById('map-context-menu');
@@ -567,7 +816,6 @@ function showToast(msg, type = '') {
 
   let ctxLngLat = null;
 
-  // ── Show / hide ──────────────────────────────────────────────────────
   function hideMenu() { menu.classList.remove('show'); }
 
   map.on('contextmenu', (e) => {
@@ -593,7 +841,6 @@ function showToast(msg, type = '') {
     if (e.key === 'Escape') { hideMenu(); if (ms.active) clearMeasure(); }
   });
 
-  // ── Copy coordinates ─────────────────────────────────────────────────
   coordsItem.addEventListener('click', (e) => {
     e.stopPropagation();
     const txt = coordsText.textContent;
@@ -604,7 +851,6 @@ function showToast(msg, type = '') {
     }).catch(() => showToast('Kopieren fehlgeschlagen', 'error'));
   });
 
-  // ── Share ────────────────────────────────────────────────────────────
   document.getElementById('context-menu-share').addEventListener('click', (e) => {
     e.stopPropagation();
     if (!ctxLngLat) return;
@@ -625,12 +871,10 @@ function showToast(msg, type = '') {
     }
   });
 
-  // ── Print ────────────────────────────────────────────────────────────
   document.getElementById('context-menu-print').addEventListener('click', () => {
     hideMenu(); window.print();
   });
 
-  // ── Report problem ───────────────────────────────────────────────────
   document.getElementById('context-menu-report').addEventListener('click', () => {
     hideMenu();
     if (!ctxLngLat) return;
@@ -642,15 +886,11 @@ function showToast(msg, type = '') {
     location.href = 'mailto:info@gis-immo.ch?subject=' + subj + '&body=' + body;
   });
 
-  // ═════════════════════════════════════════════════════════════════════
-  // MEASURE DISTANCE (Google Maps style)
-  // ═════════════════════════════════════════════════════════════════════
   const ms = {
     active: false, points: [], markers: [], labels: [],
     srcId: 'measure-line-src', layerId: 'measure-line', closed: false
   };
 
-  // Haversine
   function hav(lat1, lon1, lat2, lon2) {
     const R = 6371000, rad = Math.PI / 180;
     const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
@@ -659,7 +899,6 @@ function showToast(msg, type = '') {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
-  // Shoelace area (m²)
   function polyArea(pts) {
     if (pts.length < 3) return 0;
     const n = pts.length;
@@ -798,11 +1037,9 @@ function showToast(msg, type = '') {
 
   measureClose.addEventListener('click', () => clearMeasure());
 
-  // Map click — add measure points (or normal behavior)
   map.on('click', (e) => {
     hideMenu();
     if (!ms.active) return;
-    // Close polygon if near first point
     if (ms.points.length >= 3 && !ms.closed) {
       const fp = ms.points[0];
       const px = map.project(e.lngLat).dist(map.project({ lng: fp[0], lat: fp[1] }));
@@ -848,20 +1085,21 @@ function showToast(msg, type = '') {
     abortCtrl = new AbortController();
     const sig = abortCtrl.signal;
 
-    // 1. Local feature search
+    // Local feature search across the most identifying fields.
     const localMatches = [];
     if (geojsonData) {
       const q = term.toLowerCase();
       for (const f of geojsonData.features) {
         const p = f.properties;
-        const hay = [p.name, p.feature_type, p.subtype, p.category, p.source]
+        const hay = [p.name, p.site_name, p.adresse, p.site_adresse,
+                     p.objektnummer, p.site_objektnummer, p.baumart,
+                     p.feature_type, p.subtype, p.entity_type]
           .filter(Boolean).join(' ').toLowerCase();
         if (hay.includes(q)) localMatches.push(f);
         if (localMatches.length >= 8) break;
       }
     }
 
-    // 2. Swisstopo location search
     let locations = [];
     try {
       const url = 'https://api3.geo.admin.ch/rest/services/ech/SearchServer?type=locations&limit=5&sr=4326&searchText=' + encodeURIComponent(term);
@@ -870,7 +1108,6 @@ function showToast(msg, type = '') {
       locations = data.results || [];
     } catch (e) { if (e.name !== 'AbortError') console.warn('Search error:', e); }
 
-    // 3. Swisstopo layer search (placeholder display only)
     let layers = [];
     try {
       const url = 'https://api3.geo.admin.ch/rest/services/ech/SearchServer?type=layers&limit=5&lang=de&searchText=' + encodeURIComponent(term);
@@ -888,10 +1125,10 @@ function showToast(msg, type = '') {
 
     if (local.length) {
       html += '<div class="search-section-header">Objekte</div>';
-      local.forEach((f, i) => {
+      local.forEach((f) => {
         const p = f.properties;
-        const title = p.name || p.feature_type || '–';
-        const sub = [p.subtype, p.category].filter(Boolean).join(' · ');
+        const title = p.name || p.site_name || p.baumart || p.feature_type || '–';
+        const sub = [p.subtype, p.adresse || p.site_adresse, p.entity_type].filter(Boolean).join(' · ');
         html += `<div class="search-item" data-action="local" data-idx="${geojsonData.features.indexOf(f)}">
           <div class="search-item-title">${title}</div>
           ${sub ? `<div class="search-item-subtitle">${sub}</div>` : ''}
@@ -924,7 +1161,6 @@ function showToast(msg, type = '') {
     results.innerHTML = html;
     results.classList.add('active');
 
-    // Event delegation
     results.querySelectorAll('.search-item[data-action]').forEach(item => {
       item.addEventListener('click', () => handleClick(item));
     });
@@ -942,7 +1178,12 @@ function showToast(msg, type = '') {
       const bbox = geomBbox(feat.geometry);
       const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
       selectFeature(idx, center);
-      map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
+      // For points, fitBounds with same min=max collapses; use flyTo instead.
+      if (bbox[0][0] === bbox[1][0] && bbox[0][1] === bbox[1][1]) {
+        map.flyTo({ center, zoom: 18 });
+      } else {
+        map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
+      }
       input.value = item.querySelector('.search-item-title').textContent;
       clearBtn.style.display = 'flex';
 
@@ -956,11 +1197,7 @@ function showToast(msg, type = '') {
       clearBtn.style.display = 'flex';
 
     } else if (action === 'layer') {
-      // Placeholder — just show toast
       showToast('Kartenebene: ' + (item.dataset.layer || '–'));
     }
   }
-
-  // geomBbox is defined in table.js — use it for local feature bounding
-  // (It's available globally since table.js is a plain script)
 })();

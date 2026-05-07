@@ -1,5 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CONFIG — legend definitions, colour maps, expressions, constants
+// CONFIG — legend groups, palette, expressions, table columns
+//
+// The GeoJSON loaded by this app comes from scripts/gdb_to_geojson.py and
+// contains six entity_types:
+//   site            - 73 boundary polygons (Standortfläche)
+//   site_location   - 73 centroid dots (one per Standort, useful zoomed out)
+//   area            - polygon vegetation/surface (coloured by fk_profil hash)
+//   tree_canopy     - circle polygons (tree crowns)
+//   tree            - point trees with baumart
+//   point           - other points (Kleinstrukturen, lamps, etc.)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── Number formatting (Swiss style: 1'000.0) ─────────────────────────────
@@ -9,183 +18,94 @@ function fmtNum(v, decimals) {
   if (isNaN(n)) return String(v);
   const fixed = decimals != null ? n.toFixed(decimals) : String(n);
   const [int, dec] = fixed.split('.');
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '\u2019');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '’');
   return dec != null ? grouped + '.' + dec : grouped;
 }
 
-// Legend order: top-of-stack first (points → vegetation → ground),
-// mirroring how layers appear on the map (topmost drawn last).
+// ── Deterministic colour for fk_profil codes ─────────────────────────────
+// The catalog from the source DB isn't available yet, so we hash the integer
+// profile code into a stable HSL colour.  When the codelist arrives, swap
+// this for an explicit lookup.
+const _profileColorCache = {};
+function profilColor(p) {
+  if (p == null) return '#bbbbbb';
+  if (_profileColorCache[p]) return _profileColorCache[p];
+  // Spread hues across 0..360 using a multiplicative hash that avoids the
+  // muddy yellow-green band where text contrast suffers.
+  const hue = (p * 137) % 360;
+  const sat = 55 + (p % 3) * 6;
+  const lum = 60 + (p % 2) * 6;
+  const c = `hsl(${hue}, ${sat}%, ${lum}%)`;
+  _profileColorCache[p] = c;
+  return c;
+}
+
+// ── Entity-type palette ──────────────────────────────────────────────────
+const ENTITY_COLORS = {
+  site:          { fill: '#7d8a9c', stroke: '#3d4757' },
+  site_location: { fill: '#cc1f1f', stroke: '#7a0d0d' },
+  area:          { fill: '#bdbdbd', stroke: 'rgba(0,0,0,0.32)' }, // overridden by profile hash
+  tree_canopy:   { fill: '#5fa84a', stroke: '#2f6d20' },
+  tree:          { fill: '#2d8000', stroke: '#0e3f00' },
+  point:         { fill: '#e08a1c', stroke: '#7a4a06' },
+};
+
+// ── Legend groups (driven by entity_type, not category) ──────────────────
+// NOTE: order matters - top group renders on top of map.
 const LEGEND_GROUPS = [
-  // ── Point features (top of map) ──────────────────────
   {
-    id: "kleinstrukturen", label: "Kleinstrukturen", category: null,
+    id: 'site_location', label: 'Standort-Markierungen', entity_type: 'site_location',
     items: [
-      { label: "Asthaufen",        fill: "#c09060" },
-      { label: "Steinhaufen",      fill: "#808080" },
-      { label: "Wildbienenhotel",  fill: "#804000" },
-      { label: "Baumstämme",       fill: "#604020" },
+      { label: 'Standort (ein Punkt pro Parzelle)', fill: '#cc1f1f', swatchClass: 'sw-circ' },
     ]
   },
   {
-    id: "special_point", label: "Spezielle Bepflanzungsformen", category: null,
+    id: 'tree', label: 'Bäume', entity_type: 'tree',
     items: [
-      { label: "Pflanzgefäss mobil Dauerbepflanzung", fill: "#1a1a8a", swatchClass: "sw-circ" },
-      { label: "Pflanzgefäss Wechselflor",             fill: "#cc00cc", swatchClass: "sw-circ" },
-      { label: "Schling- & Kletterpf.",                fill: "#cc0000", swatchClass: "sw-triangle" },
+      { label: 'Baum mit Art', fill: '#2d8000', swatchClass: 'sw-circ' },
     ]
   },
   {
-    id: "tree", label: "Baum", category: "tree",
+    id: 'tree_canopy', label: 'Baumkronen', entity_type: 'tree_canopy',
     items: [
-      { label: "Laubb. Kopf-/Form",         fill: "#b0e000", swatchClass: "sw-circ-cross" },
-      { label: "Laubb. nat. kleink.",        fill: "#60c800", swatchClass: "sw-circ" },
-      { label: "Laubb. nat. grossk.",        fill: "#38b000", swatchClass: "sw-circ" },
-      { label: "Nadelb. nat.",               fill: "#1a7000", swatchClass: "sw-circ" },
-      { label: "Hochstammobst",              fill: "#60c800", swatchClass: "sw-circ-cross" },
-      { label: "Strassenb. Laub Kopf/Form",  fill: "#007a94", swatchClass: "sw-circ-cross" },
-      { label: "Strassenb. Laub nat. kleink.",fill: "#008aaa", swatchClass: "sw-circ" },
-      { label: "Strassenb. Laub nat. grossk.",fill: "#006680", swatchClass: "sw-circ" },
-    ]
-  },
-  // ── Vegetation (canopy → ground cover) ───────────────
-  {
-    id: "other", label: "Anderes", category: "other",
-    items: [
-      { label: "Anderes", fill: "#ffff00" },
+      { label: 'Kronenfläche (Kreis)', fill: 'rgba(95,168,74,0.45)' },
     ]
   },
   {
-    id: "special_planting", label: "Spezielle Bepflanzungsformen", category: "special_planting",
+    id: 'point_other', label: 'Andere Punktelemente', entity_type: 'point',
     items: [
-      { label: "Dach: ext. Stauden", fill: "#ffbebe" },
+      { label: 'Kleinstruktur / Möbel / Profil-Punkt', fill: '#e08a1c', swatchClass: 'sw-circ' },
     ]
   },
   {
-    id: "hedge", label: "Hecken", category: "hedge",
-    items: [
-      { label: "Wildhecke",        fill: "#d9d89e" },
-      { label: "Formhecke + 1.5 m",fill: "#c07020", swatchClass: "sw-hstripe" },
-      { label: "Formhecke - 1.5 m",fill: "#c07020" },
-    ]
+    id: 'area', label: 'Pflegeflächen', entity_type: 'area',
+    items: [] // populated dynamically from data (top profile codes)
   },
   {
-    id: "planting_bed", label: "Rabatten", category: "planting_bed",
+    id: 'site', label: 'Standorte (Parzellen)', entity_type: 'site',
     items: [
-      { label: "Wechselflor",   fill: "#ff74df", swatchClass: "sw-dots" },
-      { label: "Moorbeet",      fill: "#5c45a8" },
-      { label: "Stauden. int.", fill: "#cc66ff", swatchClass: "sw-pstripe" },
-      { label: "Stauden. ext.", fill: "#cc66ff" },
-      { label: "Beetrosen",     fill: "#ff5500" },
-      { label: "Ruderalfläche", fill: "#ffaa00", swatchClass: "sw-ostripe" },
-    ]
-  },
-  {
-    id: "lawn", label: "Rasen", category: "lawn",
-    items: [
-      { label: "Geb.Rasen kf.",  fill: "#98e640" },
-      { label: "Blumenrasen",    fill: "#98e640", swatchClass: "sw-dots" },
-    ]
-  },
-  {
-    id: "meadow", label: "Wiesen", category: "meadow",
-    items: [
-      { label: "Feuchtwiese",      fill: "#a8e3d9" },
-      { label: "Blumenwiese gf.",  fill: "#c6eeab", swatchClass: "sw-pstripe" },
-      { label: "Blumenwiese kf.",  fill: "#c6eeab" },
-      { label: "Magerrasen",       fill: "#f0f0b0", swatchClass: "sw-vdots" },
-      { label: "Saumvegetation",   fill: "#f0f0b0", swatchClass: "sw-odots" },
-    ]
-  },
-  // ── Ground / base layers (bottom of map) ─────────────
-  {
-    id: "woody_area", label: "Gehölzflächen", category: "woody_area",
-    items: [
-      { label: "Gehölz & Bodend.", fill: "#8a7248", swatchClass: "sw-dots" },
-      { label: "Bodendecker",      fill: "#7a6e3e" },
-      { label: "Gehölzrabatte",    fill: "#8a9044", swatchClass: "sw-gdots" },
-      { label: "Wald",             fill: "#254700" },
-    ]
-  },
-  {
-    id: "water", label: "Wasserflächen", category: "water",
-    items: [
-      { label: "Brunnen",          fill: "#00aae6" },
-      { label: "Gewässer, ruhend", fill: "#006fff" },
-    ]
-  },
-  {
-    id: "surface", label: "Beläge", category: "surface",
-    items: [
-      { label: "Asphaltbelag",             fill: "#686868" },
-      { label: "Rasengittersteine",         fill: "#70a800", swatchClass: "sw-xhatch" },
-      { label: "Holzhäckselbelag",          fill: "#8b3a00", swatchClass: "sw-xhatch" },
-      { label: "Chaussierung",              fill: "#cd8a66" },
-      { label: "Betonpl./Verbund/Naturstein",fill: "#9c9c9c" },
-      { label: "Geröllstreifen/Bollensteine",fill: "#6a6a6a", swatchClass: "sw-gdots" },
+      { label: 'Standortgrenze', fill: 'rgba(125,138,156,0.22)' },
     ]
   },
 ];
 
-// ── Subtype-level fill colours for map rendering ───────────────────────────
-const SUBTYPE_FILL = {
-  'Chaussierung':          '#cd8a66',
-  'Asphaltbelag':          '#686868',
-  'Rasengittersteine':     '#70a800',
-  'Holzhaeckselbelag':     '#8b3a00',
-  'Betonpl./Naturstein':   '#9c9c9c',
-  'Geroellstreifen':       '#6a6a6a',
-  'Feuchtwiese':           '#a8e3d9',
-  'Blumenwiese':           '#c6eeab',
-  'Saumvegetation':        '#f0f0b0',
-  'Geb.Rasen kf.':         '#98e640',
-  'Gehoelz & Bodend.':     '#8a7248',
-  'Gehoelzrabatte':        '#8a9044',
-  'Wald':                  '#254700',
-  'Stauden':               '#cc66ff',
-  'Moorbeet':              '#5c45a8',
-  'Wechselflor':           '#ff74df',
-  'Beetrosen':             '#ff5500',
-  'Ruderalflaeche':        '#ffaa00',
-  'Wildhecke':             '#d9d89e',
-  'Formhecke':             '#c07020',
-  'Objekt':                '#e8edf2',
-  'Dach: ext. Stauden':    '#ffbebe',
-  'Brunnen':               '#00aae6',
-  'Gewaesser ruhend':      '#006fff',
-  'Anderes':               '#ffff00',
-};
+// ── Map paint expressions ────────────────────────────────────────────────
+// Areas: pick fill colour by hashing fk_profil at runtime.  Built once after
+// data loads (see installAreaFillExpr below).
+let AREA_FILL_EXPR = ['literal', '#bdbdbd'];
 
-const CAT_FILL = {
-  lawn:            '#98e640', meadow: '#c6eeab',
-  planting_bed:    '#cc66ff', hedge: '#c07020', woody_area: '#8a7248',
-  special_planting:'#ffbebe', surface: '#9c9c9c', water: '#00aae6',
-  other:           '#ffff00', tree: '#60c800',
-};
-
-function fillExpr() {
-  return ['match', ['get', 'subtype'],
-    ...Object.entries(SUBTYPE_FILL).flatMap(([k, v]) => [k, v]),
-    ['match', ['get', 'category'],
-      ...Object.entries(CAT_FILL).flatMap(([k, v]) => [k, v]),
-      '#aaaaaa'
-    ]
-  ];
-}
-function lineColorExpr() {
-  return ['match', ['get', 'category'],
-    'water', '#0055cc',
-    'rgba(0,0,0,0.28)'
-  ];
-}
-function lineWidthExpr() {
-  return 0.8;
+function installAreaFillExpr(profileCodes) {
+  const stops = [];
+  for (const p of profileCodes) {
+    stops.push(p, profilColor(p));
+  }
+  AREA_FILL_EXPR = ['match', ['get', 'fk_profil'], ...stops, '#bdbdbd'];
 }
 
-// ── GeoJSON source path ────────────────────────────────────────────────────
-const GEOJSON_PATH =
-  'data/[838147959] 1602.GR_M\u00FChlestrasse 2+4+6+8Gr\u00FCnfl\u00E4chenpflege.geojson';
+// ── GeoJSON source path ──────────────────────────────────────────────────
+const GEOJSON_PATH = 'data/data.geojson';
 
-// ── Basemap definitions ────────────────────────────────────────────────────
+// ── Basemap definitions ──────────────────────────────────────────────────
 const BASEMAPS = [
   { id: 'positron',    label: 'Hell',   bg: '#f2f0ec',
     thumb: 'https://a.basemaps.cartocdn.com/light_all/7/66/45.png',
@@ -201,13 +121,71 @@ const BASEMAPS = [
     url: 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json' },
 ];
 
-// ── Table column definitions ───────────────────────────────────────────────
+// ── Table column definitions ─────────────────────────────────────────────
+// All raw GDB fields are reachable via this list; default-visible ones cover
+// the most useful overview.  Toggle the rest in the column dropdown.
 const TABLE_COLS = [
-  { key: '_idx',         label: '#',         visible: true  },
-  { key: 'feature_type', label: 'Typ',       visible: true  },
-  { key: 'subtype',      label: 'Subtyp',    visible: true  },
-  { key: 'category',     label: 'Kategorie', visible: false },
-  { key: 'area_m2',      label: 'Fläche m²', visible: true,
+  { key: '_idx',           label: '#',                  visible: true  },
+  { key: 'entity_type',    label: 'Typ',                visible: true  },
+  { key: 'feature_type',   label: 'Feature',            visible: false },
+  { key: 'subtype',        label: 'Subtyp',             visible: true  },
+  { key: 'site_name',      label: 'Standort',           visible: true  },
+  { key: 'site_objektnummer', label: 'Objekt-Nr.',      visible: false },
+  { key: 'site_adresse',   label: 'Adresse',            visible: false },
+  { key: 'site_lose',      label: 'Los',                visible: false },
+  { key: 'name',           label: 'Name',               visible: false }, // sites only
+  { key: 'objektnummer',   label: 'Objekt-Nr.',         visible: false }, // sites only
+  { key: 'adresse',        label: 'Adresse',            visible: false }, // sites only
+  { key: 'lose',           label: 'Los',                visible: false }, // sites only
+  { key: 'pflegeklasse',   label: 'Pflegeklasse',       visible: false },
+  { key: 'eigentuemer',    label: 'Eigentümer',         visible: false },
+  { key: 'pflegeverantwortung', label: 'Pflegeverantw.',visible: false },
+  { key: 'kontrolle',      label: 'Kontrolle',          visible: false },
+  { key: 'reinigung',      label: 'Reinigung',          visible: false },
+  { key: 'erstellungsjahr',label: 'Baujahr',            visible: false },
+  { key: 'erfassungsdatum',label: 'Erfasst',            visible: false },
+  { key: 'baumart',        label: 'Baumart',            visible: true  },
+  { key: 'baumnummer',     label: 'Baum-Nr.',           visible: false },
+  { key: 'fk_baumart',     label: 'fk_baumart',         visible: false },
+  { key: 'fk_profil',      label: 'Profil',             visible: true  },
+  { key: 'profil_label',   label: 'Profil-Label',       visible: false },
+  { key: 'fk_pflegedurchfuehrung', label: 'fk_pflegedurchf.', visible: false },
+  { key: 'fk_pflegeklasse',label: 'fk_pflegeklasse',    visible: false },
+  { key: 'fk_pflegeverantwortung', label: 'fk_pflegeverantw.', visible: false },
+  { key: 'fk_zustand',     label: 'fk_zustand',         visible: false },
+  { key: 'fk_winterdienst',label: 'fk_winterdienst',    visible: false },
+  { key: 'fk_kostenstelle',label: 'fk_kostenstelle',    visible: false },
+  { key: 'kostenstelle_name', label: 'Kostenstelle',    visible: false },
+  { key: 'bewaesserung',   label: 'Bewässerung',        visible: false },
+  { key: 'lauben',         label: 'Lauben',             visible: false },
+  { key: 'max_hoehe_m',    label: 'Max. Höhe m',        visible: false },
+  { key: 'hoehe',          label: 'Höhe',               visible: false },
+  { key: 'ausmass',        label: 'Ausmass',            visible: false },
+  { key: 'naturobjekt',    label: 'Naturobjekt',        visible: false },
+  { key: 'parzelle',       label: 'Parzelle',           visible: false },
+  { key: 'parzelle_name',  label: 'Parzelle (Name)',    visible: false },
+  { key: 'crown_diameter_m', label: 'Krone Ø m',        visible: false },
+  { key: 'crown_radius_m', label: 'Krone Radius m',     visible: false },
+  { key: 'area_m2',        label: 'Fläche m²',          visible: true,
     fmt: v => fmtNum(v, 1) },
-  { key: 'source',       label: 'Quelle',    visible: false },
+  { key: 'shape_area_m2',  label: 'Standort m²',        visible: false,
+    fmt: v => fmtNum(v, 1) },
+  { key: 'shape_length_m', label: 'Standort Umfang m',  visible: false,
+    fmt: v => fmtNum(v, 1) },
+  { key: 'lv95_east',      label: 'LV95 Ost',           visible: false,
+    fmt: v => fmtNum(v, 0) },
+  { key: 'lv95_north',     label: 'LV95 Nord',          visible: false,
+    fmt: v => fmtNum(v, 0) },
+  { key: 'lv95_east_centroid',  label: 'LV95 Ost (Z.)', visible: false,
+    fmt: v => fmtNum(v, 0) },
+  { key: 'lv95_north_centroid', label: 'LV95 Nord (Z.)',visible: false,
+    fmt: v => fmtNum(v, 0) },
+  { key: 'bemerkung',      label: 'Bemerkung',          visible: false },
+  { key: 'titel_objektblatt', label: 'Objektblatt',     visible: false },
+  { key: 'titel_kalkulation', label: 'Kalkulation',     visible: false },
+  { key: 'source',         label: 'Quelle',             visible: false },
 ];
+
+// Filter dropdown columns - which columns get a checkbox-list filter.
+const FILTER_COLS_DEFAULT = ['entity_type', 'site_lose', 'pflegeklasse',
+                             'eigentuemer', 'fk_profil', 'baumart', 'site_name'];

@@ -274,7 +274,19 @@ html, body {
   padding: var(--sp1) 0; font-size: var(--text-sm); color: var(--grey-500);
 }
 .pu-row + .pu-row { border-top: 1px solid var(--grey-50); }
-.pu-row strong { color: var(--grey-800); font-weight: var(--fw-medium); }
+.pu-row strong {
+  color: var(--grey-800); font-weight: var(--fw-medium);
+  text-align: right; margin-left: var(--sp4);
+  word-break: break-word; max-width: 60%;
+}
+.pu-section {
+  font-size: var(--text-label); font-weight: var(--fw-bold);
+  color: var(--grey-400); text-transform: uppercase; letter-spacing: .06em;
+  margin: var(--sp3) 0 var(--sp1) 0;
+  padding-top: var(--sp2); border-top: 1px solid var(--grey-100);
+}
+.pu-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.pu-body { max-height: 380px; overflow-y: auto; padding: var(--sp3) var(--sp4); }
 
 /* ── Map overlay banners (shared base) ─────────────────── */
 #edit-banner,
