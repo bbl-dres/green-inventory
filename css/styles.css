@@ -170,15 +170,17 @@ html, body {
   display: flex; align-items: center; gap: var(--sp2);
   padding: 5px var(--sp4) var(--sp1) var(--sp3);
 }
-.lg-group-head .eye-btn {
+/* Generic eye-btn — used by both group headers and external-layer rows so
+   they share visual style (size, hover, hidden state). */
+.eye-btn {
   flex-shrink: 0; width: 20px; height: 20px;
   background: none; border: none; cursor: pointer;
   color: var(--grey-400); padding: 1px;
   border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
   transition: color var(--t-fast);
 }
-.lg-group-head .eye-btn:hover { color: var(--grey-700); }
-.lg-group-head .eye-btn.hidden-eye { color: var(--grey-300); }
+.eye-btn:hover { color: var(--grey-700); }
+.eye-btn.hidden-eye { color: var(--grey-300); }
 .lg-group-title {
   font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-700);
   text-transform: uppercase; letter-spacing: .05em;
@@ -693,15 +695,20 @@ html, body {
 
 /* ── External-layers section in the legend sidebar ──────────────────── */
 .lg-group-external { border-top: 1px solid var(--grey-200); margin-top: var(--sp3); padding-top: var(--sp2); }
+/* Wrapper for the rows.  Padding-left aligned with .lg-group-head (sp3) so
+   the eye icon sits at the same column as section-header eyes - otherwise
+   the inherited .lg-items 34px indent pushes them further right. */
+.lg-ext-items { padding: 0 var(--sp4) var(--sp2) 0; }
 .lg-ext-item {
-  display: grid;
-  grid-template-columns: 24px 1fr 70px 22px;
-  align-items: center; gap: var(--sp2);
-  padding: var(--sp2) var(--sp1); border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: 4px var(--sp4) 4px var(--sp3);
+  border-radius: var(--radius-sm);
 }
 .lg-ext-item:hover { background: var(--grey-50); }
 .lg-ext-item.group-hidden { opacity: 0.45; }
-.lg-ext-label { min-width: 0; }
+.lg-ext-label {
+  flex: 1; min-width: 0;
+}
 .lg-ext-title {
   font-size: var(--text-sm); color: var(--grey-800); line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -711,11 +718,15 @@ html, body {
 }
 .lg-ext-attr a { color: inherit; text-decoration: none; }
 .lg-ext-attr a:hover { text-decoration: underline; }
-.lg-ext-opacity { width: 70px; cursor: pointer; accent-color: var(--primary); }
+.lg-ext-opacity {
+  flex-shrink: 0; width: 60px; cursor: pointer; accent-color: var(--primary);
+}
 .lg-ext-remove {
-  width: 22px; height: 22px; border: none; background: transparent;
-  color: var(--grey-400); cursor: pointer; font-size: 18px; line-height: 1;
+  flex-shrink: 0;
+  width: 20px; height: 20px; border: none; background: transparent;
+  color: var(--grey-400); cursor: pointer; font-size: 16px; line-height: 1;
   border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
+  display: flex; align-items: center; justify-content: center;
 }
 .lg-ext-remove:hover { color: var(--red); background: var(--grey-100); }
 
@@ -731,3 +742,189 @@ html, body {
 .ext-popup table td { padding: 2px 4px; vertical-align: top; }
 .ext-popup table tr:nth-child(odd) td { background: var(--grey-50); }
 .ext-popup img { max-width: 100%; height: auto; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOBILE / TOUCH ADAPTATIONS
+   Additive layer: desktop layout unchanged.  Three orthogonal queries:
+     - height:    100dvh fixes iOS Safari URL-bar math
+     - hover:     gates :hover styles to true hover devices (kills sticky
+                  hover on iOS Safari after tap)
+     - pointer:   bumps icon-button hit areas + input font-size on touch
+     - max-width: layout shape changes (drawer sidebar, narrow pagination)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* 100vh is broken on iOS Safari (it equals the URL-bar-hidden height,
+   pushing footer below the fold).  dvh follows the visible viewport. */
+@supports (height: 100dvh) {
+  #app { height: 100dvh; }
+}
+
+/* Safe-area insets for notched / Dynamic-Island devices.  The toast and
+   edit banner sit at the top of the viewport — without these they render
+   under the status bar / notch. */
+#toast-container { top: max(var(--sp4), env(safe-area-inset-top, 0)); }
+#edit-banner     { top: max(var(--sp3), env(safe-area-inset-top, 0)); }
+#footer          { padding-bottom: env(safe-area-inset-bottom, 0); }
+#footer          { padding-left:   max(var(--sp5), env(safe-area-inset-left, 0)); }
+#footer          { padding-right:  max(var(--sp5), env(safe-area-inset-right, 0)); }
+
+/* Edit banner: don't overflow narrow viewports. */
+#edit-banner {
+  max-width: calc(100% - 32px);
+  white-space: normal; line-height: 1.3; text-align: center;
+}
+
+/* Universal keyboard focus ring.  Only fires for keyboard navigation, never
+   for mouse clicks — :focus-visible takes care of that distinction. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Touch-only: kill sticky :hover ───────────────────────────────────────
+   iOS Safari preserves the :hover state after tap until the next tap
+   somewhere else.  This makes a tapped dropdown button look "still active"
+   after the dropdown closes.  We strip the visible :hover outcomes for
+   pure-touch devices.  Hybrid devices (laptop with touchscreen, stylus
+   tablets) report `hover: hover` and keep the desktop styling. */
+@media (hover: none) {
+  .dd-btn:hover, .pg-btn:hover, .pg-btn:hover:not(:disabled),
+  .check-item:hover, .col-check-item:hover, .filter-check-item:hover,
+  .dd-item:hover, .search-item:hover, .lg-ext-item:hover,
+  .bm-btn:hover, .bm-option:hover, .filter-clear-btn:hover,
+  .edit-btn:hover, .input-clear-x:hover, .sidebar-close-btn:hover,
+  .lg-ext-remove:hover, .legend-toggle-btn:hover, .eye-btn:hover,
+  .pill-x:hover, .filter-reset-link:hover,
+  .measure-distance-close:hover, .context-menu-item:hover,
+  #footer-links a:hover, #pg-size-select:hover,
+  #save-banner button:hover, #save-banner .cancel-btn:hover,
+  #tbl tbody tr:hover td, #tbl th:hover {
+    background: revert; border-color: revert; color: revert;
+    box-shadow: revert; text-decoration: revert;
+  }
+  /* Re-apply the *intentional* state styles that share specificity with
+     the now-reverted hover rules. */
+  .dd-wrap.open .dd-btn { background: var(--grey-100); border-color: var(--grey-400); color: var(--grey-900); }
+  #tbl tbody tr.selected td { background: var(--row-active); box-shadow: inset 3px 0 0 var(--primary); }
+}
+
+/* ── Touch input: bump hit areas + suppress iOS focus-zoom ───────────── */
+@media (pointer: coarse) {
+  /* iOS Safari zooms the page when an <input> with font-size < 16px gains
+     focus.  Bumping inputs to 16px on touch is the universal fix. */
+  #search-input, #tbl-search, .filter-search { font-size: 16px; }
+
+  /* Icon-button hit-area floor: 32×32 (compromise between 24-AA and the
+     44pt Apple HIG; visually still feels light, ergonomically OK). */
+  .eye-btn { width: 32px; height: 32px; padding: 6px; }
+  .lg-ext-remove,
+  .input-clear-x,
+  .sidebar-close-btn,
+  .measure-distance-close { width: 32px; height: 32px; }
+  .maplibregl-popup-close-button { padding: 8px 12px; font-size: 22px; }
+
+  /* Dropdown buttons + pagination buttons taller on touch. */
+  .dd-btn, .pg-btn, #pg-size-select { min-height: 36px; }
+  .pg-btn { min-width: 36px; }
+  .edit-btn { padding: 8px var(--sp4); }
+
+  /* Resize handle: visible affordance even before drag. */
+  #tbl-resize-handle { height: 14px; background: var(--grey-100); }
+  #tbl-resize-handle::after { opacity: 1; background: var(--grey-400); }
+  #tbl-resize-handle:hover { background: var(--grey-100); } /* no hover bump on touch */
+
+  /* Larger tap targets for legend swatches' parent rows. */
+  .lg-item { padding: 6px 0; }
+
+  /* Filter-pill close button is 14px; bump tap area without growing visual. */
+  .pill-x { padding: 4px 0 4px var(--sp1); }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PHONE LAYOUT (≤ 768px)
+   - Sidebar becomes a slide-in drawer over the map
+   - Header tightens (agency tagline hidden, edit button hidden)
+   - Table panel halves its default height
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Header: hide marketing line; the app name alone is enough */
+  .header-agency { display: none; }
+  .header-app { font-size: 13px; }
+  #header { padding: 0 var(--sp3); gap: var(--sp2); }
+  #search-area { padding: 0 var(--sp2); }
+  #search-wrapper { max-width: none; }
+  /* Edit button is currently a placeholder anyway — hide on phones to
+     reclaim header space.  When real edit lands, restore here. */
+  .edit-btn { display: none; }
+
+  /* Sidebar → fixed-position drawer over the map */
+  #sidebar {
+    position: fixed; left: 0;
+    top: var(--header-height); bottom: var(--footer-height);
+    width: min(85%, 320px);
+    z-index: var(--z-overlay);
+    transform: translateX(0);
+    box-shadow: 4px 0 16px rgba(0,0,0,.18);
+    transition: transform var(--t-slow);
+  }
+  #sidebar.collapsed {
+    width: min(85%, 320px);          /* keep size, just slide off-screen */
+    border-right: 1px solid var(--grey-300);
+    transform: translateX(-105%);    /* extra 5% covers shadow */
+    opacity: 1;                       /* slide, don't fade */
+    pointer-events: none;
+  }
+
+  /* Backdrop scrim while drawer is open.  Uses :has() (Safari 15.4+,
+     Chrome 105+).  Falls back to no scrim on older browsers - drawer still
+     works, just without the dimming effect. */
+  #body:has(#sidebar:not(.collapsed))::before {
+    content: '';
+    position: fixed; left: 0; right: 0;
+    top: var(--header-height); bottom: var(--footer-height);
+    background: rgba(0, 0, 0, 0.42);
+    z-index: calc(var(--z-overlay) - 1);
+    animation: scrimIn var(--t-base) ease;
+  }
+  @keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Table panel: smaller default + fully collapsable */
+  #table-panel { height: 45vh; max-height: 60vh; }
+
+  /* Identify popup: clamp to viewport with comfortable margin */
+  .maplibregl-popup-content { max-width: calc(100vw - 32px) !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   NARROW PHONE (≤ 480px) — strip more chrome
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Pagination: keep prev/next + position only.  First/last/page-numbers
+     drop. */
+  #pg-first, #pg-last, #pg-pages { display: none; }
+  #tbl-pagination { padding: 5px var(--sp3); gap: var(--sp2); }
+  .pg-info { font-size: var(--text-xs); }
+  #pg-size-select { font-size: var(--text-xs); padding: 0 var(--sp1); }
+
+  /* Table action bar: tighter spacing, smaller search */
+  #tbl-action-bar { padding: var(--sp2) var(--sp3); gap: var(--sp2); }
+  #tbl-search-wrap { max-width: 160px; }
+  /* Hide the verbose dropdown labels - keep just the icon + caret */
+  #col-dd-btn, #filter-dd-btn, #export-dd-btn { padding: 0 var(--sp2); }
+
+  /* Footer: hide the live-coords readout (it dominates the row); keep links */
+  #coordinates { display: none; }
+  #footer { justify-content: flex-end; }
+  #footer-links a { margin-left: var(--sp3); }
+
+  /* Basemap switcher: smaller thumbnail-only button */
+  .bm-btn { padding: 4px; }
+  .bm-btn img { width: 56px; height: 42px; }
+  .bm-btn span { display: none; }
+
+  /* Maplibre nav: hide on narrow phones - pinch-zoom replaces it */
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-in,
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-out,
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-compass { display: none !important; }
+}

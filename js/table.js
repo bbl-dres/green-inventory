@@ -95,14 +95,11 @@ function renderTable() {
       td.textContent = c.fmt ? c.fmt(row[c.key]) : (row[c.key] ?? '–');
       tr.appendChild(td);
     }
-    tr.addEventListener('mouseenter', () => {
-      if (map.getLayer('features-hover'))
-        map.setFilter('features-hover', ['==', ['id'], row._idx]);
-    });
-    tr.addEventListener('mouseleave', () => {
-      if (map.getLayer('features-hover'))
-        map.setFilter('features-hover', ['==', ['id'], -1]);
-    });
+    // Reuse map.js's setHover so the same Point-only hover-circle filter +
+    // hover-line filter apply.  The old code referenced a layer name
+    // ('features-hover') that hasn't existed since the GDB rewrite.
+    tr.addEventListener('mouseenter', () => { setHover(row._idx); });
+    tr.addEventListener('mouseleave', () => { setHover(null); });
     tr.addEventListener('click', () => {
       const feat = geojsonData.features[row._idx];
       if (!feat) return;
@@ -403,11 +400,18 @@ function downloadBlob(blob, filename) {
 }
 
 // ── Table toggle ─────────────────────────────────────────────────────────────
-let tableOpen = true;
-document.getElementById('tbl-toggle').addEventListener('click', () => {
-  tableOpen = !tableOpen;
+// Default open on desktop, collapsed on phones.  matchMedia handles
+// rotate/resize crossings cleanly so the state stays in sync.
+const _mqPhoneTbl = window.matchMedia('(max-width: 768px)');
+let tableOpen = !_mqPhoneTbl.matches;
+function _applyTableState() {
   document.getElementById('table-panel').classList.toggle('collapsed', !tableOpen);
   document.getElementById('tbl-toggle').classList.toggle('collapsed', !tableOpen);
+}
+_applyTableState();
+document.getElementById('tbl-toggle').addEventListener('click', () => {
+  tableOpen = !tableOpen;
+  _applyTableState();
   setTimeout(() => map.resize(), 280);
 });
 

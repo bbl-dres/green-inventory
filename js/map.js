@@ -4,6 +4,16 @@
 //              installAreaFillExpr, AREA_FILL_EXPR, GEOJSON_PATH, BASEMAPS)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── HTML escape for safe interpolation into popup/legend innerHTML ─────────
+// GDB attribute strings (Bemerkung, names, ...) are internal but a single
+// '<' silently breaks popup layout.  Use this for every property value that
+// gets templated into a string + assigned via innerHTML / setHTML.
+const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(v) {
+  if (v == null) return '';
+  return String(v).replace(/[&<>"']/g, ch => _ESC_MAP[ch]);
+}
+
 // ── Group visibility state ─────────────────────────────────────────────────
 const vis = {};
 for (const g of LEGEND_GROUPS) vis[g.id] = true;
@@ -193,19 +203,21 @@ function popupHTML(p) {
     const rows = grp.keys
       .filter(([k]) => !isEmpty(p[k]))
       .map(([k, lbl, fmt]) => {
+        // Formatters may return numeric/string already-formatted; escape
+        // the result either way since the Bemerkung field is free text.
         const v = fmt ? fmt(p[k]) : p[k];
-        return `<div class="pu-row"><span>${lbl}</span><strong>${v}</strong></div>`;
+        return `<div class="pu-row"><span>${escapeHtml(lbl)}</span><strong>${escapeHtml(v)}</strong></div>`;
       });
     if (rows.length === 0) continue;
-    body += `<div class="pu-section">${grp.title}</div>` + rows.join('');
+    body += `<div class="pu-section">${escapeHtml(grp.title)}</div>` + rows.join('');
   }
 
   return `
     <div class="pu-header">
       <div class="pu-swatch" style="background:${swatch}"></div>
       <div class="pu-titles">
-        <div class="pu-type">${p.feature_type || p.entity_type || '–'}</div>
-        <div class="pu-sub">${p.subtype || ''}</div>
+        <div class="pu-type">${escapeHtml(p.feature_type || p.entity_type || '–')}</div>
+        <div class="pu-sub">${escapeHtml(p.subtype || '')}</div>
       </div>
     </div>
     <div class="pu-body">${body}</div>
@@ -236,6 +248,47 @@ function updateSelectionUrl() {
     else url.searchParams.delete('sel');
     history.replaceState(null, '', url);
   } catch (_) { /* file:// or sandboxed iframe — skip silently */ }
+}
+
+// ── View URL sync (center, zoom) ──────────────────────────────────────────
+// Same param names as the right-click Share action so links produced by
+// either path are interchangeable.  Updates throttled to map idle so we
+// don't thrash history.replaceState on every render frame.
+let _viewUrlPending = false;
+function syncViewUrl() {
+  if (_viewUrlPending) return;
+  _viewUrlPending = true;
+  requestAnimationFrame(() => {
+    _viewUrlPending = false;
+    try {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      const url = new URL(location.href);
+      url.searchParams.set('center', c.lng.toFixed(5) + ',' + c.lat.toFixed(5));
+      url.searchParams.set('zoom', z.toFixed(2));
+      history.replaceState(null, '', url);
+    } catch (_) { /* file:// or sandboxed */ }
+  });
+}
+
+// Returns true if a center+zoom was successfully applied from the URL.
+function applyViewFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const c = params.get('center');
+    const z = params.get('zoom');
+    if (!c) return false;
+    const parts = c.split(',').map(Number);
+    if (parts.length !== 2 || !isFinite(parts[0]) || !isFinite(parts[1])) return false;
+    const zn = z != null ? Number(z) : null;
+    map.jumpTo({
+      center: [parts[0], parts[1]],
+      zoom: (zn != null && isFinite(zn)) ? zn : map.getZoom(),
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function selectFeature(idx, lngLat) {
@@ -281,7 +334,23 @@ function clearSelection() {
 // ── Add GeoJSON source + layers ────────────────────────────────────────────
 function addLayers() {
   if (!geojsonData || map.getSource('features')) return;
-  map.addSource('features', { type: 'geojson', data: geojsonData });
+  // tolerance / maxzoom: the GeoJSON source's defaults (0.375, 18) over-
+  // simplify our data.  At z18 a 0.375-px Douglas-Peucker tolerance is
+  // ~60 cm on the ground, so corners < 1 m get straightened; above z18
+  // tiles are stretched, magnifying that simplification.  Our polygons
+  // have cm-precision coordinates and people zoom in to read plan-level
+  // detail, so:
+  //   tolerance: 0.125  (3× less simplification — visually smooth at all
+  //                      zooms while still trimming redundant vertices at
+  //                      low zooms where you couldn't see them anyway)
+  //   maxzoom: 22       (re-tile right up to the map's maxZoom so detail
+  //                      is preserved past z18 instead of being stretched)
+  map.addSource('features', {
+    type: 'geojson',
+    data: geojsonData,
+    tolerance: 0.125,
+    maxzoom: 22,
+  });
 
   // Site boundaries — bottom of stack, very subtle fill, visible stroke.
   map.addLayer({
@@ -597,69 +666,165 @@ async function restoreExternalLayersFromUrl() {
 }
 
 // ── Identify ──────────────────────────────────────────────────────────────
-// Only triggered when at least one external layer is visible AND the user
-// click missed our local features.
+// Triggered when at least one external layer is visible AND the click
+// missed our local features.  We hand swisstopo every visible external
+// layer (not just tooltip:true ones) - "tooltip" in layersConfig is the
+// vendor's UI hint, not a contract.  Some layers without tooltip still
+// return useful identify results.
 const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px' });
-identifyPopup.on('close', () => clearIdentifyHighlight());
+let _suppressIdentifyClose = false;
+identifyPopup.on('close', () => {
+  if (_suppressIdentifyClose) return;
+  clearIdentifyHighlight();
+});
+
+let _identifyAbort = null;
 
 function visibleIdentifyTargets() {
   return Object.entries(externalLayers)
-    .filter(([, ext]) => ext.visible && ext.config.tooltip)
+    .filter(([, ext]) => ext.visible)
     .map(([bodId]) => bodId);
+}
+
+// WGS84 <-> LV95 (CH1903+) closed-form approximation, swisstopo "Reframe".
+// Sub-metre accurate inside Switzerland, which is all we care about for an
+// identify call - the request fails outside Switzerland anyway because the
+// layers have no data there.  Keeping these inline avoids a 30 KB proj4js
+// dependency for two conversions.
+function wgs84ToLv95(lon, lat) {
+  const phiSec = lat * 3600;
+  const lamSec = lon * 3600;
+  const phip = (phiSec - 169028.66) / 10000;
+  const lamp = (lamSec - 26782.5) / 10000;
+  const E = 2600072.37
+    + 211455.93 * lamp
+    - 10938.51 * lamp * phip
+    -     0.36 * lamp * phip * phip
+    -    44.54 * Math.pow(lamp, 3);
+  const N = 1200147.07
+    + 308807.95 * phip
+    +   3745.25 * Math.pow(lamp, 2)
+    +     76.63 * Math.pow(phip, 2)
+    -    194.56 * Math.pow(lamp, 2) * phip
+    +    119.79 * Math.pow(phip, 3);
+  return [E, N];
+}
+
+function lv95ToWgs84(E, N) {
+  const yp = (E - 2600000) / 1000000;
+  const xp = (N - 1200000) / 1000000;
+  const lamSec = 2.6779094
+    + 4.728982 * yp
+    + 0.791484 * yp * xp
+    + 0.1306   * yp * xp * xp
+    - 0.0436   * Math.pow(yp, 3);
+  const phiSec = 16.9023892
+    + 3.238272 * xp
+    - 0.270978 * yp * yp
+    - 0.002528 * xp * xp
+    - 0.0447   * yp * yp * xp
+    - 0.0140   * Math.pow(xp, 3);
+  // Convert from base*100/36 → decimal degrees
+  return [lamSec * 100 / 36, phiSec * 100 / 36];
+}
+
+// Walk a GeoJSON coordinates tree and transform every (x, y) leaf with fn.
+function transformGeomCoords(geom, fn) {
+  if (!geom) return geom;
+  function walk(c) {
+    if (typeof c[0] === 'number') return fn(c[0], c[1]);
+    return c.map(walk);
+  }
+  return { ...geom, coordinates: walk(geom.coordinates) };
 }
 
 async function runIdentify(lngLat) {
   const targets = visibleIdentifyTargets();
   if (targets.length === 0) return false;
+
+  // Abort any prior in-flight identify (rapid clicks would otherwise race
+  // and the wrong response could win).
+  if (_identifyAbort) _identifyAbort.abort();
+  _identifyAbort = new AbortController();
+  const sig = _identifyAbort.signal;
+
+  // Some layers (e.g. ch.swisstopo-vd.stand-oerebkataster) return zero hits
+  // when queried in WGS84 but work in LV95.  Always send LV95 - swisstopo
+  // accepts it for every queryable layer.
+  const [px, py] = wgs84ToLv95(lngLat.lng, lngLat.lat);
   const b = map.getBounds();
-  const c = map.getCanvas();
+  const [minE, minN] = wgs84ToLv95(b.getWest(),  b.getSouth());
+  const [maxE, maxN] = wgs84ToLv95(b.getEast(),  b.getNorth());
+  // Use CSS pixels, not the canvas backing-store size.  swisstopo derives
+  // the pixel-tolerance from imageDisplay; passing 2× values on a HiDPI
+  // display halves our effective tolerance.
+  const cont = map.getContainer();
+  const w = cont.clientWidth || 1024;
+  const h = cont.clientHeight || 768;
   const params = new URLSearchParams({
-    geometry: lngLat.lng + ',' + lngLat.lat,
+    geometry: px.toFixed(2) + ',' + py.toFixed(2),
     geometryType: 'esriGeometryPoint',
     geometryFormat: 'geojson',
-    sr: '4326',
+    sr: '2056',
     layers: 'all:' + targets.join(','),
-    mapExtent: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(','),
-    imageDisplay: c.width + ',' + c.height + ',96',
+    mapExtent: [minE, minN, maxE, maxN].map(v => v.toFixed(2)).join(','),
+    imageDisplay: w + ',' + h + ',96',
     tolerance: '8',
     lang: 'de',
     returnGeometry: 'true',
   });
   let results;
   try {
-    const resp = await fetch(IDENTIFY_URL + '?' + params);
+    const resp = await fetch(IDENTIFY_URL + '?' + params, { signal: sig });
     const data = await resp.json();
     results = data.results || [];
   } catch (e) {
-    console.warn('identify failed:', e);
+    if (e.name !== 'AbortError') console.warn('identify failed:', e);
     return false;
   }
   if (!results.length) return false;
 
-  // Highlight the first feature's geometry (most relevant).
-  const first = results[0];
-  if (first.geometry) showIdentifyHighlight(first.geometry);
-
-  // Combine htmlPopup snippets from each hit (one HTTP per hit).
-  const blocks = await Promise.all(results.slice(0, 8).map(async r => {
+  // Combine htmlPopup snippets from each hit (one HTTP per hit, capped).
+  const visibleHits = results.slice(0, 8);
+  const blocks = await Promise.all(visibleHits.map(async r => {
     const id = r.featureId != null ? r.featureId : r.id;
     if (id == null) return '';
     try {
       const url = `${HTMLPOPUP_URL}/${r.layerBodId}/${encodeURIComponent(id)}/htmlPopup?lang=de`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: sig });
       const html = await res.text();
       return `<div class="ext-popup-block">
-        <div class="ext-popup-layer">${r.layerName || r.layerBodId}</div>
+        <div class="ext-popup-layer">${escapeHtml(r.layerName || r.layerBodId)}</div>
         ${html}
       </div>`;
     } catch (e) {
+      if (e.name === 'AbortError') return '';
       const lbl = r.properties && r.properties.label ? r.properties.label : (r.layerName || r.layerBodId);
-      return `<div class="ext-popup-block"><div class="ext-popup-layer">${lbl}</div></div>`;
+      return `<div class="ext-popup-block"><div class="ext-popup-layer">${escapeHtml(lbl)}</div></div>`;
     }
   }));
+
+  if (sig.aborted) return false;
+
+  // Order matters: addTo() calls remove() internally if the popup is
+  // already on the map, which fires a synchronous 'close' event.  If the
+  // close handler runs while the highlight source/layers exist, it drops
+  // them - so the second identify call would lose its highlight.  Suppress
+  // close, swap the popup contents, *then* paint the highlight.
+  _suppressIdentifyClose = true;
   identifyPopup.setLngLat(lngLat).setHTML(
     `<div class="ext-popup">${blocks.join('')}</div>`
   ).addTo(map);
+  _suppressIdentifyClose = false;
+
+  // Response geometry is in LV95 because we queried in sr=2056.  Convert
+  // back to WGS84 before feeding the highlight source - MapLibre's GeoJSON
+  // source assumes WGS84.
+  const first = results[0];
+  if (first.geometry) {
+    const wgsGeom = transformGeomCoords(first.geometry, lv95ToWgs84);
+    showIdentifyHighlight(wgsGeom);
+  }
   return true;
 }
 
@@ -795,16 +960,25 @@ map.on('load', async () => {
   // legend section appears together with everything else.
   await restoreExternalLayersFromUrl();
 
-  // ── Fit to data ────────────────────────────────────────────────────────
-  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-  function scanCoords(c) {
-    if (typeof c[0] === 'number') {
-      if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
-      if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
-    } else { c.forEach(scanCoords); }
+  // ── View: prefer ?center & ?zoom; otherwise fit to data ────────────────
+  // A shared link like /?center=7.45,46.95&zoom=14&sel=42 should land the
+  // user where the sender was looking, not on the data-bbox fit.
+  const viewFromUrl = applyViewFromUrl();
+  if (!viewFromUrl) {
+    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    function scanCoords(c) {
+      if (typeof c[0] === 'number') {
+        if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
+        if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
+      } else { c.forEach(scanCoords); }
+    }
+    gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
+    if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
   }
-  gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
-  if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
+
+  // Persist view changes to the URL on every settled view (debounced via rAF
+  // inside syncViewUrl).  'moveend' covers pan, zoom, fly, fit.
+  map.on('moveend', syncViewUrl);
 
   buildLegend(gj.features);
 
@@ -825,17 +999,46 @@ map.on('load', async () => {
   const sidebar     = document.getElementById('sidebar');
   const closeBtn    = document.getElementById('sidebar-close');
   const legendBtn   = document.getElementById('legend-toggle');
+  // matchMedia is more reliable than a one-shot innerWidth check (handles
+  // device rotation, browser zoom, DevTools-driven viewport changes).
+  const mqPhone = window.matchMedia('(max-width: 768px)');
 
-  closeBtn.addEventListener('click', () => {
-    sidebar.classList.add('collapsed');
-    legendBtn.style.display = 'flex';
-    setTimeout(() => map.resize(), 280);
-  });
-  legendBtn.addEventListener('click', () => {
+  function openSidebar() {
     sidebar.classList.remove('collapsed');
     legendBtn.style.display = 'none';
-    setTimeout(() => map.resize(), 280);
+    // On mobile the sidebar is fixed-position over the map, so we don't
+    // need map.resize() — the canvas size doesn't change.
+    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+  }
+  function closeSidebar() {
+    sidebar.classList.add('collapsed');
+    legendBtn.style.display = 'flex';
+    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+  }
+
+  closeBtn.addEventListener('click', closeSidebar);
+  legendBtn.addEventListener('click', openSidebar);
+
+  // On phones, start with the sidebar collapsed so the map gets the full
+  // viewport.  Done synchronously before first paint to avoid a flash of
+  // open drawer on load.
+  if (mqPhone.matches) closeSidebar();
+
+  // If the user rotates from portrait→landscape (or resizes desktop window
+  // below the breakpoint), re-evaluate the default state.
+  mqPhone.addEventListener('change', (e) => {
+    if (e.matches) closeSidebar(); else openSidebar();
   });
+
+  // Tap the scrim to close.  The scrim is a CSS ::before pseudo-element on
+  // #body, so it's not addressable from JS.  Instead: when a phone-mode
+  // drawer is open, any click on the map canvas should close it.  We
+  // listen on #main-content so the click on the table area closes it too.
+  document.getElementById('main-content').addEventListener('click', () => {
+    if (mqPhone.matches && !sidebar.classList.contains('collapsed')) {
+      closeSidebar();
+    }
+  }, { capture: true });
 })();
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1013,7 +1216,9 @@ function buildLegend(features) {
   extGroup.appendChild(extHead);
 
   const extItems = document.createElement('div');
-  extItems.className = 'lg-items';
+  // Dedicated class - .lg-items adds 34px left padding which double-indents
+  // the eye icon and breaks alignment with section-header eyes.
+  extItems.className = 'lg-ext-items';
   for (const bodId of extIds) {
     const ext = externalLayers[bodId];
     const row = document.createElement('div');
@@ -1033,10 +1238,10 @@ function buildLegend(features) {
 
     const lbl = document.createElement('div');
     lbl.className = 'lg-ext-label';
-    const labelText = (ext.config.label || bodId);
-    lbl.innerHTML = `<div class="lg-ext-title" title="${bodId}">${labelText}</div>` +
+    const labelText = ext.config.label || bodId;
+    lbl.innerHTML = `<div class="lg-ext-title" title="${escapeHtml(bodId)}">${escapeHtml(labelText)}</div>` +
                     (ext.config.attribution
-                      ? `<div class="lg-ext-attr">${ext.config.attribution}</div>` : '');
+                      ? `<div class="lg-ext-attr">${escapeHtml(ext.config.attribution)}</div>` : '');
 
     const opa = document.createElement('input');
     opa.type = 'range';
@@ -1060,109 +1265,31 @@ function buildLegend(features) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EDIT MODE  — drag to reposition entire GeoJSON layer
+// EDIT MODE — placeholder
+// ───────────────────────────────────────────────────────────────────────────
+// The previous implementation dragged the whole GeoJSON to apply a coarse
+// georeferencing offset (it was useful when data came from PDF extraction).
+// With proper LV03 source data this is no longer needed.  Keep the toggle
+// button + banner so the UI affordance stays for the upcoming real edit
+// flow (vertex editing, attribute editing, etc.).  The flag itself is still
+// referenced by selection / hover handlers - they short-circuit when
+// editMode is true so accidental clicks don't select features.
 // ═══════════════════════════════════════════════════════════════════════════
 const editToggleBtn = document.getElementById('edit-toggle');
 const editBanner    = document.getElementById('edit-banner');
 const saveBanner    = document.getElementById('save-banner');
-const offsetLabel   = document.getElementById('offset-label');
 
-let dragStart = null;
-let pendingDelta = { lon: 0, lat: 0 };
+// Override the previous banner copy so it's clear what state the user is in.
+if (editBanner) editBanner.textContent = 'Bearbeitungs-Modus (in Entwicklung) – Funktionen folgen.';
+// Save banner has no purpose without the offset workflow; never shown.
+if (saveBanner) saveBanner.classList.remove('visible');
 
 editToggleBtn.addEventListener('click', () => {
   editMode = !editMode;
   editToggleBtn.classList.toggle('active', editMode);
-  editBanner.classList.toggle('visible', editMode);
-  saveBanner.classList.toggle('visible', editMode);
+  if (editBanner) editBanner.classList.toggle('visible', editMode);
   document.getElementById('map').classList.toggle('edit-active', editMode);
-  map.getCanvas().style.cursor = editMode ? 'grab' : '';
-  if (!editMode) { pendingDelta = { lon: 0, lat: 0 }; }
 });
-
-document.getElementById('cancel-offset').addEventListener('click', () => {
-  applyDelta(-pendingDelta.lon, -pendingDelta.lat);
-  pendingDelta = { lon: 0, lat: 0 };
-  editMode = false;
-  editToggleBtn.classList.remove('active');
-  editBanner.classList.remove('visible');
-  saveBanner.classList.remove('visible');
-  document.getElementById('map').classList.remove('edit-active');
-  map.getCanvas().style.cursor = '';
-});
-
-document.getElementById('save-offset').addEventListener('click', async () => {
-  if (!geojsonData) return;
-  if (!geojsonData.metadata) geojsonData.metadata = {};
-  const prev = geojsonData.metadata.offset_m || [0, 0];
-  const dLon = prev[0] + pendingDelta.lon * 73500;
-  const dLat = prev[1] + pendingDelta.lat * 111320;
-  geojsonData.metadata.offset_m = [Math.round(dLon * 10) / 10, Math.round(dLat * 10) / 10];
-
-  applyDeltaPermanent(pendingDelta.lon, pendingDelta.lat);
-  pendingDelta = { lon: 0, lat: 0 };
-
-  const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = 'data.geojson';
-  a.click();
-  URL.revokeObjectURL(url);
-
-  editMode = false;
-  editToggleBtn.classList.remove('active');
-  editBanner.classList.remove('visible');
-  saveBanner.classList.remove('visible');
-  document.getElementById('map').classList.remove('edit-active');
-  map.getCanvas().style.cursor = '';
-});
-
-map.on('mousedown', (e) => {
-  if (!editMode) return;
-  dragStart = { lng: e.lngLat.lng, lat: e.lngLat.lat };
-  map.getCanvas().style.cursor = 'grabbing';
-  map.dragPan.disable();
-  e.preventDefault();
-});
-
-map.on('mousemove', (e) => {
-  if (!editMode || !dragStart) return;
-  const dLon = e.lngLat.lng - dragStart.lng;
-  const dLat = e.lngLat.lat - dragStart.lat;
-  applyDelta(dLon, dLat);
-  pendingDelta.lon += dLon;
-  pendingDelta.lat += dLat;
-  dragStart = { lng: e.lngLat.lng, lat: e.lngLat.lat };
-
-  const mEast  = Math.round(pendingDelta.lon * 73500);
-  const mNorth = Math.round(pendingDelta.lat * 111320);
-  offsetLabel.textContent = `Verschiebung: ${mEast > 0 ? '+' : ''}${mEast} m O, ${mNorth > 0 ? '+' : ''}${mNorth} m N`;
-});
-
-map.on('mouseup', () => {
-  if (!editMode || !dragStart) return;
-  dragStart = null;
-  map.getCanvas().style.cursor = 'grab';
-  map.dragPan.enable();
-});
-
-function shiftCoord(coord, dLon, dLat) {
-  if (typeof coord[0] === 'number') return [coord[0] + dLon, coord[1] + dLat];
-  return coord.map(c => shiftCoord(c, dLon, dLat));
-}
-
-function applyDelta(dLon, dLat) {
-  if (!geojsonData) return;
-  for (const f of geojsonData.features) {
-    if (f.geometry) f.geometry.coordinates = shiftCoord(f.geometry.coordinates, dLon, dLat);
-  }
-  map.getSource('features').setData(geojsonData);
-}
-
-function applyDeltaPermanent(dLon, dLat) {
-  // Already applied incrementally during drag — nothing extra to do.
-}
 
 let measureActive = false;
 
@@ -1464,17 +1591,20 @@ function showToast(msg, type = '') {
     abortCtrl = new AbortController();
     const sig = abortCtrl.signal;
 
-    // Local feature search across the most identifying fields.
+    // Local feature search across the most identifying fields.  Capture
+    // the index alongside the feature so the rendering doesn't have to
+    // run `geojsonData.features.indexOf(f)` (O(n) per match) afterwards.
     const localMatches = [];
     if (geojsonData) {
       const q = term.toLowerCase();
-      for (const f of geojsonData.features) {
+      for (let i = 0; i < geojsonData.features.length; i++) {
+        const f = geojsonData.features[i];
         const p = f.properties;
         const hay = [p.name, p.site_name, p.adresse, p.site_adresse,
                      p.objektnummer, p.site_objektnummer, p.baumart,
                      p.feature_type, p.subtype, p.entity_type]
           .filter(Boolean).join(' ').toLowerCase();
-        if (hay.includes(q)) localMatches.push(f);
+        if (hay.includes(q)) localMatches.push({ idx: i, feat: f });
         if (localMatches.length >= 8) break;
       }
     }
@@ -1504,13 +1634,13 @@ function showToast(msg, type = '') {
 
     if (local.length) {
       html += '<div class="search-section-header">Objekte</div>';
-      local.forEach((f) => {
-        const p = f.properties;
+      local.forEach((m) => {
+        const p = m.feat.properties;
         const title = p.name || p.site_name || p.baumart || p.feature_type || '–';
         const sub = [p.subtype, p.adresse || p.site_adresse, p.entity_type].filter(Boolean).join(' · ');
-        html += `<div class="search-item" data-action="local" data-idx="${geojsonData.features.indexOf(f)}">
-          <div class="search-item-title">${title}</div>
-          ${sub ? `<div class="search-item-subtitle">${sub}</div>` : ''}
+        html += `<div class="search-item" data-action="local" data-idx="${m.idx}">
+          <div class="search-item-title">${escapeHtml(title)}</div>
+          ${sub ? `<div class="search-item-subtitle">${escapeHtml(sub)}</div>` : ''}
         </div>`;
       });
     }
@@ -1519,6 +1649,7 @@ function showToast(msg, type = '') {
       html += '<div class="search-section-header">Orte</div>';
       locations.forEach(r => {
         const a = r.attrs;
+        // a.label from swisstopo is already HTML (contains <b>match</b>) - leave as-is.
         html += `<div class="search-item" data-action="location" data-lat="${a.lat}" data-lon="${a.lon}" data-zoom="${a.zoomlevel || 14}">
           <div class="search-item-title">${a.label}</div>
         </div>`;
@@ -1529,7 +1660,8 @@ function showToast(msg, type = '') {
       html += '<div class="search-section-header">Karten</div>';
       layers.forEach(r => {
         const a = r.attrs;
-        html += `<div class="search-item" data-action="layer" data-layer="${a.layer || ''}">
+        // a.label is HTML from swisstopo; a.layer (BodId) is safe but escape defensively.
+        html += `<div class="search-item" data-action="layer" data-layer="${escapeHtml(a.layer || '')}">
           <div class="search-item-title">${a.label}</div>
         </div>`;
       });
