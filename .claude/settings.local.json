@@ -16,10 +16,19 @@
       "Bash(curl -sS -o NUL -w \"%{http_code} %{size_download}\\\\n\" http://127.0.0.1:8765/js/table.js)",
       "Bash(node --check js/config.js)",
       "Bash(node --check js/map.js)",
-      "Bash(node --check js/table.js)"
+      "Bash(node --check js/table.js)",
+      "Bash(pip show *)",
+      "Bash(ls \"C:\\\\Users\\\\DavidRasner\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\Lib\\\\site-packages\\\\pyogrio.libs\" 2>&1 | head -20)",
+      "Read(//c/Users/DavidRasner/AppData/Local/Programs/Python/Python311/Lib/site-packages/pyogrio.libs/**)",
+      "WebFetch(domain:docs.geo.admin.ch)",
+      "Bash(curl -sS -o NUL -w \"HTTP %{http_code}, %{size_download} bytes, type: %{content_type}\\\\n\" \"https://map.geo.admin.ch/configs/de/layersConfig.json\")",
+      "Bash(curl -sS -o NUL -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\" \"https://api3.geo.admin.ch/rest/services/api/MapServer/layersConfig?lang=de\")",
+      "Bash(curl -sS \"https://api3.geo.admin.ch/rest/services/api/MapServer/layersConfig?lang=de\" -o C:\\\\Users\\\\DavidRasner\\\\AppData\\\\Local\\\\Temp\\\\layersconfig.json)",
+      "Bash(curl -sS *)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory\\data"
+      "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory\\data",
+      "\\tmp"
     ]
   }
 }

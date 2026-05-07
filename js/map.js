@@ -22,7 +22,7 @@ let selectedId   = null; // currently selected feature index (null = none)
 
 // All map layers we add - kept in one place so filters/visibility/cleanup are simple.
 const MAP_LAYERS = {
-  polygons: ['site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill', 'canopy-line'],
+  polygons: ['site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill'],
   points:   ['tree-circle', 'point-circle', 'site-location-circle', 'site-location-label'],
   selection:['selection-fill', 'selection-line', 'selection-circle'],
   hover:    ['hover-line', 'hover-circle'],
@@ -44,7 +44,6 @@ function applyMapFilters() {
     'area-fill':            ['==', ['get', 'entity_type'], 'area'],
     'area-line':            ['==', ['get', 'entity_type'], 'area'],
     'canopy-fill':          ['==', ['get', 'entity_type'], 'tree_canopy'],
-    'canopy-line':          ['==', ['get', 'entity_type'], 'tree_canopy'],
     'tree-circle':          ['==', ['get', 'entity_type'], 'tree'],
     'point-circle':         ['==', ['get', 'entity_type'], 'point'],
     'site-location-circle': ['==', ['get', 'entity_type'], 'site_location'],
@@ -133,6 +132,7 @@ function popupHTML(p) {
         ['fk_baumart',             'fk_baumart'],
         ['profil_label',           'Profil'],
         ['fk_profil',              'fk_profil'],
+        ['aufwandsfaktor',         'Aufwandsfaktor'],
         ['fk_pflegedurchfuehrung', 'fk_pflegedurchf.'],
         ['fk_pflegeklasse',        'fk_pflegeklasse'],
         ['pflegeklasse',           'Pflegeklasse'],
@@ -214,9 +214,18 @@ function popupHTML(p) {
 
 // ── Selection helpers ──────────────────────────────────────────────────────
 function applySelectedFilter() {
-  const f = selectedId !== null ? ['==', ['id'], selectedId] : ['==', ['literal', '0'], ['literal', '1']];
+  // selection-circle is a `circle` layer.  In MapLibre, circle layers paint
+  // at *every* coordinate of *every* matching feature regardless of
+  // geometry type - so an id-only filter would draw a ring at every vertex
+  // of a selected polygon (looks like edit handles).  Restrict it to Point
+  // geometry so polygon selection shows only the fill+line affordance.
+  const idMatch = selectedId !== null
+    ? ['==', ['id'], selectedId]
+    : ['==', ['literal', '0'], ['literal', '1']];
+  const pointOnly = ['all', idMatch, ['==', ['geometry-type'], 'Point']];
   for (const id of MAP_LAYERS.selection) {
-    if (map.getLayer(id)) map.setFilter(id, f);
+    if (!map.getLayer(id)) continue;
+    map.setFilter(id, id === 'selection-circle' ? pointOnly : idMatch);
   }
 }
 
@@ -285,8 +294,8 @@ function addLayers() {
     filter: ['==', ['get', 'entity_type'], 'site'],
     paint: {
       'line-color': ENTITY_COLORS.site.stroke,
-      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.6, 16, 1.4, 20, 2.0],
-      'line-dasharray': [3, 2],
+      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.4, 16, 0.8, 20, 1.2],
+      'line-opacity': 0.55,
     },
   });
 
@@ -302,16 +311,12 @@ function addLayers() {
     paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': 0.5 },
   });
 
-  // Tree-canopy circles.
+  // Tree-canopy circles.  No outline stroke - the outline made small
+  // canopies on a feature edge look like polygon vertex handles.
   map.addLayer({
     id: 'canopy-fill', type: 'fill', source: 'features',
     filter: ['==', ['get', 'entity_type'], 'tree_canopy'],
-    paint: { 'fill-color': ENTITY_COLORS.tree_canopy.fill, 'fill-opacity': 0.30 },
-  });
-  map.addLayer({
-    id: 'canopy-line', type: 'line', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'tree_canopy'],
-    paint: { 'line-color': ENTITY_COLORS.tree_canopy.stroke, 'line-width': 0.8 },
+    paint: { 'fill-color': ENTITY_COLORS.tree_canopy.fill, 'fill-opacity': 0.45 },
   });
 
   // Tree points.
@@ -421,6 +426,335 @@ function addLayers() {
 const INTERACTIVE_LAYERS = ['site-fill', 'area-fill', 'canopy-fill',
                              'tree-circle', 'point-circle', 'site-location-circle'];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTERNAL LAYERS  (swisstopo / federal data via search → add to map)
+// ───────────────────────────────────────────────────────────────────────────
+// On click: identify-on-the-active-set, show htmlPopup, optionally highlight
+// the returned geometry.  State survives basemap switches and URL reloads.
+// ═══════════════════════════════════════════════════════════════════════════
+const LAYERS_CONFIG_URL = 'https://api3.geo.admin.ch/rest/services/api/MapServer/layersConfig?lang=de';
+const IDENTIFY_URL      = 'https://api3.geo.admin.ch/rest/services/all/MapServer/identify';
+const HTMLPOPUP_URL     = 'https://api3.geo.admin.ch/rest/services/api/MapServer';
+
+// bodId → { config, visible, opacity }
+const externalLayers = {};
+let layersConfigCache = null;
+let layersConfigPromise = null;
+
+async function getLayersConfig() {
+  if (layersConfigCache) return layersConfigCache;
+  if (!layersConfigPromise) {
+    layersConfigPromise = fetch(LAYERS_CONFIG_URL).then(r => r.json())
+      .then(d => { layersConfigCache = d; return d; });
+  }
+  return layersConfigPromise;
+}
+
+function extSourceId(bodId) { return 'ext-src-' + bodId; }
+function extLayerId(bodId)  { return 'ext-lyr-' + bodId; }
+
+// Build the MapLibre source spec for a layer entry.  Returns null if the
+// type isn't supported.  WMTS uses the public xyz tile pattern; WMS uses a
+// tiled GetMap call (works for both singleTile and tiled WMS layers in
+// practice).  GeoJSON layers fetch a single static file.
+function buildExternalSource(bodId, cfg) {
+  const attribution = cfg.attribution
+    ? `<a href="${cfg.attributionUrl || '#'}" target="_blank" rel="noopener">${cfg.attribution}</a>`
+    : '';
+  if (cfg.type === 'wmts') {
+    const ts = (cfg.timestamps && cfg.timestamps[0]) || 'current';
+    const format = cfg.format || 'png';
+    const tiles = [0, 1, 2, 3, 4].map(i =>
+      `https://wmts${i}.geo.admin.ch/1.0.0/${bodId}/default/${ts}/3857/{z}/{x}/{y}.${format}`);
+    return { type: 'raster', tiles, tileSize: 256, attribution };
+  }
+  if (cfg.type === 'wms') {
+    const wmsLayers = cfg.wmsLayers || bodId;
+    const wmsUrl = (cfg.wmsUrl || 'https://wms.geo.admin.ch') +
+      `?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${wmsLayers}` +
+      `&STYLES=&FORMAT=image/${cfg.format === 'jpeg' ? 'jpeg' : 'png'}` +
+      `&TRANSPARENT=true&CRS=EPSG:3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}`;
+    return { type: 'raster', tiles: [wmsUrl], tileSize: 256, attribution };
+  }
+  if (cfg.type === 'geojson') {
+    return { type: 'geojson', data: cfg.geojsonUrl || cfg.url, attribution };
+  }
+  return null;
+}
+
+// Insert external raster/geojson layers ABOVE the basemap but BELOW our data
+// layers, so site dots / trees / popups render on top.  We use 'site-fill'
+// (the bottom of the local data stack) as beforeId when present.
+function _addExtLayerToMap(bodId) {
+  const ext = externalLayers[bodId];
+  if (!ext) return;
+  const srcId = extSourceId(bodId);
+  const lyrId = extLayerId(bodId);
+  if (!map.getSource(srcId)) {
+    const src = buildExternalSource(bodId, ext.config);
+    if (!src) return;
+    map.addSource(srcId, src);
+  }
+  if (!map.getLayer(lyrId)) {
+    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    if (ext.config.type === 'geojson') {
+      // Render GeoJSON layers as a thin outlined fill.
+      map.addLayer({
+        id: lyrId, type: 'fill', source: srcId,
+        paint: { 'fill-color': '#005ea8', 'fill-opacity': ext.opacity * 0.4 },
+        layout: { visibility: ext.visible ? 'visible' : 'none' },
+      }, beforeId);
+    } else {
+      map.addLayer({
+        id: lyrId, type: 'raster', source: srcId,
+        paint: { 'raster-opacity': ext.opacity },
+        layout: { visibility: ext.visible ? 'visible' : 'none' },
+      }, beforeId);
+    }
+  }
+}
+
+async function addExternalLayer(bodId) {
+  if (externalLayers[bodId]) {
+    showToast('Ebene bereits aktiv', '');
+    return;
+  }
+  const all = await getLayersConfig();
+  const cfg = all[bodId];
+  if (!cfg) {
+    showToast('Ebene nicht im Katalog: ' + bodId, 'error');
+    return;
+  }
+  externalLayers[bodId] = {
+    config: cfg,
+    visible: true,
+    opacity: cfg.opacity != null ? cfg.opacity : 1.0,
+  };
+  _addExtLayerToMap(bodId);
+  buildLegend(geojsonData ? geojsonData.features : []);
+  syncExternalLayersUrl();
+}
+
+function removeExternalLayer(bodId) {
+  const lyrId = extLayerId(bodId);
+  const srcId = extSourceId(bodId);
+  if (map.getLayer(lyrId)) map.removeLayer(lyrId);
+  if (map.getSource(srcId)) map.removeSource(srcId);
+  delete externalLayers[bodId];
+  buildLegend(geojsonData ? geojsonData.features : []);
+  syncExternalLayersUrl();
+}
+
+function setExternalVisibility(bodId, visible) {
+  const ext = externalLayers[bodId];
+  if (!ext) return;
+  ext.visible = visible;
+  const lyrId = extLayerId(bodId);
+  if (map.getLayer(lyrId)) {
+    map.setLayoutProperty(lyrId, 'visibility', visible ? 'visible' : 'none');
+  }
+}
+
+function setExternalOpacity(bodId, opacity) {
+  const ext = externalLayers[bodId];
+  if (!ext) return;
+  ext.opacity = opacity;
+  const lyrId = extLayerId(bodId);
+  if (map.getLayer(lyrId)) {
+    const prop = ext.config.type === 'geojson' ? 'fill-opacity' : 'raster-opacity';
+    const value = ext.config.type === 'geojson' ? opacity * 0.4 : opacity;
+    map.setPaintProperty(lyrId, prop, value);
+  }
+}
+
+// Re-add all known external layers after a basemap (style) change.
+async function restoreExternalLayersOnStyle() {
+  // sources/layers were dropped by setStyle; just re-create them.
+  for (const bodId of Object.keys(externalLayers)) {
+    _addExtLayerToMap(bodId);
+  }
+}
+
+// URL sync: ?ext=bod1,bod2 — minimal; opacity/visibility not persisted.
+function syncExternalLayersUrl() {
+  try {
+    const url = new URL(location.href);
+    const ids = Object.keys(externalLayers);
+    if (ids.length) url.searchParams.set('ext', ids.join(','));
+    else url.searchParams.delete('ext');
+    history.replaceState(null, '', url);
+  } catch (_) { /* file:// or sandboxed */ }
+}
+
+async function restoreExternalLayersFromUrl() {
+  try {
+    const raw = new URLSearchParams(location.search).get('ext');
+    if (!raw) return;
+    for (const bodId of raw.split(',').filter(Boolean)) {
+      await addExternalLayer(bodId);
+    }
+  } catch (_) { /* ignore */ }
+}
+
+// ── Identify ──────────────────────────────────────────────────────────────
+// Only triggered when at least one external layer is visible AND the user
+// click missed our local features.
+const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px' });
+identifyPopup.on('close', () => clearIdentifyHighlight());
+
+function visibleIdentifyTargets() {
+  return Object.entries(externalLayers)
+    .filter(([, ext]) => ext.visible && ext.config.tooltip)
+    .map(([bodId]) => bodId);
+}
+
+async function runIdentify(lngLat) {
+  const targets = visibleIdentifyTargets();
+  if (targets.length === 0) return false;
+  const b = map.getBounds();
+  const c = map.getCanvas();
+  const params = new URLSearchParams({
+    geometry: lngLat.lng + ',' + lngLat.lat,
+    geometryType: 'esriGeometryPoint',
+    geometryFormat: 'geojson',
+    sr: '4326',
+    layers: 'all:' + targets.join(','),
+    mapExtent: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(','),
+    imageDisplay: c.width + ',' + c.height + ',96',
+    tolerance: '8',
+    lang: 'de',
+    returnGeometry: 'true',
+  });
+  let results;
+  try {
+    const resp = await fetch(IDENTIFY_URL + '?' + params);
+    const data = await resp.json();
+    results = data.results || [];
+  } catch (e) {
+    console.warn('identify failed:', e);
+    return false;
+  }
+  if (!results.length) return false;
+
+  // Highlight the first feature's geometry (most relevant).
+  const first = results[0];
+  if (first.geometry) showIdentifyHighlight(first.geometry);
+
+  // Combine htmlPopup snippets from each hit (one HTTP per hit).
+  const blocks = await Promise.all(results.slice(0, 8).map(async r => {
+    const id = r.featureId != null ? r.featureId : r.id;
+    if (id == null) return '';
+    try {
+      const url = `${HTMLPOPUP_URL}/${r.layerBodId}/${encodeURIComponent(id)}/htmlPopup?lang=de`;
+      const res = await fetch(url);
+      const html = await res.text();
+      return `<div class="ext-popup-block">
+        <div class="ext-popup-layer">${r.layerName || r.layerBodId}</div>
+        ${html}
+      </div>`;
+    } catch (e) {
+      const lbl = r.properties && r.properties.label ? r.properties.label : (r.layerName || r.layerBodId);
+      return `<div class="ext-popup-block"><div class="ext-popup-layer">${lbl}</div></div>`;
+    }
+  }));
+  identifyPopup.setLngLat(lngLat).setHTML(
+    `<div class="ext-popup">${blocks.join('')}</div>`
+  ).addTo(map);
+  return true;
+}
+
+function showIdentifyHighlight(geom) {
+  const data = { type: 'Feature', geometry: geom, properties: {} };
+  if (map.getSource('ext-highlight')) {
+    map.getSource('ext-highlight').setData(data);
+    return;
+  }
+  map.addSource('ext-highlight', { type: 'geojson', data });
+  // Fill (for polygon hits)
+  map.addLayer({
+    id: 'ext-highlight-fill', type: 'fill', source: 'ext-highlight',
+    filter: ['in', '$type', 'Polygon'],
+    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.18 },
+  });
+  // Stroke (polygon + linestring)
+  map.addLayer({
+    id: 'ext-highlight-line', type: 'line', source: 'ext-highlight',
+    filter: ['in', '$type', 'Polygon', 'LineString'],
+    paint: { 'line-color': '#005ea8', 'line-width': 3 },
+  });
+  // Marker (point)
+  map.addLayer({
+    id: 'ext-highlight-circle', type: 'circle', source: 'ext-highlight',
+    filter: ['==', '$type', 'Point'],
+    paint: {
+      'circle-radius': 8, 'circle-color': '#005ea8',
+      'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2,
+    },
+  });
+}
+
+function clearIdentifyHighlight() {
+  for (const id of ['ext-highlight-fill', 'ext-highlight-line', 'ext-highlight-circle']) {
+    if (map.getLayer(id)) map.removeLayer(id);
+  }
+  if (map.getSource('ext-highlight')) map.removeSource('ext-highlight');
+}
+
+// Layer-scoped MapLibre listeners are torn down when setStyle() removes the
+// layers, so we reattach them after every style change.  Tracked so the
+// empty-map click handler can also be rebound (it isn't layer-scoped but
+// keeping it idempotent keeps the model simple).
+let _hovId = null;
+function setHover(id) {
+  _hovId = id;
+  const idMatch = id != null ? ['==', ['id'], id] : ['==', ['id'], -1];
+  // Same reason as applySelectedFilter: don't paint a ring at every vertex
+  // of a hovered polygon.  Hover ring is a Point-only affordance.
+  const pointOnly = ['all', idMatch, ['==', ['geometry-type'], 'Point']];
+  if (map.getLayer('hover-line'))   map.setFilter('hover-line', idMatch);
+  if (map.getLayer('hover-circle')) map.setFilter('hover-circle', pointOnly);
+}
+
+let _emptyClickBound = false;
+function attachInteractionHandlers() {
+  for (const lyr of INTERACTIVE_LAYERS) {
+    if (!map.getLayer(lyr)) continue;
+    map.on('mousemove', lyr, (e) => {
+      if (editMode) return;
+      if (!e.features.length) return;
+      map.getCanvas().style.cursor = 'pointer';
+      const f = e.features[0];
+      if (_hovId !== f.id) setHover(f.id);
+    });
+    map.on('mouseleave', lyr, () => {
+      if (editMode) return;
+      map.getCanvas().style.cursor = '';
+      setHover(null);
+    });
+    map.on('click', lyr, (e) => {
+      if (editMode || measureActive) return;
+      const fid = Number(e.features[0].id);
+      if (fid === selectedId) { clearSelection(); return; }
+      selectFeature(fid, e.lngLat);
+    });
+  }
+  // Background click → clear selection.  Bind exactly once - this listener
+  // is global, not layer-scoped, so style changes don't drop it.
+  if (!_emptyClickBound) {
+    map.on('click', async (e) => {
+      if (editMode || measureActive) return;
+      const layers = INTERACTIVE_LAYERS.filter(l => map.getLayer(l));
+      const hits = map.queryRenderedFeatures(e.point, { layers });
+      if (hits.length) return;       // local feature click takes priority
+      // Try identify on visible external layers; only clear selection if
+      // there's nothing to show.
+      const handled = await runIdentify(e.lngLat);
+      if (!handled) clearSelection();
+    });
+    _emptyClickBound = true;
+  }
+}
+
 map.on('load', async () => {
   let resp, gj;
   try {
@@ -455,44 +789,11 @@ map.on('load', async () => {
   }
 
   addLayers();
+  attachInteractionHandlers();
   buildTable();
-
-  // ── Hover ──────────────────────────────────────────────────────────────
-  let hovId = null;
-  function setHover(id) {
-    hovId = id;
-    const filt = id != null ? ['==', ['id'], id] : ['==', ['id'], -1];
-    if (map.getLayer('hover-line')) map.setFilter('hover-line', filt);
-    if (map.getLayer('hover-circle')) map.setFilter('hover-circle', filt);
-  }
-
-  for (const lyr of INTERACTIVE_LAYERS) {
-    map.on('mousemove', lyr, (e) => {
-      if (editMode) return;
-      if (!e.features.length) return;
-      map.getCanvas().style.cursor = 'pointer';
-      const f = e.features[0];
-      if (hovId !== f.id) setHover(f.id);
-    });
-    map.on('mouseleave', lyr, () => {
-      if (editMode) return;
-      map.getCanvas().style.cursor = '';
-      setHover(null);
-    });
-    map.on('click', lyr, (e) => {
-      if (editMode || measureActive) return;
-      const fid = Number(e.features[0].id);
-      if (fid === selectedId) { clearSelection(); return; }
-      // Use the actual click point for popup placement when feature is large.
-      selectFeature(fid, e.lngLat);
-    });
-  }
-  // Click on empty map → clear
-  map.on('click', (e) => {
-    if (editMode || measureActive) return;
-    const hits = map.queryRenderedFeatures(e.point, { layers: INTERACTIVE_LAYERS });
-    if (!hits.length) clearSelection();
-  });
+  // Restore active external layers from ?ext= in URL.  Awaited so that the
+  // legend section appears together with everything else.
+  await restoreExternalLayersFromUrl();
 
   // ── Fit to data ────────────────────────────────────────────────────────
   let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
@@ -557,8 +858,22 @@ let bmPanelOpen = false;
       if (bm.id === currentBasemap) { closeBmPanel(); return; }
       currentBasemap = bm.id;
       updateBmBtn();
+      // setStyle() throws away every source, layer, and layer-scoped event
+      // listener.  Rebind everything once the new style is ready.  Use
+      // 'styledata' rather than 'idle' - 'idle' fires every time tiles
+      // settle and re-runs addLayers when a source already exists (cheap
+      // no-op via the guard inside addLayers).  'styledata' fires once
+      // per style change.
       map.setStyle(bm.url);
-      map.once('idle', addLayers);
+      map.once('styledata', async () => {
+        // Re-add externals first so they sit BELOW our local data.
+        await restoreExternalLayersOnStyle();
+        addLayers();
+        attachInteractionHandlers();
+        // Refresh the legend so the "Externe Ebenen" section's row state
+        // reflects the rebuilt layers.
+        if (geojsonData) buildLegend(geojsonData.features);
+      });
       closeBmPanel();
     });
     panel.appendChild(btn);
@@ -678,6 +993,70 @@ function buildLegend(features) {
     groupEl.appendChild(itemsEl);
     el.appendChild(groupEl);
   }
+
+  // ── External layers (added via header search) ────────────────────────
+  const extIds = Object.keys(externalLayers);
+  if (extIds.length === 0) return;
+
+  const extGroup = document.createElement('div');
+  extGroup.className = 'lg-group lg-group-external';
+  const extHead = document.createElement('div');
+  extHead.className = 'lg-group-head';
+  const extTitle = document.createElement('span');
+  extTitle.className = 'lg-group-title';
+  extTitle.textContent = 'Externe Ebenen';
+  const cnt = document.createElement('span');
+  cnt.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
+  cnt.textContent = extIds.length;
+  extTitle.appendChild(cnt);
+  extHead.append(extTitle);
+  extGroup.appendChild(extHead);
+
+  const extItems = document.createElement('div');
+  extItems.className = 'lg-items';
+  for (const bodId of extIds) {
+    const ext = externalLayers[bodId];
+    const row = document.createElement('div');
+    row.className = 'lg-ext-item';
+
+    const eye = document.createElement('button');
+    eye.className = 'eye-btn';
+    eye.title = 'Ebene ein-/ausblenden';
+    eye.innerHTML = ext.visible ? EYE_OPEN : EYE_CLOSED;
+    if (!ext.visible) eye.classList.add('hidden-eye');
+    eye.addEventListener('click', () => {
+      setExternalVisibility(bodId, !ext.visible);
+      eye.innerHTML = ext.visible ? EYE_OPEN : EYE_CLOSED;
+      eye.classList.toggle('hidden-eye', !ext.visible);
+      row.classList.toggle('group-hidden', !ext.visible);
+    });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'lg-ext-label';
+    const labelText = (ext.config.label || bodId);
+    lbl.innerHTML = `<div class="lg-ext-title" title="${bodId}">${labelText}</div>` +
+                    (ext.config.attribution
+                      ? `<div class="lg-ext-attr">${ext.config.attribution}</div>` : '');
+
+    const opa = document.createElement('input');
+    opa.type = 'range';
+    opa.min = 0; opa.max = 1; opa.step = 0.05;
+    opa.value = ext.opacity;
+    opa.title = 'Deckkraft';
+    opa.className = 'lg-ext-opacity';
+    opa.addEventListener('input', () => setExternalOpacity(bodId, Number(opa.value)));
+
+    const rm = document.createElement('button');
+    rm.className = 'lg-ext-remove';
+    rm.title = 'Entfernen';
+    rm.innerHTML = '&times;';
+    rm.addEventListener('click', () => removeExternalLayer(bodId));
+
+    row.append(eye, lbl, opa, rm);
+    extItems.appendChild(row);
+  }
+  extGroup.appendChild(extItems);
+  el.appendChild(extGroup);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1197,7 +1576,11 @@ function showToast(msg, type = '') {
       clearBtn.style.display = 'flex';
 
     } else if (action === 'layer') {
-      showToast('Kartenebene: ' + (item.dataset.layer || '–'));
+      const bodId = item.dataset.layer;
+      if (!bodId) { showToast('Ebene ohne ID', 'error'); return; }
+      addExternalLayer(bodId).then(() => {
+        showToast('Ebene hinzugefügt: ' + (item.querySelector('.search-item-title').textContent || bodId), 'success');
+      });
     }
   }
 })();

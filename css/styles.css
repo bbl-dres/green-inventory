@@ -690,3 +690,44 @@ html, body {
 .toast.error   { background: var(--red); }
 @keyframes toastIn  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+/* ── External-layers section in the legend sidebar ──────────────────── */
+.lg-group-external { border-top: 1px solid var(--grey-200); margin-top: var(--sp3); padding-top: var(--sp2); }
+.lg-ext-item {
+  display: grid;
+  grid-template-columns: 24px 1fr 70px 22px;
+  align-items: center; gap: var(--sp2);
+  padding: var(--sp2) var(--sp1); border-radius: var(--radius-sm);
+}
+.lg-ext-item:hover { background: var(--grey-50); }
+.lg-ext-item.group-hidden { opacity: 0.45; }
+.lg-ext-label { min-width: 0; }
+.lg-ext-title {
+  font-size: var(--text-sm); color: var(--grey-800); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lg-ext-attr {
+  font-size: 10px; color: var(--grey-400); margin-top: 1px;
+}
+.lg-ext-attr a { color: inherit; text-decoration: none; }
+.lg-ext-attr a:hover { text-decoration: underline; }
+.lg-ext-opacity { width: 70px; cursor: pointer; accent-color: var(--primary); }
+.lg-ext-remove {
+  width: 22px; height: 22px; border: none; background: transparent;
+  color: var(--grey-400); cursor: pointer; font-size: 18px; line-height: 1;
+  border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
+}
+.lg-ext-remove:hover { color: var(--red); background: var(--grey-100); }
+
+/* ── Identify popup (vendor-rendered HTML from swisstopo) ───────────── */
+.ext-popup { font-size: var(--text-sm); color: var(--grey-800); }
+.ext-popup-block + .ext-popup-block { border-top: 1px solid var(--grey-100); margin-top: var(--sp3); padding-top: var(--sp3); }
+.ext-popup-layer {
+  font-size: var(--text-label); font-weight: var(--fw-bold);
+  color: var(--grey-400); text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: var(--sp2);
+}
+.ext-popup table { width: 100%; border-collapse: collapse; }
+.ext-popup table td { padding: 2px 4px; vertical-align: top; }
+.ext-popup table tr:nth-child(odd) td { background: var(--grey-50); }
+.ext-popup img { max-width: 100%; height: auto; }

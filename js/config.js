@@ -125,19 +125,18 @@ const BASEMAPS = [
 // All raw GDB fields are reachable via this list; default-visible ones cover
 // the most useful overview.  Toggle the rest in the column dropdown.
 const TABLE_COLS = [
-  { key: '_idx',           label: '#',                  visible: true  },
-  { key: 'entity_type',    label: 'Typ',                visible: true  },
-  { key: 'feature_type',   label: 'Feature',            visible: false },
-  { key: 'subtype',        label: 'Subtyp',             visible: true  },
-  { key: 'site_name',      label: 'Standort',           visible: true  },
-  { key: 'site_objektnummer', label: 'Objekt-Nr.',      visible: false },
-  { key: 'site_adresse',   label: 'Adresse',            visible: false },
-  { key: 'site_lose',      label: 'Los',                visible: false },
-  { key: 'name',           label: 'Name',               visible: false }, // sites only
-  { key: 'objektnummer',   label: 'Objekt-Nr.',         visible: false }, // sites only
-  { key: 'adresse',        label: 'Adresse',            visible: false }, // sites only
-  { key: 'lose',           label: 'Los',                visible: false }, // sites only
-  { key: 'pflegeklasse',   label: 'Pflegeklasse',       visible: false },
+  { key: '_idx',              label: '#',           visible: true  },
+  { key: 'entity_type',       label: 'Typ',         visible: true  },
+  { key: 'feature_type',      label: 'Feature',     visible: false },
+  { key: 'subtype',           label: 'Subtyp',      visible: true  },
+  // The site_* keys are mirrored onto site features in the conversion
+  // script, so a single column works for every entity_type.
+  { key: 'site_name',         label: 'Standort',    visible: true  },
+  { key: 'site_objektnummer', label: 'Objekt-Nr.',  visible: false },
+  { key: 'site_adresse',      label: 'Adresse',     visible: false },
+  { key: 'site_lose',         label: 'Los',         visible: false },
+  { key: 'parzelle',          label: 'Parzelle',    visible: false },
+  { key: 'pflegeklasse',      label: 'Pflegeklasse',visible: false },
   { key: 'eigentuemer',    label: 'Eigentümer',         visible: false },
   { key: 'pflegeverantwortung', label: 'Pflegeverantw.',visible: false },
   { key: 'kontrolle',      label: 'Kontrolle',          visible: false },
@@ -149,21 +148,16 @@ const TABLE_COLS = [
   { key: 'fk_baumart',     label: 'fk_baumart',         visible: false },
   { key: 'fk_profil',      label: 'Profil',             visible: true  },
   { key: 'profil_label',   label: 'Profil-Label',       visible: false },
+  { key: 'aufwandsfaktor', label: 'Aufwandsfaktor',     visible: false,
+    fmt: v => v == null ? '–' : Number(v).toFixed(2) },
   { key: 'fk_pflegedurchfuehrung', label: 'fk_pflegedurchf.', visible: false },
-  { key: 'fk_pflegeklasse',label: 'fk_pflegeklasse',    visible: false },
+  { key: 'fk_pflegeklasse', label: 'fk_pflegeklasse',   visible: false },
   { key: 'fk_pflegeverantwortung', label: 'fk_pflegeverantw.', visible: false },
-  { key: 'fk_zustand',     label: 'fk_zustand',         visible: false },
-  { key: 'fk_winterdienst',label: 'fk_winterdienst',    visible: false },
-  { key: 'fk_kostenstelle',label: 'fk_kostenstelle',    visible: false },
-  { key: 'kostenstelle_name', label: 'Kostenstelle',    visible: false },
+  { key: 'fk_winterdienst', label: 'fk_winterdienst',   visible: false },
   { key: 'bewaesserung',   label: 'Bewässerung',        visible: false },
   { key: 'lauben',         label: 'Lauben',             visible: false },
   { key: 'max_hoehe_m',    label: 'Max. Höhe m',        visible: false },
-  { key: 'hoehe',          label: 'Höhe',               visible: false },
   { key: 'ausmass',        label: 'Ausmass',            visible: false },
-  { key: 'naturobjekt',    label: 'Naturobjekt',        visible: false },
-  { key: 'parzelle',       label: 'Parzelle',           visible: false },
-  { key: 'parzelle_name',  label: 'Parzelle (Name)',    visible: false },
   { key: 'crown_diameter_m', label: 'Krone Ø m',        visible: false },
   { key: 'crown_radius_m', label: 'Krone Radius m',     visible: false },
   { key: 'area_m2',        label: 'Fläche m²',          visible: true,
