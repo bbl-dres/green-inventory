@@ -4,6 +4,20 @@
 //              installAreaFillExpr, AREA_FILL_EXPR, GEOJSON_PATH, BASEMAPS)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── MapLibre paint expression: per-profile fill colour for points ─────────
+// Builds a `match` expression on fk_profil from a list of codes, looking
+// up POINT_PROFILE_STYLE in config.js.  Used by tree-circle and point-
+// circle layers so map colours match the legend exactly.
+function pointProfileColorExpr(codes, defaultColor) {
+  const stops = [];
+  for (const c of codes) {
+    const style = POINT_PROFILE_STYLE[c];
+    if (style && style.fill) stops.push(c, style.fill);
+  }
+  if (stops.length === 0) return defaultColor;
+  return ['match', ['get', 'fk_profil'], ...stops, defaultColor];
+}
+
 // ── HTML escape for safe interpolation into popup/legend innerHTML ─────────
 // GDB attribute strings (Bemerkung, names, ...) are internal but a single
 // '<' silently breaks popup layout.  Use this for every property value that
@@ -18,11 +32,32 @@ function escapeHtml(v) {
 const vis = {};
 for (const g of LEGEND_GROUPS) vis[g.id] = true;
 
-// Entity types that are hidden via the legend eye toggle.
+// Entity types where ALL legend groups are hidden (no profileCodes-aware
+// groups that are still visible).  Used as the "fully hide this layer"
+// shortcut.
 function hiddenEntityTypes() {
-  const out = [];
+  const byEntity = {};   // entity_type -> { total, hidden }
   for (const g of LEGEND_GROUPS) {
-    if (!vis[g.id] && g.entity_type) out.push(g.entity_type);
+    if (!g.entity_type) continue;
+    const e = g.entity_type;
+    if (!byEntity[e]) byEntity[e] = { total: 0, hidden: 0 };
+    byEntity[e].total += 1;
+    if (!vis[g.id]) byEntity[e].hidden += 1;
+  }
+  return Object.entries(byEntity)
+    .filter(([, b]) => b.total > 0 && b.hidden === b.total)
+    .map(([e]) => e);
+}
+
+// Map of entity_type -> Set of profile codes whose group is hidden.
+// Only considers groups WITH profileCodes (sub-grouped types).
+function hiddenProfileCodesByEntity() {
+  const out = {};
+  for (const g of LEGEND_GROUPS) {
+    if (!g.entity_type || !g.profileCodes) continue;
+    if (vis[g.id]) continue;
+    if (!out[g.entity_type]) out[g.entity_type] = new Set();
+    for (const c of g.profileCodes) out[g.entity_type].add(c);
   }
   return out;
 }
@@ -41,13 +76,18 @@ const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points];
 
 function applyMapFilters() {
   const hidden = hiddenEntityTypes();
-  const idFilter = tblActiveIds === null
-    ? ['literal', true]
-    : (tblActiveIds.length === 0 ? ['literal', false] : ['in', ['id'], ['literal', tblActiveIds]]);
+  const hiddenCodes = hiddenProfileCodesByEntity();
+  const tableConstrained = tblActiveIds !== null;
+  const tableIdFilter = !tableConstrained
+    ? null
+    : (tblActiveIds.length === 0
+        ? ['literal', false]
+        : ['in', ['id'], ['literal', tblActiveIds]]);
 
-  // Per layer: combine entity_type match + table id filter.  Each layer is
-  // already restricted to a single entity_type via its filter at creation,
-  // so we only need to AND in the visibility + table-id constraints.
+  // Per layer: combine entity_type match + (optional) hidden-profile-codes
+  // exclusion + (optional) table-id filter.  Each layer's base filter
+  // restricts to a single entity_type so we only need to AND in the
+  // additional constraints here.
   const baseEntityFilters = {
     'site-fill':            ['==', ['get', 'entity_type'], 'site'],
     'site-line':            ['==', ['get', 'entity_type'], 'site'],
@@ -65,10 +105,16 @@ function applyMapFilters() {
     const entFilter = baseEntityFilters[id];
     const ent = entFilter[2];
     if (hidden.includes(ent)) {
-      map.setFilter(id, ['==', ['literal', '0'], ['literal', '1']]); // hide
-    } else {
-      map.setFilter(id, ['all', entFilter, idFilter]);
+      map.setFilter(id, ['==', ['literal', '0'], ['literal', '1']]); // hide layer
+      continue;
     }
+    const parts = ['all', entFilter];
+    if (hiddenCodes[ent] && hiddenCodes[ent].size) {
+      // Exclude features whose fk_profil falls in any hidden sub-group.
+      parts.push(['!', ['in', ['get', 'fk_profil'], ['literal', [...hiddenCodes[ent]]]]]);
+    }
+    if (tableIdFilter) parts.push(tableIdFilter);
+    map.setFilter(id, parts);
   }
 }
 
@@ -382,26 +428,30 @@ function addLayers() {
     paint: { 'fill-color': ENTITY_COLORS.tree_canopy.fill, 'fill-opacity': 0.45 },
   });
 
-  // Tree points.
+  // Tree points - colour by fk_profil so the map matches the legend
+  // (Laubbäume green, Strassenbäume teal, Nadelb. dark green, etc.).
   map.addLayer({
     id: 'tree-circle', type: 'circle', source: 'features',
     filter: ['==', ['get', 'entity_type'], 'tree'],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 3.5, 20, 6],
-      'circle-color': ENTITY_COLORS.tree.fill,
+      'circle-color': pointProfileColorExpr([1, 2, 3, 4, 5, 6, 7, 8],
+                                            ENTITY_COLORS.tree.fill),
       'circle-stroke-color': ENTITY_COLORS.tree.stroke,
       'circle-stroke-width': 0.8,
       'circle-opacity': 0.9,
     },
   });
 
-  // Other points.
+  // Other points - colour by fk_profil through the same point catalog
+  // (Pflanzgefäss Wechselflor magenta, Spielgerät orange, ...).
   map.addLayer({
     id: 'point-circle', type: 'circle', source: 'features',
     filter: ['==', ['get', 'entity_type'], 'point'],
     paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 16, 3, 20, 5],
-      'circle-color': ENTITY_COLORS.point.fill,
+      'circle-color': pointProfileColorExpr([9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+                                            ENTITY_COLORS.point.fill),
       'circle-stroke-color': ENTITY_COLORS.point.stroke,
       'circle-stroke-width': 0.8,
       'circle-opacity': 0.9,
@@ -1152,24 +1202,39 @@ map.on('load', async () => {
     [...new Set(gj.features.map(f => f.properties.fk_profil).filter(p => p != null))];
   installAreaFillExpr(profileCodes);
 
-  // Pre-populate the dynamic Pflegeflächen legend items (top profiles by
-  // area count).  Decode each code through the polygon profile domain
-  // (idPPy) embedded in metadata - so the legend reads
-  // "Geb.Rasen kf. · 184" instead of "Profil 19 · 184".
-  const areaCounts = (gj.metadata && gj.metadata.fk_profil_area_counts) || {};
+  // Populate items for every legend group that uses profileCodes.  Looks
+  // up labels via the embedded codelists (idPPy for area, idPP for
+  // tree/point) and counts via a single pass over the features.  Items
+  // appear in profileCodes order so a curator can decide the visual
+  // order via config.js, not data ordering.
   const idPPy = (gj.metadata && gj.metadata.codelists && gj.metadata.codelists.idPPy) || {};
-  const sortedProfiles = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
-  const areaGroup = LEGEND_GROUPS.find(g => g.id === 'area');
-  if (areaGroup) {
-    areaGroup.items = sortedProfiles.slice(0, 12).map(([p, n]) => ({
-      // JSON keys are strings, so look up with the string p directly.
-      label: `${idPPy[p] || ('Profil ' + p)} · ${n}`,
-      fill: profilColor(Number(p)),
-    }));
-    if (sortedProfiles.length > 12) {
-      const rest = sortedProfiles.slice(12).reduce((s, [, n]) => s + n, 0);
-      areaGroup.items.push({ label: `… ${sortedProfiles.length - 12} weitere Profile · ${rest}`, fill: '#bbbbbb' });
-    }
+  const idPP  = (gj.metadata && gj.metadata.codelists && gj.metadata.codelists.idPP)  || {};
+  const counts = {};   // entity_type -> { profile_code: count }
+  for (const f of gj.features) {
+    const e = f.properties.entity_type;
+    const c = f.properties.fk_profil;
+    if (e == null || c == null) continue;
+    if (!counts[e]) counts[e] = {};
+    counts[e][c] = (counts[e][c] || 0) + 1;
+  }
+  for (const grp of LEGEND_GROUPS) {
+    if (!grp.profileCodes) continue;
+    const cl = grp.entity_type === 'area' ? idPPy : idPP;
+    const ct = counts[grp.entity_type] || {};
+    grp.items = grp.profileCodes
+      .map(code => ({ code, label: cl[code] || cl[String(code)] || ('Profil ' + code), n: ct[code] || 0 }))
+      .filter(x => x.n > 0)         // drop entries with zero features
+      // Keep PDF order (the order in profileCodes) instead of count-sorting,
+      // so Laubbäume always come before Strassenbäume etc. - surveyors
+      // expect the printed-plan ordering.
+      .map(x => {
+        const style = profilStyle(grp.entity_type, x.code);
+        return {
+          label: `${x.label} · ${x.n}`,
+          fill: style.fill,
+          swatchClass: style.swatchClass,
+        };
+      });
   }
 
   addLayers();
@@ -1368,17 +1433,35 @@ const EYE_CLOSED = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
 </svg>`;
 
 function buildLegend(features) {
+  // Two-level counts:
+  //   entityCounts[e]            = total features of that entity_type
+  //   profileCounts[e][p]        = features by entity_type + profile code
+  // Sub-grouped legend groups (those with profileCodes) display the SUM of
+  // their codes' counts, not the entity_type total — so "Rasen" reads its
+  // own ~250-feature count rather than the 3014-feature area total.
   const entityCounts = {};
+  const profileCounts = {};
   for (const f of features) {
     const e = f.properties.entity_type;
+    const c = f.properties.fk_profil;
+    if (e == null) continue;
     entityCounts[e] = (entityCounts[e] || 0) + 1;
+    if (c == null) continue;
+    if (!profileCounts[e]) profileCounts[e] = {};
+    profileCounts[e][c] = (profileCounts[e][c] || 0) + 1;
   }
 
   const el = document.getElementById('legend-scroll');
   el.innerHTML = '';
 
   for (const grp of LEGEND_GROUPS) {
-    const cnt = grp.entity_type ? (entityCounts[grp.entity_type] || 0) : 0;
+    let cnt;
+    if (grp.profileCodes && grp.entity_type) {
+      const ct = profileCounts[grp.entity_type] || {};
+      cnt = grp.profileCodes.reduce((s, c) => s + (ct[c] || 0), 0);
+    } else {
+      cnt = grp.entity_type ? (entityCounts[grp.entity_type] || 0) : 0;
+    }
     const hasData = cnt > 0;
 
     const groupEl = document.createElement('div');

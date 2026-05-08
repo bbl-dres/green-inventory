@@ -15,7 +15,7 @@ const FILTER_URL_KEYS = {
   eigentuemer: 'eg', fk_profil: 'pr', baumart: 'ba', site_name: 'sn',
 };
 const FILTER_URL_KEYS_REV = Object.fromEntries(Object.entries(FILTER_URL_KEYS).map(([k, v]) => [v, k]));
-let tblPage = 0, tblPageSize = 25;
+let tblPage = 0, tblPageSize = 100;
 
 function buildTable() {
   if (!geojsonData) return;
