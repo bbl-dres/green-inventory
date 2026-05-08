@@ -24,7 +24,10 @@
       "Bash(curl -sS -o NUL -w \"HTTP %{http_code}, %{size_download} bytes, type: %{content_type}\\\\n\" \"https://map.geo.admin.ch/configs/de/layersConfig.json\")",
       "Bash(curl -sS -o NUL -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\" \"https://api3.geo.admin.ch/rest/services/api/MapServer/layersConfig?lang=de\")",
       "Bash(curl -sS \"https://api3.geo.admin.ch/rest/services/api/MapServer/layersConfig?lang=de\" -o C:\\\\Users\\\\DavidRasner\\\\AppData\\\\Local\\\\Temp\\\\layersconfig.json)",
-      "Bash(curl -sS *)"
+      "Bash(curl -sS *)",
+      "Bash(where ogrinfo 2>&1 *)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/OSGeo4W/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory\\data",

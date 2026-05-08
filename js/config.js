@@ -146,15 +146,21 @@ const TABLE_COLS = [
   { key: 'baumart',        label: 'Baumart',            visible: true  },
   { key: 'baumnummer',     label: 'Baum-Nr.',           visible: false },
   { key: 'fk_baumart',     label: 'fk_baumart',         visible: false },
-  { key: 'fk_profil',      label: 'Profil',             visible: true  },
-  { key: 'profil_label',   label: 'Profil-Label',       visible: false },
+  // profil_label is now the decoded GDB-domain name (e.g. "Geb.Rasen kf.",
+  // "Sitzbank", "Asphaltbelag"), so we promote it to default-visible and
+  // demote the raw integer fk_profil.
+  { key: 'profil_label',   label: 'Profil',             visible: true  },
+  { key: 'fk_profil',      label: 'Profil-Code',        visible: false },
   { key: 'aufwandsfaktor', label: 'Aufwandsfaktor',     visible: false,
     fmt: v => v == null ? '–' : Number(v).toFixed(2) },
+  { key: 'pflegedurchfuehrung', label: 'Pflege durch',  visible: false },
   { key: 'fk_pflegedurchfuehrung', label: 'fk_pflegedurchf.', visible: false },
   { key: 'fk_pflegeklasse', label: 'fk_pflegeklasse',   visible: false },
   { key: 'fk_pflegeverantwortung', label: 'fk_pflegeverantw.', visible: false },
+  { key: 'winterdienst',   label: 'Winterdienst',       visible: false },
   { key: 'fk_winterdienst', label: 'fk_winterdienst',   visible: false },
-  { key: 'bewaesserung',   label: 'Bewässerung',        visible: false },
+  { key: 'bewaesserung_label', label: 'Bewässerung',    visible: false },
+  { key: 'bewaesserung',   label: 'Bewässerung-Code',   visible: false },
   { key: 'lauben',         label: 'Lauben',             visible: false },
   { key: 'max_hoehe_m',    label: 'Max. Höhe m',        visible: false },
   { key: 'ausmass',        label: 'Ausmass',            visible: false },
@@ -181,5 +187,8 @@ const TABLE_COLS = [
 ];
 
 // Filter dropdown columns - which columns get a checkbox-list filter.
+// Filter on the decoded profile name (44 polygon profiles + 23 point
+// profiles ≈ 60 distinct strings) instead of the raw integer.
 const FILTER_COLS_DEFAULT = ['entity_type', 'site_lose', 'pflegeklasse',
-                             'eigentuemer', 'fk_profil', 'baumart', 'site_name'];
+                             'eigentuemer', 'profil_label', 'pflegedurchfuehrung',
+                             'baumart', 'site_name'];

@@ -136,29 +136,24 @@ function popupHTML(p) {
     },
     {
       title: 'Klassifikation',
+      // Prefer decoded labels (from GDB field domains) over raw fk_* codes;
+      // raw codes are kept in the data for power-user access via the table
+      // column toggle.
       keys: [
-        ['baumart',                'Baumart'],
-        ['baumnummer',             'Baum-Nr.'],
-        ['fk_baumart',             'fk_baumart'],
-        ['profil_label',           'Profil'],
-        ['fk_profil',              'fk_profil'],
-        ['aufwandsfaktor',         'Aufwandsfaktor'],
-        ['fk_pflegedurchfuehrung', 'fk_pflegedurchf.'],
-        ['fk_pflegeklasse',        'fk_pflegeklasse'],
-        ['pflegeklasse',           'Pflegeklasse'],
-        ['eigentuemer',            'Eigentümer'],
-        ['pflegeverantwortung',    'Pflegeverantw.'],
-        ['fk_pflegeverantwortung', 'fk_pflegeverantw.'],
-        ['fk_zustand',             'fk_zustand'],
-        ['fk_winterdienst',        'fk_winterdienst'],
-        ['fk_kostenstelle',        'fk_kostenstelle'],
-        ['kostenstelle_name',      'Kostenstelle'],
-        ['bewaesserung',           'Bewässerung'],
-        ['lauben',                 'Lauben'],
-        ['ausmass',                'Ausmass'],
-        ['naturobjekt',            'Naturobjekt'],
-        ['kontrolle',              'Kontrolle'],
-        ['reinigung',              'Reinigung'],
+        ['baumart',             'Baumart'],
+        ['baumnummer',          'Baum-Nr.'],
+        ['profil_label',        'Profil'],
+        ['aufwandsfaktor',      'Aufwandsfaktor'],
+        ['pflegedurchfuehrung', 'Pflege durch'],
+        ['pflegeklasse',        'Pflegeklasse'],
+        ['eigentuemer',         'Eigentümer'],
+        ['pflegeverantwortung', 'Pflegeverantw.'],
+        ['winterdienst',        'Winterdienst'],
+        ['bewaesserung_label',  'Bewässerung'],
+        ['lauben',              'Lauben'],
+        ['ausmass',             'Ausmass'],
+        ['kontrolle',           'Kontrolle'],
+        ['reinigung',           'Reinigung'],
       ],
     },
     {
@@ -335,20 +330,19 @@ function clearSelection() {
 function addLayers() {
   if (!geojsonData || map.getSource('features')) return;
   // tolerance / maxzoom: the GeoJSON source's defaults (0.375, 18) over-
-  // simplify our data.  At z18 a 0.375-px Douglas-Peucker tolerance is
-  // ~60 cm on the ground, so corners < 1 m get straightened; above z18
-  // tiles are stretched, magnifying that simplification.  Our polygons
-  // have cm-precision coordinates and people zoom in to read plan-level
-  // detail, so:
-  //   tolerance: 0.125  (3× less simplification — visually smooth at all
-  //                      zooms while still trimming redundant vertices at
-  //                      low zooms where you couldn't see them anyway)
-  //   maxzoom: 22       (re-tile right up to the map's maxZoom so detail
-  //                      is preserved past z18 instead of being stretched)
+  // simplify our data, leaving angular corners visible against high-
+  // contrast aerial imagery at z19+.
+  //   tolerance: 0    (no tile-level Douglas-Peucker.  At maxzoom 22 the
+  //                    default 0.375 px ≈ 2 mm — already invisible — but
+  //                    on a HiDPI screen at z21 with low data density it
+  //                    can produce subtle pixel snapping.  Setting 0 makes
+  //                    the rendered geometry exactly match the source.)
+  //   maxzoom: 22     (re-tile right up to the map's maxZoom so detail
+  //                    is preserved past z18 instead of being stretched)
   map.addSource('features', {
     type: 'geojson',
     data: geojsonData,
-    tolerance: 0.125,
+    tolerance: 0,
     maxzoom: 22,
   });
 
@@ -1158,13 +1152,18 @@ map.on('load', async () => {
     [...new Set(gj.features.map(f => f.properties.fk_profil).filter(p => p != null))];
   installAreaFillExpr(profileCodes);
 
-  // Pre-populate the dynamic Pflegeflächen legend items (top profiles by area count).
+  // Pre-populate the dynamic Pflegeflächen legend items (top profiles by
+  // area count).  Decode each code through the polygon profile domain
+  // (idPPy) embedded in metadata - so the legend reads
+  // "Geb.Rasen kf. · 184" instead of "Profil 19 · 184".
   const areaCounts = (gj.metadata && gj.metadata.fk_profil_area_counts) || {};
+  const idPPy = (gj.metadata && gj.metadata.codelists && gj.metadata.codelists.idPPy) || {};
   const sortedProfiles = Object.entries(areaCounts).sort((a, b) => b[1] - a[1]);
   const areaGroup = LEGEND_GROUPS.find(g => g.id === 'area');
   if (areaGroup) {
     areaGroup.items = sortedProfiles.slice(0, 12).map(([p, n]) => ({
-      label: `Profil ${p} · ${n}`,
+      // JSON keys are strings, so look up with the string p directly.
+      label: `${idPPy[p] || ('Profil ' + p)} · ${n}`,
       fill: profilColor(Number(p)),
     }));
     if (sortedProfiles.length > 12) {

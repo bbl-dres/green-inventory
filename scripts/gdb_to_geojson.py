@@ -59,6 +59,122 @@ EXPECTED_SRC_CRS = ("EPSG:21781", "EPSG:2056")  # LV03 (Bessel) or LV95 (Bessel+
 LV95_CRS = "EPSG:2056"
 WGS84 = "EPSG:4326"
 
+
+# ---------------------------------------------------------------------------
+# Codelist extractor (ctypes against pyogrio's bundled GDAL)
+# ---------------------------------------------------------------------------
+# pyogrio doesn't expose GDAL >= 3.3's OGR_FieldDomain API.  We load GDAL
+# directly via ctypes and read the coded-value enumerations.  This gives us
+# real labels for every fk_* code in the GDB - the legacy GFM domain
+# catalog (idPP, idPPy, idBa, idPd, ...) which the GSZ Profilkatalog and
+# the inventory toolchain were built around.
+#
+# Cross-platform note: this works wherever pyogrio.libs has a shared
+# library.  On Windows it's gdal-*.dll, on Linux it's libgdal-*.so, on
+# macOS it's libgdal.*.dylib.  The function signatures are identical.
+
+def _find_gdal_lib():
+    import glob
+    libs_dir = os.path.dirname(pyogrio.__file__) + ".libs"
+    for pattern in ("gdal-*.dll", "libgdal-*.so", "libgdal.*.dylib"):
+        hits = glob.glob(os.path.join(libs_dir, pattern))
+        if hits:
+            return hits[0]
+    return None
+
+
+def extract_codelists(gdb_path):
+    """Read all coded-value field domains from a FileGDB.
+
+    Returns a dict {domain_name: {int_code: label}}.  Empty domains are
+    still included with an empty dict so downstream code can tell "domain
+    exists but unused" from "domain doesn't exist".
+    """
+    import ctypes
+    gdal_path = _find_gdal_lib()
+    if not gdal_path:
+        print("  WARNING: couldn't find pyogrio's bundled GDAL library; "
+              "skipping codelist extraction.")
+        return {}
+
+    class OGRCodedValue(ctypes.Structure):
+        _fields_ = [("pszCode", ctypes.c_char_p), ("pszValue", ctypes.c_char_p)]
+
+    g = ctypes.CDLL(gdal_path)
+    g.GDALAllRegister()
+    g.GDALOpenEx.argtypes = [ctypes.c_char_p, ctypes.c_uint, ctypes.c_void_p,
+                             ctypes.c_void_p, ctypes.c_void_p]
+    g.GDALOpenEx.restype = ctypes.c_void_p
+    g.GDALClose.argtypes = [ctypes.c_void_p]
+    g.GDALClose.restype = None
+    g.GDALDatasetGetFieldDomainNames.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    g.GDALDatasetGetFieldDomainNames.restype = ctypes.POINTER(ctypes.c_char_p)
+    g.GDALDatasetGetFieldDomain.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    g.GDALDatasetGetFieldDomain.restype = ctypes.c_void_p
+    g.OGR_FldDomain_GetDomainType.argtypes = [ctypes.c_void_p]
+    g.OGR_FldDomain_GetDomainType.restype = ctypes.c_int
+    g.OGR_FldDomain_GetDescription.argtypes = [ctypes.c_void_p]
+    g.OGR_FldDomain_GetDescription.restype = ctypes.c_char_p
+    g.OGR_CodedFldDomain_GetEnumeration.argtypes = [ctypes.c_void_p]
+    g.OGR_CodedFldDomain_GetEnumeration.restype = ctypes.POINTER(OGRCodedValue)
+
+    GDAL_OF_VECTOR = 0x04
+    OFDT_CODED = 0
+    ds = g.GDALOpenEx(str(gdb_path).encode("mbcs"), GDAL_OF_VECTOR,
+                      None, None, None)
+    if not ds:
+        print(f"  WARNING: couldn't open {gdb_path} for codelist extraction.")
+        return {}
+
+    out = {}
+    try:
+        names_ptr = g.GDALDatasetGetFieldDomainNames(ds, None)
+        i = 0
+        while names_ptr[i]:
+            name = names_ptr[i].decode("utf-8")
+            i += 1
+            d = g.GDALDatasetGetFieldDomain(ds, name.encode("utf-8"))
+            if not d:
+                out[name] = {}
+                continue
+            if g.OGR_FldDomain_GetDomainType(d) != OFDT_CODED:
+                out[name] = {}
+                continue
+            enum_arr = g.OGR_CodedFldDomain_GetEnumeration(d)
+            mapping = {}
+            j = 0
+            while enum_arr and enum_arr[j].pszCode:
+                code_s = enum_arr[j].pszCode.decode("utf-8")
+                val_s = (enum_arr[j].pszValue.decode("utf-8")
+                         if enum_arr[j].pszValue else "")
+                # Codes come back as strings; coerce to int when numeric so
+                # downstream lookups can use the raw fk_* integer key.
+                key = int(code_s) if code_s.lstrip("-").isdigit() else code_s
+                mapping[key] = val_s
+                j += 1
+                if j > 10000:
+                    break  # paranoia
+            out[name] = mapping
+    finally:
+        g.GDALClose(ds)
+    return out
+
+
+def lookup(codelist, code):
+    """Decode a single code via a codelist dict.  Tolerates None, NaN, and
+    string codes.  Returns None when the code isn't in the domain."""
+    if code is None:
+        return None
+    try:
+        if pd.isna(code):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if hasattr(code, "item"):
+        try: code = code.item()
+        except Exception: pass
+    return codelist.get(code)
+
 # SRC_CRS, to_wgs, to_lv95, lv95_to_wgs are populated by configure_transforms()
 # once we've read the actual GDB layer's CRS and verified it matches.
 SRC_CRS = None
@@ -234,16 +350,37 @@ def is_canopy(geom_length: float | None, geom_area: float | None) -> bool:
     return abs(ratio - 1.0) < CANOPY_CIRCULARITY_TOL
 
 
-# Douglas-Peucker simplification tolerance applied in LV95 (metres).  10 cm
-# is well below the source data's nominal precision and visually invisible
-# at any practical zoom.  Its main job is to trim digitization artifacts on
-# the two outlier polygons (41 823 and 30 847 vertices) where vertex spacing
-# is < 10 cm of perimeter.
-SIMPLIFY_TOL_M = 0.10
+# Douglas-Peucker simplification settings (LV95 metres).
+#
+# We only simplify polygons that exceed SIMPLIFY_VERTEX_THRESHOLD - those
+# are the digitization-noise outliers (originally up to 41 823 vertices on
+# a 1060 m² polygon = vertex every 7 cm of perimeter).  Normal hand-
+# digitized polygons stay pixel-perfect at any zoom: a 5 cm tolerance
+# applied indiscriminately straightens corners that are visible at z21+
+# on the aerial basemap.
+#
+# Why a tighter tolerance (5 cm vs the previous 10 cm)?  At z22 one screen
+# pixel ≈ 6.5 mm; 10 cm was 15 px of straight-edge artifact, while 5 cm is
+# under 8 px and only kicks in for the outliers anyway.
+SIMPLIFY_TOL_M = 0.05
+SIMPLIFY_VERTEX_THRESHOLD = 200
+
+
+def _vertex_count(geom):
+    if geom is None or geom.is_empty:
+        return 0
+    if geom.geom_type == "Polygon":
+        n = len(geom.exterior.coords)
+        for ring in geom.interiors:
+            n += len(ring.coords)
+        return n
+    if geom.geom_type == "MultiPolygon":
+        return sum(_vertex_count(p) for p in geom.geoms)
+    return 0
 
 
 def clean_polygon(geom):
-    """Repair invalid geometry, simplify in-place at SIMPLIFY_TOL_M, and
+    """Repair invalid geometry, simplify ONLY high-vertex outliers, and
     enforce GeoJSON right-hand rule (outer ring CCW, inner rings CW).
 
     Caller is expected to pass a Shapely geometry already in LV95 metres so
@@ -261,7 +398,10 @@ def clean_polygon(geom):
             if not polys:
                 return None
             geom = max(polys, key=lambda g: g.area)
-    geom = geom.simplify(SIMPLIFY_TOL_M, preserve_topology=True)
+    # Only simplify when there's evidence of digitization noise.  Anything
+    # under SIMPLIFY_VERTEX_THRESHOLD is treated as authoritative.
+    if _vertex_count(geom) > SIMPLIFY_VERTEX_THRESHOLD:
+        geom = geom.simplify(SIMPLIFY_TOL_M, preserve_topology=True)
     if geom.is_empty:
         return geom
     if geom.geom_type == "Polygon":
@@ -292,21 +432,26 @@ def round_coords(geom, ndigits=7):
 # ---------------------------------------------------------------------------
 # Site loader (Objekt)
 # ---------------------------------------------------------------------------
-def load_sites():
+def load_sites(codelists):
     """Return (site_polygon_features, site_location_features, site_lookup).
 
     site_lookup maps OBJECTID -> dict(name, address, ...) so the point/polygon
     builders can attach the site name to every child feature.
+
+    Codelists are looked up via the authoritative GDB field-domain catalog:
+      idPk = pflegeklasse, idEg = eigentuemer, idPv = pflegeverantwortung,
+      idJn = ja/nein (kontrolle, reinigung).
+    Excel sheet `Liste_Objekte.xls` is no longer consulted - the GDB
+    domains are the single source of truth.
     """
-    # We pull the Excel sheet primarily for the decoded values.  The GDB
-    # itself contains the raw integers; the Excel is the only place where the
-    # FK codes are spelled out.
-    obj_df = pd.read_excel(XLS_PATH, sheet_name="Objekt")
-    decoded_by_oid = {row.OBJECTID: row for row in obj_df.itertuples()}
+    pk_map = codelists.get("idPk", {}) or PFLEGEKLASSE
+    eg_map = codelists.get("idEg", {}) or EIGENTUEMER
+    pv_map = codelists.get("idPv", {}) or PFLEGEVERANTWORTUNG
+    jn_map = codelists.get("idJn", {}) or JA_NEIN
 
     polys = []
     dots = []
-    lookup = {}
+    site_lookup = {}
 
     # pyogrio gives us every column the FileGDB driver knows about (fiona
     # 1.10 silently drops columns the OpenFileGDB driver added in newer
@@ -333,19 +478,12 @@ def load_sites():
         cx_lv95, cy_lv95 = centroid_lv95.x, centroid_lv95.y
         centroid_wgs = round_coords(reproject(centroid_src, to_wgs))
 
-        # Decoded fields.  Fall back to raw integer text if the Excel
-        # row is missing for some reason.
-        xl = decoded_by_oid.get(oid)
-        pflegeklasse_lbl = (xl.fk_pflegeklasseObjekt if xl is not None
-                            else PFLEGEKLASSE.get(props.get("fk_pflegeklasseObjekt")))
-        eigentuemer_lbl = (xl.fk_eigentuemer if xl is not None
-                           else EIGENTUEMER.get(props.get("fk_eigentuemer")))
-        verantwortung_lbl = (xl.fk_pflegeverantwortungObjekt if xl is not None
-                             else PFLEGEVERANTWORTUNG.get(props.get("fk_pflegeverantwortungObjekt")))
-        kontrolle_lbl = (xl.kontrolle if xl is not None
-                         else JA_NEIN.get(props.get("kontrolle")))
-        reinigung_lbl = (xl.reinigung if xl is not None
-                         else JA_NEIN.get(props.get("reinigung")))
+        # Decode via the GDB's own field-domain catalog (extracted via ctypes).
+        pflegeklasse_lbl  = lookup(pk_map, props.get("fk_pflegeklasseObjekt"))
+        eigentuemer_lbl   = lookup(eg_map, props.get("fk_eigentuemer"))
+        verantwortung_lbl = lookup(pv_map, props.get("fk_pflegeverantwortungObjekt"))
+        kontrolle_lbl     = lookup(jn_map, props.get("kontrolle"))
+        reinigung_lbl     = lookup(jn_map, props.get("reinigung"))
 
         # Same identifier values exposed under two names: the native site
         # columns AND the site_* form used by child features.  This way
@@ -421,22 +559,30 @@ def load_sites():
             },
         })
 
-        lookup[oid] = {
+        site_lookup[oid] = {
             "name": base["name"],
             "objektnummer": base["objektnummer"],
             "adresse": base["adresse"],
             "lose": base["lose"],
         }
 
-    return polys, dots, lookup
+    return polys, dots, site_lookup
 
 
 # ---------------------------------------------------------------------------
 # Point loader (Pflegeelement_point)
 # ---------------------------------------------------------------------------
-def load_points(site_lookup):
+def load_points(site_lookup, codelists):
     trees = []
     others = []
+    # Profile codes on POINTS use idPP (1=Laubb. nat. grossk., 12=Abfalleimer,
+    # 13=Sitzbank, ...) - a different domain than idPPy used by polygons!
+    profil_map  = codelists.get("idPP", {})
+    durch_map   = codelists.get("idPd", {})
+    pk_map      = codelists.get("idPk", {})
+    pv_map      = codelists.get("idPv", {})
+    bewaess_map = codelists.get("idBw", {})
+    baumart_map = codelists.get("idBa", {})
     gdf = pyogrio.read_dataframe(GDB_PATH, layer="Pflegeelement_point")
     for _, row in gdf.iterrows():
         if row.geometry is None or row.geometry.is_empty:
@@ -470,22 +616,26 @@ def load_points(site_lookup):
         #   hoehe (point), and per-point fk_pflegeklasse.
         # Kept (occasionally populated): fk_pflegeklasse (polygon: 43 rows
         # have value 2), fk_pflegeverantwortung (point: 1 row).
+        fk_profil_v = to_int(props.get("fk_profil"))
         base = {
             "site_oid": site_oid,
             "site_name": site.get("name"),
             "site_objektnummer": site.get("objektnummer"),
             "site_adresse": site.get("adresse"),
             "site_lose": site.get("lose"),
-            "fk_profil": to_int(props.get("fk_profil")),
-            "profil_label": (f"Profil {to_int(props.get('fk_profil'))}"
-                             if not pd.isna(props.get("fk_profil")) else None),
+            "fk_profil": fk_profil_v,
+            "profil_label": profil_map.get(fk_profil_v) or (
+                f"Profil {fk_profil_v}" if fk_profil_v is not None else None),
             "fk_pflegedurchfuehrung": to_int(props.get("fk_pflegedurchfuehrung")),
+            "pflegedurchfuehrung": lookup(durch_map, props.get("fk_pflegedurchfuehrung")),
             "fk_pflegeverantwortung": to_int(props.get("fk_pflegeverantwortung")),
+            "pflegeverantwortung": lookup(pv_map, props.get("fk_pflegeverantwortung")),
             # aufwandsfaktor stored as float32 in the GDB - round away the
             # rounding-error tail so 0.6 doesn't print as 0.6000000238.
             "aufwandsfaktor": (round(jsonify(props.get("aufwandsfaktor")), 2)
                                if not pd.isna(props.get("aufwandsfaktor")) else None),
             "bewaesserung": to_int(props.get("bewaesserung")),
+            "bewaesserung_label": lookup(bewaess_map, props.get("bewaesserung")),
             "lauben": to_int(props.get("lauben")),
             "max_hoehe_m": jsonify(props.get("maxHoehe")),  # float (e.g. 1.4)
             "ausmass": to_int(props.get("ausmass")),
@@ -496,8 +646,11 @@ def load_points(site_lookup):
         }
 
         if is_tree:
+            # Prefer the textual `baumart` if populated; otherwise look the
+            # numeric fk_baumart up in idBa (430 species).
+            baumart_decoded = baumart or lookup(baumart_map, fk_baumart)
             base.update({
-                "baumart": baumart,
+                "baumart": baumart_decoded,
                 "fk_baumart": to_int(fk_baumart),
                 "baumnummer": to_int(props.get("Baumnummer")),
             })
@@ -509,7 +662,7 @@ def load_points(site_lookup):
                     "entity_type": "tree",
                     "category": "tree",
                     "feature_type": "Baum",
-                    "subtype": baumart or f"Baum (Art-Code {to_int(fk_baumart)})",
+                    "subtype": baumart_decoded or f"Baum (Art-Code {to_int(fk_baumart)})",
                     "source": "GDB:Pflegeelement_point",
                 },
             })
@@ -522,8 +675,9 @@ def load_points(site_lookup):
                     "entity_type": "point",
                     "category": "point_other",
                     "feature_type": "Punktelement",
-                    "subtype": (f"Profil {to_int(props.get('fk_profil'))}"
-                                if not pd.isna(props.get("fk_profil")) else "Punktelement"),
+                    # Use the human-readable profile name as subtype if we
+                    # have one (e.g. "Sitzbank"), else fall back to the code.
+                    "subtype": base["profil_label"] or "Punktelement",
                     "source": "GDB:Pflegeelement_point",
                 },
             })
@@ -534,9 +688,18 @@ def load_points(site_lookup):
 # ---------------------------------------------------------------------------
 # Polygon loader (Pflegeelement_polygon)
 # ---------------------------------------------------------------------------
-def load_polygons(site_lookup):
+def load_polygons(site_lookup, codelists):
     canopies = []
     areas = []
+    # Profile codes on POLYGONS use idPPy (1=Geb.Rasen kf., 5=Blumenrasen,
+    # 25=Asphaltbelag, 37=Geröllstreifen/Bollensteine, ...) - a different
+    # 44-entry domain than idPP used by points.
+    profil_map  = codelists.get("idPPy", {})
+    durch_map   = codelists.get("idPd", {})
+    pk_map      = codelists.get("idPk", {})
+    pv_map      = codelists.get("idPv", {})
+    bewaess_map = codelists.get("idBw", {})
+    winter_map  = codelists.get("Winterdienst", {})
     gdf = pyogrio.read_dataframe(GDB_PATH, layer="Pflegeelement_polygon")
     for _, row in gdf.iterrows():
         if row.geometry is None or row.geometry.is_empty:
@@ -571,23 +734,28 @@ def load_polygons(site_lookup):
             site_oid = int(site_oid)
         site = site_lookup.get(site_oid, {})
 
+        fk_profil_v = to_int(props.get("fk_profil"))
         base = {
             "site_oid": site_oid,
             "site_name": site.get("name"),
             "site_objektnummer": site.get("objektnummer"),
             "site_adresse": site.get("adresse"),
             "site_lose": site.get("lose"),
-            "fk_profil": to_int(props.get("fk_profil")),
-            "profil_label": (f"Profil {to_int(props.get('fk_profil'))}"
-                             if not pd.isna(props.get("fk_profil")) else None),
+            "fk_profil": fk_profil_v,
+            "profil_label": profil_map.get(fk_profil_v) or (
+                f"Profil {fk_profil_v}" if fk_profil_v is not None else None),
             "fk_pflegedurchfuehrung": to_int(props.get("fk_pflegedurchfuehrung")),
-            "fk_pflegeklasse": to_int(props.get("fk_pflegeklasse")),  # 43 rows non-zero
+            "pflegedurchfuehrung": lookup(durch_map, props.get("fk_pflegedurchfuehrung")),
+            "fk_pflegeklasse": to_int(props.get("fk_pflegeklasse")),
+            "pflegeklasse": lookup(pk_map, props.get("fk_pflegeklasse")),
             "fk_winterdienst": to_int(props.get("fk_winterdienst")),
+            "winterdienst": lookup(winter_map, props.get("fk_winterdienst")),
             # aufwandsfaktor stored as float32 in the GDB - round away the
             # rounding-error tail so 0.6 doesn't print as 0.6000000238.
             "aufwandsfaktor": (round(jsonify(props.get("aufwandsfaktor")), 2)
                                if not pd.isna(props.get("aufwandsfaktor")) else None),
             "bewaesserung": to_int(props.get("bewaesserung")),
+            "bewaesserung_label": lookup(bewaess_map, props.get("bewaesserung")),
             "lauben": to_int(props.get("lauben")),
             "max_hoehe_m": jsonify(props.get("maxHoehe")),  # float
             "ausmass": jsonify(props.get("ausmass")),  # mostly None, kept as-is
@@ -608,8 +776,7 @@ def load_polygons(site_lookup):
                     "entity_type": "tree_canopy",
                     "category": "tree_canopy",
                     "feature_type": "Baumkrone",
-                    "subtype": (f"Profil {to_int(props.get('fk_profil'))}"
-                                if not pd.isna(props.get("fk_profil")) else "Baumkrone"),
+                    "subtype": base["profil_label"] or "Baumkrone",
                     "crown_radius_m": round(radius_m, 2),
                     "crown_diameter_m": round(2 * radius_m, 2),
                     "area_m2": round(geom_lv95.area, 1),
@@ -629,8 +796,7 @@ def load_polygons(site_lookup):
                     "category": (f"profil_{to_int(props.get('fk_profil'))}"
                                  if not pd.isna(props.get("fk_profil")) else "profil_unknown"),
                     "feature_type": "Pflegefläche",
-                    "subtype": (f"Profil {to_int(props.get('fk_profil'))}"
-                                if not pd.isna(props.get("fk_profil")) else "Profil ?"),
+                    "subtype": base["profil_label"] or "Pflegefläche",
                     "area_m2": round(geom_lv95.area, 1),
                     "source": "GDB:Pflegeelement_polygon",
                 },
@@ -651,9 +817,14 @@ def main():
     print(f"  Source CRS: {info['crs']}")
     configure_transforms(info["crs"])
 
-    sites, dots, lookup = load_sites()
-    trees, others = load_points(lookup)
-    canopies, areas = load_polygons(lookup)
+    # Extract codelists once.  The dict is read by all three loaders.
+    codelists = extract_codelists(GDB_PATH)
+    print(f"  Codelists: {len(codelists)} domains "
+          f"({sum(1 for v in codelists.values() if v)} populated)")
+
+    sites, dots, site_lookup = load_sites(codelists)
+    trees, others = load_points(site_lookup, codelists)
+    canopies, areas = load_polygons(site_lookup, codelists)
 
     # Order matters - features rendered later sit on top.  We want sites at
     # the bottom (large boundary polygons), then areas, then tree canopies,
@@ -716,9 +887,15 @@ def main():
             "out_crs": "EPSG:4326 (WGS84, RFC 7946)",
             "transform_accuracy_m": configure_transforms.accuracy_m,
             "simplify_tolerance_m_lv95": SIMPLIFY_TOL_M,
+            "simplify_vertex_threshold": SIMPLIFY_VERTEX_THRESHOLD,
             "canopy_min_area_m2": CANOPY_MIN_AREA_M2,
             "canopy_circularity_tol": CANOPY_CIRCULARITY_TOL,
             "lv95_in_properties": True,
+            # Codelists extracted from the GDB's own field-domain catalog
+            # (via the ctypes → OGR_FldDomain_GetEnumeration path).  Keys
+            # match the GDB domain names (idPP, idPPy, idBa, ...).  Values
+            # are {int_code: label}.
+            "codelists": codelists,
             "counts": {
                 "sites": len(sites),
                 "site_locations": len(dots),
