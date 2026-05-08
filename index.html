@@ -36,7 +36,14 @@
     </div>
 
     <div class="header-right">
-<button class="edit-btn" id="edit-toggle" title="Position korrigieren">
+      <button class="edit-btn" id="filter-toggle" title="Filter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+        </svg>
+        Filter
+        <span class="tbl-badge" id="filter-toggle-badge" style="display:none"></span>
+      </button>
+      <button class="edit-btn" id="edit-toggle" title="Position korrigieren">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -170,17 +177,13 @@
               <div class="dd-menu" id="tbl-col-dd" style="right:0;left:auto"></div>
             </div>
 
-            <div class="dd-wrap" id="filter-dd-wrap">
-              <button class="dd-btn" id="filter-dd-btn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-                </svg>
-                Filter
-                <span class="tbl-badge" id="tbl-filter-badge" style="display:none"></span>
-                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="dd-menu" id="tbl-filter-dd" style="min-width:230px;right:0;left:auto"></div>
-            </div>
+            <button class="dd-btn" id="filter-dd-btn" title="Filter (rechts)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+              <span class="tbl-badge" id="tbl-filter-badge" style="display:none"></span>
+            </button>
 
             <div class="dd-wrap" id="export-dd-wrap">
               <button class="dd-btn" id="export-dd-btn">
@@ -236,6 +239,25 @@
       </div>
 
     </div><!-- #main-content -->
+
+    <!-- Filter Sidebar (right side) -->
+    <aside id="filter-sidebar" class="collapsed" aria-label="Filter">
+      <div id="filter-sidebar-header">
+        <span>Filter</span>
+        <span class="tbl-badge" id="filter-sidebar-badge" style="display:none"></span>
+        <button id="filter-sidebar-close" class="sidebar-close-btn" aria-label="Filter schliessen">&times;</button>
+      </div>
+      <div id="filter-sidebar-controls">
+        <div id="filter-sidebar-search-wrap">
+          <input type="text" id="filter-sidebar-search" placeholder="Filter durchsuchen…">
+          <button class="input-clear-x" id="filter-sidebar-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
+        </div>
+        <button class="filter-reset-link" id="filter-sidebar-clear">Alle zurücksetzen</button>
+      </div>
+      <div id="filter-sidebar-body">
+        <div id="filter-groups"></div>
+      </div>
+    </aside>
 
   </div>
 

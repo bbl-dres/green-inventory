@@ -346,9 +346,18 @@ const TABLE_COLS = [
   { key: 'source',                label: 'Quelle',           visible: false },
 ];
 
-// Filter dropdown columns - which columns get a checkbox-list filter.
-// Filter on the decoded profile name (44 polygon profiles + 23 point
-// profiles ≈ 60 distinct strings) instead of the raw integer.
-const FILTER_COLS_DEFAULT = ['entity_type', 'site_lose', 'pflegeklasse',
-                             'eigentuemer', 'profil_label', 'pflegedurchfuehrung',
-                             'baumart', 'site_name'];
+// Filter dropdown columns - which columns get a checkbox-list filter,
+// AND in what order they appear in the dropdown.  Order matters: surveyors
+// almost always start by narrowing to a specific Standort, then refine by
+// what kind of green-area feature they're after.  Putting Standort first
+// matches the workflow.
+const FILTER_COLS_DEFAULT = [
+  'site_name',          // Standort (most common entry point)
+  'profil_label',       // Profil (44 polygon + 23 point names)
+  'baumart',            // Tree species (430 entries, but searchable)
+  'entity_type',        // Typ (broad bucket: site/area/tree/...)
+  'site_lose',          // Los (DLZ district)
+  'pflegeklasse',       // Pflegeklasse (PK 1/2/3)
+  'eigentuemer',        // Eigentümer (Bund/Dritte)
+  'pflegedurchfuehrung', // Pflege durch
+];

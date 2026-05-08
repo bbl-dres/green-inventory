@@ -530,9 +530,19 @@ html, body {
 
 /* ── Filter dropdown (checkbox groups) ─────────────────── */
 #tbl-filter-dd { max-height: 340px; overflow-y: auto; }
+/* The dd-menu has padding: var(--sp2).  A sticky element inside that box
+   is positioned at top:0 of its containing block (dd-menu's content edge,
+   below the 4px padding-top), so scrolled items can briefly bleed into the
+   4px gap above the sticky bar.  Negative top + margin + padding pulls
+   the wrap up to cover the padding region completely; a bottom shadow +
+   border give a clean visual seam. */
 .filter-search-wrap {
-  position: sticky; top: 0; z-index: 1;
-  background: var(--white); padding: var(--sp2) var(--sp2) var(--sp2);
+  position: sticky; top: calc(-1 * var(--sp2)); z-index: 2;
+  background: var(--white);
+  margin: calc(-1 * var(--sp2)) calc(-1 * var(--sp2)) 0;
+  padding: var(--sp2);
+  border-bottom: 1px solid var(--grey-200);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 .filter-search {
   width: 100%; height: var(--ctrl-h-sm); padding: 0 26px 0 var(--sp3);
@@ -758,6 +768,123 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 .lg-ext-remove:hover { color: var(--red); background: var(--grey-100); }
+
+/* ── Filter sidebar (right side, mirror of #sidebar legend) ─────────── */
+#filter-sidebar {
+  width: var(--panel-width); background: var(--white);
+  border-left: 1px solid var(--grey-300);
+  display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+  transition: width var(--t-slow), opacity var(--t-slow);
+}
+#filter-sidebar.collapsed { width: 0; border-left: none; opacity: 0; pointer-events: none; }
+
+#filter-sidebar-header {
+  display: flex; align-items: center; gap: var(--sp2);
+  padding: var(--sp3) var(--sp5); border-bottom: 1px solid var(--grey-200);
+  flex-shrink: 0;
+  font-size: var(--text-label); font-weight: var(--fw-bold);
+  color: var(--grey-400); text-transform: uppercase; letter-spacing: .06em;
+}
+#filter-sidebar-header > span:first-child { flex: 1; }
+#filter-sidebar-header .tbl-badge { font-size: var(--text-label); }
+
+#filter-sidebar-controls {
+  display: flex; gap: var(--sp2); align-items: center;
+  padding: var(--sp3) var(--sp4) var(--sp2);
+  border-bottom: 1px solid var(--grey-100); flex-shrink: 0;
+}
+#filter-sidebar-search-wrap { position: relative; flex: 1; }
+#filter-sidebar-search {
+  width: 100%; height: var(--ctrl-h); padding: 0 28px 0 var(--sp3);
+  border: 1px solid var(--grey-300); border-radius: var(--radius);
+  font-size: var(--text-sm); background: var(--white); color: var(--grey-900);
+  transition: border-color var(--t-fast);
+}
+#filter-sidebar-search:focus { outline: none; border-color: var(--primary); box-shadow: var(--shadow-focus); }
+#filter-sidebar-search::placeholder { color: var(--grey-400); }
+#filter-sidebar-search-wrap .input-clear-x { right: var(--sp2); }
+#filter-sidebar-clear { white-space: nowrap; }
+
+#filter-sidebar-body {
+  flex: 1; overflow-y: auto; padding: var(--sp2) 0;
+}
+
+/* Filter group inside the sidebar — collapsible accordion. */
+#filter-groups .filter-group {
+  border-bottom: 1px solid var(--grey-100);
+  padding: 0;
+}
+#filter-groups .filter-group:last-child { border-bottom: none; }
+.filter-group-head {
+  display: flex; align-items: center; gap: var(--sp2);
+  width: 100%; padding: var(--sp3) var(--sp4);
+  background: none; border: none; cursor: pointer;
+  text-align: left;
+  font-size: var(--text-sm); font-weight: var(--fw-semibold);
+  color: var(--grey-800);
+  transition: background var(--t-fast);
+}
+.filter-group-head:hover { background: var(--grey-50); }
+.filter-group-head .filter-group-name { flex: 1; }
+.filter-group-head .filter-group-count {
+  font-size: var(--text-xs); color: var(--grey-400); font-weight: var(--fw-medium);
+}
+.filter-group-head .filter-group-active {
+  font-size: var(--text-xs); color: var(--primary); font-weight: var(--fw-bold);
+  background: var(--primary-bg);
+  border-radius: var(--radius-pill); padding: 1px var(--sp2);
+}
+.filter-group-head .filter-group-caret {
+  color: var(--grey-400); transition: transform var(--t-base);
+  flex-shrink: 0;
+}
+.filter-group.collapsed .filter-group-caret { transform: rotate(-90deg); }
+.filter-group-body {
+  padding: 0 var(--sp4) var(--sp3);
+  max-height: 320px; overflow-y: auto;
+}
+.filter-group.collapsed .filter-group-body { display: none; }
+#filter-groups .filter-check-item {
+  gap: var(--sp2); padding: var(--sp1) var(--sp2);
+  font-size: var(--text-sm);
+}
+.filter-check-text {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.filter-group-empty {
+  padding: var(--sp3) var(--sp4) var(--sp4);
+  font-size: var(--text-xs); color: var(--grey-400); text-align: center;
+}
+
+/* Mobile: filter sidebar slides in from the RIGHT (mirror of the legend
+   drawer that comes from the LEFT).  Same header-bottom inset, same scrim
+   pattern. */
+@media (max-width: 768px) {
+  #filter-sidebar {
+    position: fixed; right: 0;
+    top: var(--header-height); bottom: var(--footer-height);
+    width: min(85%, 340px);
+    z-index: var(--z-overlay);
+    transform: translateX(0);
+    box-shadow: -4px 0 16px rgba(0,0,0,.18);
+    transition: transform var(--t-slow);
+  }
+  #filter-sidebar.collapsed {
+    width: min(85%, 340px);
+    border-left: 1px solid var(--grey-300);
+    transform: translateX(105%);
+    opacity: 1;
+    pointer-events: none;
+  }
+  #body:has(#filter-sidebar:not(.collapsed))::after {
+    content: '';
+    position: fixed; left: 0; right: 0;
+    top: var(--header-height); bottom: var(--footer-height);
+    background: rgba(0, 0, 0, 0.42);
+    z-index: calc(var(--z-overlay) - 1);
+    animation: scrimIn var(--t-base) ease;
+  }
+}
 
 /* ── Identify popup (vendor-rendered HTML from swisstopo) ───────────── */
 .ext-popup { font-size: var(--text-sm); color: var(--grey-800); }

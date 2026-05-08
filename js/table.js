@@ -22,7 +22,7 @@ function buildTable() {
   tableRows = geojsonData.features.map((f, i) => ({ ...f.properties, _idx: i }));
   restoreFiltersFromUrl();
   buildColDropdown();
-  buildFilterDropdown();
+  buildFilterSidebar();
   updateFilterBadge();
   renderFilterPills();
   renderTable();
@@ -203,30 +203,65 @@ const FILTER_COLS = (typeof FILTER_COLS_DEFAULT !== 'undefined' && FILTER_COLS_D
   ? FILTER_COLS_DEFAULT.slice()
   : ['entity_type', 'subtype', 'site_name'];
 
-function buildFilterDropdown() {
+// Render filter groups into the right-side sidebar.  Replaces the previous
+// dropdown — same data binding (tblFilterAttrs), same change-event flow,
+// just rendered in a permanent panel with collapsible groups.
+function buildFilterSidebar() {
   if (!tableRows.length) return;
-  const dd = document.getElementById('tbl-filter-dd');
-  dd.innerHTML =
-    `<div class="filter-search-wrap">
-      <input type="text" class="filter-search" id="filter-dd-search" placeholder="Suche…">
-      <button class="input-clear-x" id="filter-dd-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
-    </div>` +
-    FILTER_COLS.map(key => {
-      const col = TABLE_COLS.find(c => c.key === key);
-      const label = col ? col.label : key;
-      const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))].sort();
-      const checked = tblFilterAttrs[key] || new Set();
-      return `<div class="filter-group">
-        <div class="filter-group-label">${label}</div>
-        ${vals.map(v => `<label class="filter-check-item">
-          <input type="checkbox" data-field="${key}" value="${v}"${checked.has(v) ? ' checked' : ''}>
-          <span class="filter-check-text">${v}</span>
-        </label>`).join('')}
-      </div>`;
-    }).join('');
+  const root = document.getElementById('filter-groups');
+  if (!root) return;
 
-  // Checkbox change → update filter state
-  dd.querySelectorAll('input[type=checkbox]').forEach(cb => {
+  // For each filter column, collect distinct non-empty values from the
+  // currently-loaded tableRows.  Sort ascending by display value (German
+  // locale collation - "Ä" sorts after "A", not after "Z").
+  const collator = new Intl.Collator('de');
+  root.innerHTML = FILTER_COLS.map(key => {
+    const col = TABLE_COLS.find(c => c.key === key);
+    const label = col ? col.label : key;
+    const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))]
+      .sort((a, b) => collator.compare(a, b));
+    const checked = tblFilterAttrs[key] || new Set();
+    const activeCount = checked.size;
+    // First few groups expanded by default; rest collapsed.  Groups with
+    // any active filter are forced expanded so the active picks are visible.
+    const initiallyExpanded = activeCount > 0 || FILTER_COLS.indexOf(key) < 2;
+    if (vals.length === 0) {
+      return `<div class="filter-group collapsed" data-key="${key}">
+        <button class="filter-group-head" type="button">
+          <span class="filter-group-name">${label}</span>
+          <span class="filter-group-count">0</span>
+          <svg class="filter-group-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="filter-group-body">
+          <div class="filter-group-empty">Keine Werte</div>
+        </div>
+      </div>`;
+    }
+    return `<div class="filter-group${initiallyExpanded ? '' : ' collapsed'}" data-key="${key}">
+      <button class="filter-group-head" type="button">
+        <span class="filter-group-name">${label}</span>
+        ${activeCount ? `<span class="filter-group-active">${activeCount}</span>` : ''}
+        <span class="filter-group-count">${vals.length}</span>
+        <svg class="filter-group-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="filter-group-body">
+        ${vals.map(v => `<label class="filter-check-item">
+          <input type="checkbox" data-field="${key}" value="${escapeAttr(v)}"${checked.has(v) ? ' checked' : ''}>
+          <span class="filter-check-text" title="${escapeAttr(v)}">${escapeHtmlSafe(v)}</span>
+        </label>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  // ── Group collapse on header-tap ──
+  root.querySelectorAll('.filter-group-head').forEach(head => {
+    head.addEventListener('click', () => {
+      head.parentElement.classList.toggle('collapsed');
+    });
+  });
+
+  // ── Checkbox state ──
+  root.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => {
       const field = cb.dataset.field;
       if (!tblFilterAttrs[field]) tblFilterAttrs[field] = new Set();
@@ -234,28 +269,55 @@ function buildFilterDropdown() {
       else tblFilterAttrs[field].delete(cb.value);
       if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
       tblPage = 0;
+      // Update the small "active" badge on this group's head without a
+      // full rebuild (full rebuild would lose scroll position).
+      const head = cb.closest('.filter-group').querySelector('.filter-group-head');
+      let badge = head.querySelector('.filter-group-active');
+      const n = tblFilterAttrs[field] ? tblFilterAttrs[field].size : 0;
+      if (n > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'filter-group-active';
+          head.querySelector('.filter-group-count').before(badge);
+        }
+        badge.textContent = n;
+      } else if (badge) {
+        badge.remove();
+      }
       onFilterChange();
     });
   });
 
-  // Search within filter dropdown
-  const searchInput = dd.querySelector('#filter-dd-search');
-  const searchX = dd.querySelector('#filter-dd-search-x');
-  searchInput.addEventListener('input', () => filterDropdownSearch(searchInput.value));
-  searchX.addEventListener('click', () => {
-    searchInput.value = '';
-    searchX.style.display = 'none';
-    filterDropdownSearch('');
-    searchInput.focus();
-  });
+  // ── Search within filter sidebar ──
+  const searchInput = document.getElementById('filter-sidebar-search');
+  const searchX = document.getElementById('filter-sidebar-search-x');
+  if (searchInput && !searchInput._wired) {
+    searchInput._wired = true;
+    searchInput.addEventListener('input', () => filterSidebarSearch(searchInput.value));
+    searchX.addEventListener('click', () => {
+      searchInput.value = '';
+      searchX.style.display = 'none';
+      filterSidebarSearch('');
+      searchInput.focus();
+    });
+  }
+
+  // ── Clear-all link ──
+  const clearAll = document.getElementById('filter-sidebar-clear');
+  if (clearAll && !clearAll._wired) {
+    clearAll._wired = true;
+    clearAll.addEventListener('click', clearAllFilters);
+  }
 }
 
-function filterDropdownSearch(query) {
-  const dd = document.getElementById('tbl-filter-dd');
+function filterSidebarSearch(query) {
+  const root = document.getElementById('filter-groups');
+  if (!root) return;
   const q = query.trim().toLowerCase();
-  dd.querySelector('#filter-dd-search-x').style.display = q ? 'flex' : 'none';
+  const xBtn = document.getElementById('filter-sidebar-search-x');
+  if (xBtn) xBtn.style.display = q ? 'flex' : 'none';
 
-  dd.querySelectorAll('.filter-group').forEach(group => {
+  root.querySelectorAll('.filter-group').forEach(group => {
     let anyVisible = false;
     group.querySelectorAll('.filter-check-item').forEach(item => {
       const text = item.querySelector('.filter-check-text').textContent.toLowerCase();
@@ -263,9 +325,19 @@ function filterDropdownSearch(query) {
       item.style.display = show ? '' : 'none';
       if (show) anyVisible = true;
     });
-    group.style.display = anyVisible ? '' : 'none';
+    // While searching, force-expand groups that have visible items.
+    if (q) {
+      group.classList.toggle('collapsed', !anyVisible);
+    }
   });
 }
+
+// Tiny html / attribute escapers.  buildLegend in map.js has its own
+// escapeHtml; we don't import across files so duplicate the bare minimum
+// here.
+const _ESC_TBL = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtmlSafe(v) { return v == null ? '' : String(v).replace(/[&<>"']/g, ch => _ESC_TBL[ch]); }
+function escapeAttr(v) { return escapeHtmlSafe(v); }
 
 function onFilterChange() {
   updateFilterBadge();
@@ -282,10 +354,20 @@ function countActiveFilters() {
 
 function updateFilterBadge() {
   const n = countActiveFilters();
-  const badge = document.getElementById('tbl-filter-badge');
-  badge.textContent = n > 0 ? n : '';
-  badge.style.display = n > 0 ? 'inline-block' : 'none';
-  document.getElementById('filter-dd-btn').classList.toggle('has-active', n > 0);
+  // All three places share the same active-filter count:
+  //   - table-bar dropdown trigger  (#tbl-filter-badge on #filter-dd-btn)
+  //   - header filter button         (#filter-toggle-badge on #filter-toggle)
+  //   - sidebar header               (#filter-sidebar-badge in #filter-sidebar)
+  for (const id of ['tbl-filter-badge', 'filter-toggle-badge', 'filter-sidebar-badge']) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.textContent = n > 0 ? n : '';
+    b.style.display = n > 0 ? 'inline-block' : 'none';
+  }
+  for (const id of ['filter-dd-btn', 'filter-toggle']) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('has-active', n > 0);
+  }
 }
 
 // ── Filter pills ─────────────────────────────────────────────────────────────
@@ -316,7 +398,7 @@ function renderFilterPills() {
         if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
       }
       tblPage = 0;
-      buildFilterDropdown();   // sync checkboxes
+      buildFilterSidebar();   // sync checkboxes
       onFilterChange();
     });
   });
@@ -327,7 +409,7 @@ function renderFilterPills() {
 function clearAllFilters() {
   tblFilterAttrs = {};
   tblPage = 0;
-  buildFilterDropdown();
+  buildFilterSidebar();
   onFilterChange();
 }
 
@@ -449,7 +531,10 @@ document.getElementById('pg-size-select').addEventListener('change', (e) => {
 });
 
 // ── Dropdown toggle logic ────────────────────────────────────────────────────
-['col-dd-wrap', 'filter-dd-wrap', 'export-dd-wrap'].forEach(wrapId => {
+// Filter is no longer a dropdown - it lives in the right-side sidebar (see
+// #filter-sidebar wiring further down).  Only column- and export-pickers
+// remain as dropdowns.
+['col-dd-wrap', 'export-dd-wrap'].forEach(wrapId => {
   const wrap = document.getElementById(wrapId);
   wrap.querySelector('.dd-btn').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -464,6 +549,45 @@ document.getElementById('pg-size-select').addEventListener('change', (e) => {
 document.addEventListener('click', () => {
   document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
 });
+
+// ── Filter sidebar open/close ──────────────────────────────────────────
+// Two triggers (header button + table-bar button) toggle the same panel.
+// Mobile mirrors the legend drawer behaviour.
+(function initFilterSidebar() {
+  const sidebar       = document.getElementById('filter-sidebar');
+  const headerToggle  = document.getElementById('filter-toggle');
+  const tableToggle   = document.getElementById('filter-dd-btn');
+  const closeBtn      = document.getElementById('filter-sidebar-close');
+  const mqPhone       = window.matchMedia('(max-width: 768px)');
+  if (!sidebar) return;
+
+  function open() {
+    sidebar.classList.remove('collapsed');
+    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+  }
+  function close() {
+    sidebar.classList.add('collapsed');
+    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+  }
+  function toggle() {
+    sidebar.classList.contains('collapsed') ? open() : close();
+  }
+
+  if (headerToggle) headerToggle.addEventListener('click', toggle);
+  if (tableToggle)  tableToggle.addEventListener('click',  toggle);
+  if (closeBtn)     closeBtn.addEventListener('click',     close);
+
+  // On rotate / resize across the breakpoint, force the drawer-style
+  // panel closed so we don't end up with both legend and filter open and
+  // covering the whole viewport.
+  mqPhone.addEventListener('change', () => close());
+
+  // Tap outside the panel to close (only in phone mode where the panel
+  // overlays the map).  Capture phase so we beat the map's own click.
+  document.getElementById('main-content').addEventListener('click', () => {
+    if (mqPhone.matches && !sidebar.classList.contains('collapsed')) close();
+  }, { capture: true });
+})();
 
 // ── Export buttons ────────────────────────────────────────────────────────────
 document.getElementById('exp-csv').addEventListener('click', (e) => {
