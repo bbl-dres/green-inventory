@@ -278,13 +278,21 @@ html, body {
 }
 .maplibregl-ctrl-group button:hover { color: var(--primary); }
 
-/* Pressed/active state for the 3D toggle */
+/* Pressed/active state for the 3D toggle.  MapLibre's default
+   `.maplibregl-ctrl button:hover` rule sets `background-color` to a near-
+   white overlay; without an explicit hover background here, our white
+   text lands on near-white and becomes unreadable.  Pin the background to
+   primary-dark so hover stays high-contrast AND provides a clear
+   interaction cue. */
 .maplibregl-ctrl-group button.ctrl-active {
   background: var(--primary);
   color: var(--white);
 }
 .maplibregl-ctrl-group button.ctrl-active > svg { color: var(--white); }
-.maplibregl-ctrl-group button.ctrl-active:hover { color: var(--white); }
+.maplibregl-ctrl-group button.ctrl-active:hover {
+  background: var(--primary-dark);
+  color: var(--white);
+}
 .maplibregl-ctrl-group button.ctrl-active:hover > svg { color: var(--white); }
 
 /* ── Map popup ─────────────────────────────────────────── */
@@ -846,7 +854,9 @@ html, body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .lg-ext-attr {
-  font-size: var(--text-label); color: var(--grey-400); margin-top: 1px;
+  /* grey-500 gives ~4.6:1 contrast on white, just over WCAG AA at 10 px.
+     grey-400 was 3.0:1 — failed AA for non-large text. */
+  font-size: var(--text-label); color: var(--grey-500); margin-top: 1px;
 }
 .lg-ext-attr a { color: inherit; text-decoration: none; }
 .lg-ext-attr a:hover { text-decoration: underline; }
@@ -920,7 +930,8 @@ html, body {
 .filter-group-head:hover { background: var(--grey-50); }
 .filter-group-head .filter-group-name { flex: 1; }
 .filter-group-head .filter-group-count {
-  font-size: var(--text-xs); color: var(--grey-400); font-weight: var(--fw-medium);
+  /* grey-500 keeps the count subdued while still passing WCAG AA at 11 px. */
+  font-size: var(--text-xs); color: var(--grey-500); font-weight: var(--fw-medium);
 }
 .filter-group-head .filter-group-active {
   font-size: var(--text-xs); color: var(--primary); font-weight: var(--fw-bold);
