@@ -85,7 +85,7 @@ The map data lives in [`data/data.geojson`](data/data.geojson) (~10 MB, 6 164 fe
 4. Validates geometry (`make_valid`), simplifies high-vertex outliers at 5 cm in LV95, enforces RFC 7946 right-hand winding.
 5. Embeds all codelists, accuracy info, attribution, and `bbox` into the output metadata.
 
-The full data-model contract is documented in [`docs/DATAMODEL.md`](docs/DATAMODEL.md).
+The full data-model contract — source GDB schema, codelists, conversion rules, and output contract — is documented in **[docs/DATAMODEL.md](https://github.com/bbl-dres/green-inventory/blob/main/docs/DATAMODEL.md)**.
 
 ## Tech Stack
 
