@@ -29,7 +29,15 @@
       "Read(//c/Program Files/**)",
       "Read(//c/OSGeo4W/**)",
       "Bash(grep -nE \"#[0-9a-fA-F]{3,6}|rgba?\\\\\\(|^\\\\s*[0-9]+\\(\\\\.[0-9]+\\)?\\(px|em|rem\\)\" css/styles.css)",
-      "Bash(grep -nE \"rgba\\\\\\(0,?\\\\s*0,?\\\\s*0,?\\\\s*\\\\.[0-9]+\\\\\\)|#[0-9a-fA-F]{3,6}\" css/styles.css)"
+      "Bash(grep -nE \"rgba\\\\\\(0,?\\\\s*0,?\\\\s*0,?\\\\s*\\\\.[0-9]+\\\\\\)|#[0-9a-fA-F]{3,6}\" css/styles.css)",
+      "Bash(gh api *)",
+      "PowerShell(gh api repos/bbl-dres/workspace-management/contents/docs/DATAMODEL.md --jq '.content' | ForEach-Object { [System.Text.Encoding]::UTF8.GetString\\([System.Convert]::FromBase64String\\($_\\)\\) })",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(ls \"/c/Users/DavidRasner/Downloads/Daten_Bundesgärtnerei/\" 2>/dev/null || ls \"/c/Users/DavidRasner/Downloads/\" | grep -i bund)",
+      "Read(//c/Users/DavidRasner/Downloads//**)",
+      "PowerShell(python -c \"import pyogrio; print\\(pyogrio.__version__\\)\")",
+      "PowerShell(python -c \"import pyogrio, pyproj, shapely; print\\('pyogrio', pyogrio.__version__\\); print\\('pyproj', pyproj.__version__\\); print\\('shapely', shapely.__version__\\)\")",
+      "PowerShell(python -c \"import json; d = json.load\\(open\\(r'c:\\\\Users\\\\DavidRasner\\\\Documents\\\\GitHub\\\\green-inventory\\\\data\\\\data.geojson', encoding='utf-8'\\)\\); m = d.get\\('metadata', {}\\); print\\('counts:', m.get\\('counts'\\)\\); print\\('src_crs:', m.get\\('src_crs'\\)\\); print\\('out_crs:', m.get\\('out_crs'\\)\\); print\\('codelist_names:', sorted\\(\\(m.get\\('codelists'\\) or {}\\).keys\\(\\)\\)\\); print\\('idPP_n:', len\\(m.get\\('codelists', {}\\).get\\('idPP', {}\\)\\)\\); print\\('idZs:', m.get\\('codelists', {}\\).get\\('idZs'\\)\\); print\\('idKs:', m.get\\('codelists', {}\\).get\\('idKs'\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory\\data",
