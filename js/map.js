@@ -1354,7 +1354,7 @@ map.on('load', async () => {
       .map(x => {
         const style = profilStyle(grp.entity_type, x.code);
         return {
-          label: `${x.label} · ${x.n}`,
+          label: x.label,
           fill: style.fill,
           swatchClass: style.swatchClass,
         };
@@ -1640,12 +1640,6 @@ function buildLegend(features) {
     const title = document.createElement('span');
     title.className = 'lg-group-title';
     title.textContent = grp.label;
-    if (hasData) {
-      const c = document.createElement('span');
-      c.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
-      c.textContent = cnt;
-      title.appendChild(c);
-    }
 
     head.append(eyeBtn, title);
     groupEl.appendChild(head);

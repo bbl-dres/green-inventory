@@ -541,10 +541,8 @@ function downloadBlob(blob, filename) {
 }
 
 // ── Table toggle ─────────────────────────────────────────────────────────────
-// Default open on desktop, collapsed on phones.  matchMedia handles
-// rotate/resize crossings cleanly so the state stays in sync.
-const _mqPhoneTbl = window.matchMedia('(max-width: 768px)');
-let tableOpen = !_mqPhoneTbl.matches;
+// Default collapsed on first page load; user expands via the toggle.
+let tableOpen = false;
 function _applyTableState() {
   document.getElementById('table-panel').classList.toggle('collapsed', !tableOpen);
   document.getElementById('tbl-toggle').classList.toggle('collapsed', !tableOpen);
