@@ -335,6 +335,30 @@ html, body {
   z-index: var(--z-overlay); border-radius: var(--radius);
   font-size: var(--text-sm); box-shadow: var(--shadow-md);
 }
+
+/* Permanent "Prototyp" pill at the top-center of the map.  Same colour
+   family as the footer pill so the demo flag reads consistently in both
+   places.  Pointer-events disabled so it never intercepts map clicks. */
+#map-prototype-banner {
+  position: absolute;
+  top: max(var(--sp3), env(safe-area-inset-top, 0));
+  left: 50%; transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--sp4);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.03em;
+  color: var(--warn-text);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+  /* If the placeholder edit mode is ever turned on, hide this pill so it
+     doesn't stack under the edit banner (same position). */
+}
+#map.edit-active #map-prototype-banner { display: none; }
 #edit-banner {
   top: var(--sp3);
   background: var(--warn-bg); border: 1.5px solid var(--warn-border);
@@ -675,7 +699,10 @@ html, body {
 #tbl tbody tr { cursor: pointer; }
 #tbl tbody tr:hover td { background: var(--row-hover); }
 #tbl tbody tr.row-active td { background: var(--row-active); }
-#tbl tbody tr.selected td { background: var(--row-active); box-shadow: inset 3px 0 0 var(--primary); }
+/* Selected row: light primary tint, no inset border.  Hover-while-selected
+   keeps the selected bg so the hover state doesn't visually override the
+   selection. */
+#tbl tbody tr.selected td { background: var(--row-active); }
 #tbl tbody tr.selected:hover td { background: var(--row-active); }
 
 /* ── Pagination bar ────────────────────────────────────── */
@@ -1172,6 +1199,7 @@ html, body {
   #tbl-resize-handle, .legend-toggle-btn, #basemap-switcher,
   #tbl-toggle, .maplibregl-ctrl,
   #toast-container, #edit-banner, #save-banner,
+  #map-prototype-banner,
   #map-context-menu, .measure-distance-display,
   #search-area { display: none !important; }
   /* Reset shell layout so the map fills the printable page */

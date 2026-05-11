@@ -74,6 +74,42 @@ const MAP_LAYERS = {
 };
 const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points];
 
+// Source / layer ID enumeration used by transformStyle when a basemap
+// swap happens — every ID returned here is preserved across the swap,
+// everything else (basemap layers) comes from the new style.
+function collectOurSourceIds() {
+  const ids = new Set([
+    'features',         // local GeoJSON (sites / areas / trees / …)
+    'osm-buildings-3d', // OpenFreeMap tiles for 3D extrusions
+    'tree-3d',          // generated cylinders for trees in 3D mode
+    'ext-highlight',    // identify-highlight feature
+  ]);
+  // External-layer sources added via the header search (one per active
+  // swisstopo layer).  Keys live in the externalLayers state object.
+  for (const bodId of Object.keys(externalLayers)) {
+    ids.add(extSourceId(bodId));
+  }
+  return ids;
+}
+
+function collectOurLayerIds() {
+  const ids = new Set([
+    ...MAP_LAYERS.polygons,
+    ...MAP_LAYERS.points,
+    ...MAP_LAYERS.selection,
+    ...MAP_LAYERS.hover,
+    'osm-buildings-3d',
+    'tree-3d',
+    'ext-highlight-fill',
+    'ext-highlight-line',
+    'ext-highlight-circle',
+  ]);
+  for (const bodId of Object.keys(externalLayers)) {
+    ids.add(extLayerId(bodId));
+  }
+  return ids;
+}
+
 function applyMapFilters() {
   const hidden = hiddenEntityTypes();
   const hiddenCodes = hiddenProfileCodesByEntity();
@@ -338,23 +374,55 @@ function applyViewFromUrl() {
 }
 
 function selectFeature(idx, lngLat) {
+  // ── 1. Resolve site_location → underlying site polygon ───────────────
+  // The dot is a map-only shortcut for the site.  The table tab only
+  // knows about real entity types — redirect now so all downstream state
+  // (selection, popup, URL, table scroll) lines up.
+  let f = geojsonData.features[idx];
+  if (f && f.properties.entity_type === 'site_location') {
+    const siteOid = f.properties.site_oid;
+    const siteFeature = geojsonData.features.find(
+      g => g.properties.entity_type === 'site' && g.properties.objectid === siteOid
+    );
+    if (siteFeature && siteFeature.id != null) {
+      idx = siteFeature.id;
+      f = siteFeature;
+    }
+  }
+
   selectedId = Number(idx);
   applySelectedFilter();
   updateSelectionUrl();
   _suppressPopupClose = true;
-  selPopup.setLngLat(lngLat).setHTML(popupHTML(geojsonData.features[idx].properties)).addTo(map);
+  selPopup.setLngLat(lngLat).setHTML(popupHTML(f.properties)).addTo(map);
   _suppressPopupClose = false;
 
   if (!tableOpen) document.getElementById('tbl-toggle').click();
 
-  let sorted = getSortedRows(getFilteredRows());
+  // ── 2. Switch to the tab this feature belongs to ─────────────────────
+  // `sites` ← entity_type === 'site'; everything else → `green`.
+  // setScope() is a no-op when target === current; otherwise it rebuilds
+  // the filter sidebar / col dropdown / pagination state and renders once.
+  const targetScope = f.properties.entity_type === 'site' ? 'sites' : 'green';
+  if (typeof setScope === 'function' && targetScope !== tblScope) {
+    setScope(targetScope);
+  }
+
+  // ── 3. Page to the row + scroll it into view ─────────────────────────
+  // Use the SCOPED row set — `tblPage` paginates the scoped+filtered list
+  // in renderTable(), so the row-to-page math must operate on the same
+  // basis or we land on the wrong page.
+  const scoped = tableRows.filter(r => inScope(r, tblScope));
+  let sorted = getSortedRows(getFilteredRows(scoped));
   if (sorted.findIndex(r => r._idx === idx) === -1) {
+    // Row is hidden by search / sidebar filters — clear them so the
+    // selection becomes visible in the table.
     const si = document.getElementById('tbl-search');
     const sx = document.getElementById('tbl-search-x');
     if (si && si.value) { si.value = ''; tblSearch = ''; if (sx) sx.style.display = 'none'; }
     for (const key of Object.keys(tblFilterAttrs)) tblFilterAttrs[key].clear();
     onFilterChange();
-    sorted = getSortedRows(getFilteredRows());
+    sorted = getSortedRows(getFilteredRows(scoped));
   }
 
   const rowIdx = sorted.findIndex(r => r._idx === idx);
@@ -684,8 +752,24 @@ function buildTreeExtrusionData() {
 }
 
 function add3DLayers() {
-  // OSM buildings.  Inserted *below* our local data so site polygons / tree
-  // dots render on top.
+  // ── Z-order for 3D mode ──────────────────────────────────────────
+  //   1. ground fills (site-fill, area-fill, canopy-fill, site-line, area-line)
+  //   2. fill-extrusion layers (osm-buildings-3d, tree-3d)   ← inserted here
+  //   3. point markers (tree-circle, point-circle, site-location-*)
+  //   4. selection / hover overlays
+  //
+  // Inserting extrusions *before* tree-circle puts them above every flat
+  // fill but below the point markers.  Buildings then occlude any
+  // overlapping area-fill (instead of area-fill bleeding onto the
+  // building roof), and point markers + labels stay on top for clarity.
+  //
+  // fill-extrusion layers depth-test against each other via the WebGL
+  // depth buffer (with opacity 1.0), so tree-3d and osm-buildings-3d
+  // sort correctly regardless of which is declared first within this
+  // group.
+  const extrusionBeforeId = map.getLayer('tree-circle') ? 'tree-circle' : undefined;
+
+  // OSM buildings.
   if (!map.getSource('osm-buildings-3d')) {
     map.addSource('osm-buildings-3d', {
       type: 'vector',
@@ -695,7 +779,7 @@ function add3DLayers() {
     });
   }
   if (!map.getLayer('osm-buildings-3d')) {
-    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    const beforeId = extrusionBeforeId;
     map.addLayer({
       id: 'osm-buildings-3d',
       source: 'osm-buildings-3d',
@@ -711,17 +795,22 @@ function add3DLayers() {
           15, ['coalesce', ['get', 'render_height'], BUILDING_DEFAULT_M],
         ],
         'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-        'fill-extrusion-opacity': 0.85,
+        // Opaque buildings — translucency makes the 3D view read as a
+        // ghost-render and users can't tell where the building actually is.
+        // The ground polygons below get correctly occluded at the
+        // footprint, which matches real-world expectation.
+        'fill-extrusion-opacity': 1.0,
       },
     }, beforeId);
   }
 
-  // Tree cylinders.  Sit above buildings (added later = on top).
+  // Tree cylinders.  Same slot as the buildings - both are fill-extrusion
+  // layers and depth-sort against each other.
   if (!map.getSource('tree-3d')) {
     map.addSource('tree-3d', { type: 'geojson', data: buildTreeExtrusionData() });
   }
   if (!map.getLayer('tree-3d')) {
-    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    const beforeId = extrusionBeforeId;
     map.addLayer({
       id: 'tree-3d',
       source: 'tree-3d',
@@ -731,7 +820,7 @@ function add3DLayers() {
         'fill-extrusion-color': '#4a7c2a',
         'fill-extrusion-height': ['coalesce', ['get', 'height'], TREE_DEFAULT_M],
         'fill-extrusion-base': 0,
-        'fill-extrusion-opacity': 0.9,
+        'fill-extrusion-opacity': 1.0,
       },
     }, beforeId);
   }
@@ -1381,24 +1470,49 @@ let bmPanelOpen = false;
       if (bm.id === currentBasemap) { closeBmPanel(); return; }
       currentBasemap = bm.id;
       updateBmBtn();
-      // setStyle() throws away every source, layer, and layer-scoped event
-      // listener.  Rebind everything once the new style is ready.  Use
-      // 'styledata' rather than 'idle' - 'idle' fires every time tiles
-      // settle and re-runs addLayers when a source already exists (cheap
-      // no-op via the guard inside addLayers).  'styledata' fires once
-      // per style change.
-      map.setStyle(bm.url);
+      // ── Preserve OUR sources + layers across the basemap swap ─────
+      // Without this, setStyle() drops the `features` GeoJSON source
+      // and MapLibre has to re-tile all 6 164 features in its worker
+      // before they render at the proper zoom.  During the wait, lower-
+      // zoom tiles get stretched (overzoomed) into the view — visible
+      // as angular geometry, especially on the swisstopo aerial basemap
+      // where high-contrast imagery makes the millimetre offsets pop.
+      //
+      // transformStyle merges OUR sources/layers into the incoming
+      // style so the swap only changes the basemap underneath.  Layer-
+      // bound event listeners survive the preservation, so click /
+      // hover handlers don't need re-attaching.  Side benefit: basemap
+      // switches feel instant.
+      map.setStyle(bm.url, {
+        diff: true,
+        transformStyle: (prev, next) => {
+          if (!prev) return next;
+          const ourSourceIds = collectOurSourceIds();
+          const ourLayerIds  = collectOurLayerIds();
+          const preservedSources = {};
+          for (const [id, src] of Object.entries(prev.sources || {})) {
+            if (ourSourceIds.has(id)) preservedSources[id] = src;
+          }
+          const preservedLayers = (prev.layers || []).filter(
+            l => ourLayerIds.has(l.id)
+          );
+          return {
+            ...next,
+            sources: { ...next.sources, ...preservedSources },
+            layers: [...(next.layers || []), ...preservedLayers],
+          };
+        },
+      });
+      // Safety net: if anything failed to preserve (first style change
+      // edge cases, schema-incompatible sources, …), re-add on styledata.
+      // The addLayers / add3DLayers / restoreExternalLayersOnStyle calls
+      // are idempotent — they skip work if our source/layer already
+      // exists.  Same with buildLegend.
       map.once('styledata', async () => {
-        // Re-add externals first so they sit BELOW our local data.
         await restoreExternalLayersOnStyle();
         addLayers();
-        // 3D layers are also dropped by setStyle; re-add if active.  Note:
-        // the cached `is3D` flag survives the style change because it lives
-        // in module scope, not in MapLibre.
         if (is3D) add3DLayers();
         attachInteractionHandlers();
-        // Refresh the legend so the "Externe Ebenen" section's row state
-        // reflects the rebuilt layers.
         if (geojsonData) buildLegend(geojsonData.features);
       });
       closeBmPanel();
