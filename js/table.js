@@ -166,6 +166,9 @@ function renderTable() {
 
   // Pagination controls
   renderPagination(sorted.length, totalPages);
+
+  // Keep tab counts in sync with the filter state.
+  updateTabCounts();
 }
 
 function renderPagination(total, totalPages) {
@@ -268,20 +271,14 @@ function buildFilterSidebar() {
   const root = document.getElementById('filter-groups');
   if (!root) return;
 
-  // Scope the filter options to what's actually visible in the current
-  // tab — so "Baumart" doesn't show 137 species when you're viewing
-  // Standorte (where every row's baumart is null).  Empty groups still
-  // render but collapse with a "Keine Werte" placeholder.
-  const scopedRows = tableRows.filter(r => inScope(r, tblScope));
-
-  // For each filter column, collect distinct non-empty values from the
-  // scoped row set.  Sort ascending by display value (German locale
-  // collation - "Ä" sorts after "A", not after "Z").
+  // Filter options reflect what's on the map (all features), not the
+  // active table tab.  Keeping filters independent of tab scope avoids
+  // confusing users who don't realise the two are linked.
   const collator = new Intl.Collator('de');
   root.innerHTML = FILTER_COLS.map(key => {
     const col = TABLE_COLS.find(c => c.key === key);
     const label = col ? col.label : key;
-    const vals = [...new Set(scopedRows.map(r => String(r[key] ?? '')).filter(Boolean))]
+    const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))]
       .sort((a, b) => collator.compare(a, b));
     const checked = tblFilterAttrs[key] || new Set();
     const activeCount = checked.size;
@@ -402,11 +399,46 @@ const _ESC_TBL = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '
 function escapeHtmlSafe(v) { return v == null ? '' : String(v).replace(/[&<>"']/g, ch => _ESC_TBL[ch]); }
 function escapeAttr(v) { return escapeHtmlSafe(v); }
 
-function onFilterChange() {
+function onFilterChange(options = {}) {
   updateFilterBadge();
   renderFilterPills();
   syncFiltersToUrl();
   renderTable();
+  if (options.zoom !== false) zoomToFilteredExtent();
+}
+
+// Fit the map to the bbox of currently filtered features.  When all filters
+// are cleared, snap back to the full data extent.  Skipped when there are
+// no matching features (avoids a jarring jump on a zero-result filter set).
+function zoomToFilteredExtent() {
+  if (!geojsonData || typeof map === 'undefined' || !map) return;
+  if (countActiveFilters() === 0) {
+    const bb = geojsonData.bbox;
+    if (Array.isArray(bb) && bb.length === 4) {
+      map.fitBounds([[bb[0], bb[1]], [bb[2], bb[3]]],
+        { padding: 60, maxZoom: 18, duration: 600 });
+    }
+    return;
+  }
+  const filtered = getFilteredRows(tableRows);
+  if (!filtered.length) return;
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  for (const r of filtered) {
+    const feat = geojsonData.features[r._idx];
+    if (!feat || !feat.geometry) continue;
+    const bb = geomBbox(feat.geometry);
+    if (bb[0][0] < minLon) minLon = bb[0][0];
+    if (bb[0][1] < minLat) minLat = bb[0][1];
+    if (bb[1][0] > maxLon) maxLon = bb[1][0];
+    if (bb[1][1] > maxLat) maxLat = bb[1][1];
+  }
+  if (!isFinite(minLon)) return;
+  if (minLon === maxLon && minLat === maxLat) {
+    map.flyTo({ center: [minLon, minLat], zoom: 18, duration: 600 });
+  } else {
+    map.fitBounds([[minLon, minLat], [maxLon, maxLat]],
+      { padding: 80, maxZoom: 18, duration: 600 });
+  }
 }
 
 function countActiveFilters() {
@@ -619,7 +651,6 @@ function setScope(newScope) {
   tblPage = 0;
   updateTabUI();
   buildColDropdown();          // checkboxes reflect new visibility set
-  buildFilterSidebar();         // filter-group values rebuilt for new scope
   updateFilterBadge();
   renderFilterPills();
   renderTable();
@@ -635,8 +666,11 @@ function updateTabUI() {
 }
 
 function updateTabCounts() {
+  // Counts reflect the filtered row set so the tab number matches what's
+  // actually rendered in the table body for that scope.
+  const filtered = getFilteredRows(tableRows);
   let nSites = 0, nGreen = 0;
-  for (const r of tableRows) {
+  for (const r of filtered) {
     if (SCOPE_HIDDEN_FROM_TABLE.has(r.entity_type)) continue;
     if (r.entity_type === 'site') nSites++;
     else nGreen++;

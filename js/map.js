@@ -421,7 +421,7 @@ function selectFeature(idx, lngLat) {
     const sx = document.getElementById('tbl-search-x');
     if (si && si.value) { si.value = ''; tblSearch = ''; if (sx) sx.style.display = 'none'; }
     for (const key of Object.keys(tblFilterAttrs)) tblFilterAttrs[key].clear();
-    onFilterChange();
+    onFilterChange({ zoom: false });
     sorted = getSortedRows(getFilteredRows(scoped));
   }
 
