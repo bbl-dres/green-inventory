@@ -794,7 +794,15 @@ function add3DLayers() {
           14, 0,
           15, ['coalesce', ['get', 'render_height'], BUILDING_DEFAULT_M],
         ],
-        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+        // Push the wall base 0.5 m BELOW ground.  This eliminates the
+        // z-fight at the ground line where the building wall (z=0) meets
+        // the semi-transparent area-fill polygons (also z=0) — without
+        // the offset, MapLibre's translucent pass paints fills over the
+        // building's lower wall pixels, and you see the green-area
+        // polygons bleeding onto the building.  Rooftop annexes (with
+        // an explicit `render_min_height`) shift down by the same 0.5 m;
+        // visually invisible at typical zoom levels.
+        'fill-extrusion-base': ['-', ['coalesce', ['get', 'render_min_height'], 0], 0.5],
         // Opaque buildings — translucency makes the 3D view read as a
         // ghost-render and users can't tell where the building actually is.
         // The ground polygons below get correctly occluded at the
