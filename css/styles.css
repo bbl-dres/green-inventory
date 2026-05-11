@@ -70,14 +70,23 @@ html, body {
   font-size: var(--text-xs); color: var(--grey-500);
   font-weight: var(--fw-medium); letter-spacing: .02em;
 }
-.header-app { font-size: 15px; font-weight: var(--fw-bold); color: var(--grey-900); }
+.header-app { font-size: var(--text-md); font-weight: var(--fw-bold); color: var(--grey-900); }
 .header-right { display: flex; align-items: center; gap: var(--sp3); }
 
-/* Header edit button */
-.edit-btn { padding: 5px var(--sp4); border-width: 1.5px; }
+/* Header buttons (Filter / Share / Print / Edit) all reuse .edit-btn */
+.edit-btn { padding: var(--sp-btn-y) var(--sp4); border-width: 1.5px; }
 .edit-btn svg { flex-shrink: 0; }
 .edit-btn:hover { border-color: var(--primary); color: var(--primary); }
 .edit-btn.active { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+
+/* Icon-only variant — square footprint, matches text-button height so the
+   header row stays consistent.  Used for Share and Print where the icon
+   alone is universally recognised. */
+.edit-btn.icon-btn {
+  padding: 0; width: var(--ctrl-h); height: var(--ctrl-h);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.edit-btn.icon-btn svg { display: block; }
 
 /* ── Header search ────────────────────────────────────── */
 #search-area { flex: 1; display: flex; justify-content: center; padding: 0 var(--sp5); }
@@ -263,7 +272,7 @@ html, body {
 .maplibregl-ctrl-group button {
   font-family: inherit;
   font-weight: var(--fw-bold);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.02em;
   color: var(--grey-700);
 }
@@ -284,7 +293,7 @@ html, body {
   box-shadow: 0 4px 20px rgba(0,0,0,.16); font-size: var(--text-sm); min-width: 220px;
 }
 .maplibregl-popup-close-button {
-  font-size: 18px; padding: var(--sp2) var(--sp3); color: var(--grey-400);
+  font-size: var(--text-lg); padding: var(--sp2) var(--sp3); color: var(--grey-400);
   transition: color var(--t-fast);
 }
 .maplibregl-popup-close-button:hover { color: var(--grey-700); }
@@ -294,7 +303,7 @@ html, body {
 }
 .pu-swatch {
   width: 14px; height: 14px; border-radius: var(--radius-sm); flex-shrink: 0;
-  border: 1px solid rgba(0,0,0,.12);
+  border: 1px solid var(--border-subtle);
 }
 .pu-titles { min-width: 0; }
 .pu-type { font-weight: var(--fw-semibold); color: var(--grey-900); line-height: 1.3; }
@@ -336,13 +345,13 @@ html, body {
   bottom: var(--sp5);
   background: var(--white); border: 1.5px solid var(--grey-300);
   padding: var(--sp3) var(--sp6); color: var(--grey-800);
-  box-shadow: 0 2px 12px rgba(0,0,0,.15);
+  box-shadow: var(--shadow-pop);
   align-items: center; gap: var(--sp4);
 }
 #save-banner.visible { display: flex; }
 #save-banner button {
   background: var(--primary); color: var(--white); border: none;
-  border-radius: var(--radius); padding: 5px 14px; cursor: pointer;
+  border-radius: var(--radius); padding: var(--sp-btn-y) 14px; cursor: pointer;
   font-size: var(--text-sm); font-weight: var(--fw-semibold);
   transition: background var(--t-fast);
 }
@@ -351,14 +360,30 @@ html, body {
 #save-banner .cancel-btn:hover { background: var(--grey-100); }
 
 /* ── Footer ────────────────────────────────────────────── */
+/* 3-column grid: coords (left), prototype-banner (centred), links (right).
+   Centred element stays geometrically centred regardless of left/right
+   content width — `justify-content: space-between` on flex would shift it
+   off-axis as coords expand/contract. */
 #footer {
   height: var(--footer-height); background: var(--grey-100);
   border-top: 1px solid var(--grey-300);
   padding: 0 var(--sp5); font-size: var(--text-xs); color: var(--grey-600);
-  display: flex; justify-content: space-between; align-items: center;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   flex-shrink: 0; z-index: var(--z-overlay);
 }
-#coordinates { font-family: monospace; }
+#coordinates { font-family: monospace; justify-self: start; }
+#footer-prototype {
+  justify-self: center;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.03em;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-pill);
+  padding: 1px var(--sp3);
+  white-space: nowrap;
+}
+#footer-links { justify-self: end; }
 #footer-links a { color: var(--primary); text-decoration: none; margin-left: var(--sp4); }
 #footer-links a:hover { text-decoration: underline; }
 
@@ -367,7 +392,7 @@ html, body {
 .bm-btn {
   display: flex; flex-direction: column; align-items: center; gap: var(--sp2);
   background: var(--white); border: 1.5px solid var(--grey-300);
-  border-radius: var(--radius); padding: 5px;
+  border-radius: var(--radius); padding: var(--sp-btn-y);
   font-size: var(--text-xs); color: var(--grey-700);
   cursor: pointer; box-shadow: var(--shadow-map-ctrl);
   transition: border-color var(--t-fast);
@@ -375,14 +400,14 @@ html, body {
 .bm-btn:hover { border-color: var(--primary); color: var(--primary); }
 .bm-btn img {
   width: 80px; height: 60px; border-radius: var(--radius-sm);
-  border: 1px solid rgba(0,0,0,.12); display: block; object-fit: cover;
+  border: 1px solid var(--border-subtle); display: block; object-fit: cover;
 }
 .bm-btn span { font-size: var(--text-xs); color: var(--grey-700); line-height: 1; }
 .bm-panel {
   position: absolute; bottom: 0; right: calc(100% + var(--sp4));
   background: var(--white); border: 1.5px solid var(--grey-300);
   border-radius: var(--radius); padding: var(--sp3);
-  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+  box-shadow: var(--shadow-panel);
   display: flex; gap: var(--sp3);
   opacity: 0; visibility: hidden; transform: translateX(4px);
   transition: opacity var(--t-fast), transform var(--t-fast), visibility var(--t-fast);
@@ -399,7 +424,7 @@ html, body {
 .bm-option.active { border-color: var(--primary); }
 .bm-option img {
   width: 70px; height: 50px; border-radius: var(--radius-sm);
-  border: 1px solid rgba(0,0,0,.1); display: block; object-fit: cover;
+  border: 1px solid var(--border-subtle); display: block; object-fit: cover;
 }
 .bm-opt-label { font-size: var(--text-xs); color: var(--grey-700); }
 .bm-option.active .bm-opt-label { color: var(--primary); font-weight: var(--fw-semibold); }
@@ -464,6 +489,39 @@ html, body {
   border-bottom: 1px solid var(--grey-200); flex-shrink: 0; background: var(--white);
   position: relative; z-index: var(--z-table-bar);
 }
+/* ── Tab strip (Standorte / Grünflächen) ──────────────────────────── */
+/* Segmented-control style: inactive tabs blend with the surrounding action
+   bar; the active tab gets a white pill with a subtle shadow so it reads
+   as "currently selected" without competing with primary buttons.  Counts
+   are dimmed so the label stays the focal point. */
+#tbl-tabs {
+  display: inline-flex; align-items: center; gap: 0;
+  background: var(--grey-100);
+  border-radius: var(--radius); padding: 2px;
+  flex-shrink: 0;
+}
+.tbl-tab {
+  display: inline-flex; align-items: center; gap: var(--sp2);
+  height: var(--ctrl-h); padding: 0 var(--sp4);
+  background: transparent; border: none;
+  cursor: pointer; border-radius: var(--radius-sm);
+  font-size: var(--text-sm); font-weight: var(--fw-medium);
+  color: var(--grey-600);
+  white-space: nowrap;
+  transition: color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast);
+}
+.tbl-tab:hover { color: var(--grey-900); }
+.tbl-tab.active {
+  background: var(--white);
+  color: var(--primary);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--shadow-sm);
+}
+.tbl-tab-count {
+  font-size: var(--text-xs); color: inherit; opacity: 0.65;
+  font-weight: var(--fw-medium);
+}
+
 #tbl-search-wrap { position: relative; flex: 1; max-width: 260px; }
 #tbl-search {
   width: 100%; height: var(--ctrl-h); padding: 0 26px 0 30px;
@@ -477,7 +535,10 @@ html, body {
   position: absolute; left: var(--sp3); top: 50%; transform: translateY(-50%);
   pointer-events: none; color: var(--grey-400);
 }
-#tbl-action-right { display: flex; align-items: center; gap: var(--sp2); margin-left: auto; }
+/* Same gap as .header-right (sp3) so the button cluster reads consistently
+   with the page header.  On narrow phones the action bar wraps and the
+   override at the bottom of this file tightens it back to sp2. */
+#tbl-action-right { display: flex; align-items: center; gap: var(--sp3); margin-left: auto; }
 
 /* ── Dropdown buttons (extends shared btn base) ────────── */
 .dd-btn { height: var(--ctrl-h); padding: 0 10px; gap: 5px; }
@@ -562,16 +623,21 @@ html, body {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp2);
   padding: var(--sp2) var(--sp4); background: var(--grey-50); border-bottom: 1px solid var(--grey-200);
 }
+/* Chip-style pills: neutral grey background lets many pills coexist
+   without dominating the action area.  The × button is muted by default
+   and turns red on hover/focus as the destructive cue. */
 .filter-pill {
   display: inline-flex; align-items: center; gap: var(--sp2);
   padding: var(--sp1) var(--sp3); font-size: var(--text-sm); line-height: 22px;
-  background: var(--primary-bg); color: var(--primary);
-  border: 1px solid var(--primary); border-radius: var(--radius-pill);
+  background: var(--grey-100); color: var(--grey-800);
+  border: 1px solid var(--grey-300); border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .pill-x {
-  background: none; border: none; cursor: pointer; font-size: 14px; line-height: 1;
-  color: var(--primary); padding: 0 0 0 var(--sp1); font-weight: var(--fw-bold);
+  background: none; border: none; cursor: pointer;
+  font-size: var(--text-base); line-height: 1;
+  color: var(--grey-500); padding: 0 0 0 var(--sp1); font-weight: var(--fw-bold);
+  transition: color var(--t-fast);
 }
 .pill-x:hover { color: var(--red); }
 .filter-reset-link {
@@ -623,13 +689,13 @@ html, body {
 #pg-pages { display: inline-flex; align-items: center; gap: var(--sp1); }
 
 /* Pagination buttons (extends shared btn base) */
-.pg-btn { min-width: var(--ctrl-h-pg); height: var(--ctrl-h-pg); padding: 0 var(--sp2); justify-content: center; }
+.pg-btn { min-width: var(--ctrl-h-sm); height: var(--ctrl-h-sm); padding: 0 var(--sp2); justify-content: center; }
 .pg-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: var(--pg-hover); }
 .pg-btn:disabled { opacity: 0.3; cursor: default; }
 .pg-btn.pg-active { background: var(--primary); color: var(--white); border-color: var(--primary); font-weight: var(--fw-semibold); }
 
 #pg-size-select {
-  height: var(--ctrl-h-pg); padding: 0 var(--sp2); font-size: var(--text-sm);
+  height: var(--ctrl-h-sm); padding: 0 var(--sp2); font-size: var(--text-sm);
   border: 1px solid var(--grey-300); border-radius: var(--radius);
   background: var(--white); color: var(--grey-700); cursor: pointer;
   transition: border-color var(--t-fast);
@@ -753,7 +819,7 @@ html, body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .lg-ext-attr {
-  font-size: 10px; color: var(--grey-400); margin-top: 1px;
+  font-size: var(--text-label); color: var(--grey-400); margin-top: 1px;
 }
 .lg-ext-attr a { color: inherit; text-decoration: none; }
 .lg-ext-attr a:hover { text-decoration: underline; }
@@ -866,7 +932,7 @@ html, body {
     width: min(85%, 340px);
     z-index: var(--z-overlay);
     transform: translateX(0);
-    box-shadow: -4px 0 16px rgba(0,0,0,.18);
+    box-shadow: var(--shadow-drawer-r);
     transition: transform var(--t-slow);
   }
   #filter-sidebar.collapsed {
@@ -880,7 +946,7 @@ html, body {
     content: '';
     position: fixed; left: 0; right: 0;
     top: var(--header-height); bottom: var(--footer-height);
-    background: rgba(0, 0, 0, 0.42);
+    background: var(--scrim-bg);
     z-index: calc(var(--z-overlay) - 1);
     animation: scrimIn var(--t-base) ease;
   }
@@ -1006,13 +1072,16 @@ html, body {
 @media (max-width: 768px) {
   /* Header: hide marketing line; the app name alone is enough */
   .header-agency { display: none; }
-  .header-app { font-size: 13px; }
+  .header-app { font-size: var(--text-sm); }
   #header { padding: 0 var(--sp3); gap: var(--sp2); }
   #search-area { padding: 0 var(--sp2); }
   #search-wrapper { max-width: none; }
-  /* Edit button is currently a placeholder anyway — hide on phones to
-     reclaim header space.  When real edit lands, restore here. */
-  .edit-btn { display: none; }
+  /* Edit is a placeholder; hide it on phones to reclaim header space.
+     Filter / Share / Print stay visible (Filter is essential, Share/Print
+     are core actions and use icon-only variants). */
+  #edit-toggle { display: none; }
+  /* Tighter filter button on phones so the header row fits. */
+  #filter-toggle { padding: var(--sp-btn-y) var(--sp2); }
 
   /* Sidebar → fixed-position drawer over the map */
   #sidebar {
@@ -1021,7 +1090,7 @@ html, body {
     width: min(85%, 320px);
     z-index: var(--z-overlay);
     transform: translateX(0);
-    box-shadow: 4px 0 16px rgba(0,0,0,.18);
+    box-shadow: var(--shadow-drawer-l);
     transition: transform var(--t-slow);
   }
   #sidebar.collapsed {
@@ -1039,7 +1108,7 @@ html, body {
     content: '';
     position: fixed; left: 0; right: 0;
     top: var(--header-height); bottom: var(--footer-height);
-    background: rgba(0, 0, 0, 0.42);
+    background: var(--scrim-bg);
     z-index: calc(var(--z-overlay) - 1);
     animation: scrimIn var(--t-base) ease;
   }
@@ -1064,14 +1133,20 @@ html, body {
   #pg-size-select { font-size: var(--text-xs); padding: 0 var(--sp1); }
 
   /* Table action bar: tighter spacing, smaller search */
-  #tbl-action-bar { padding: var(--sp2) var(--sp3); gap: var(--sp2); }
+  #tbl-action-bar { padding: var(--sp2) var(--sp3); gap: var(--sp2); flex-wrap: wrap; }
   #tbl-search-wrap { max-width: 160px; }
   /* Hide the verbose dropdown labels - keep just the icon + caret */
   #col-dd-btn, #filter-dd-btn, #export-dd-btn { padding: 0 var(--sp2); }
 
-  /* Footer: hide the live-coords readout (it dominates the row); keep links */
-  #coordinates { display: none; }
-  #footer { justify-content: flex-end; }
+  /* Tabs: shrink and drop the count to fit */
+  .tbl-tab { padding: 0 var(--sp3); font-size: var(--text-xs); }
+  .tbl-tab-count { display: none; }
+
+  /* Footer: hide the live-coords readout AND the prototype banner on
+     narrow screens (links + sentinel remain).  Switch the grid to a
+     simple flex layout so the right-aligned links float to the edge. */
+  #coordinates, #footer-prototype { display: none; }
+  #footer { display: flex; justify-content: flex-end; }
   #footer-links a { margin-left: var(--sp3); }
 
   /* Basemap switcher: smaller thumbnail-only button */
@@ -1083,4 +1158,35 @@ html, body {
   .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-in,
   .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-out,
   .maplibregl-ctrl-top-right .maplibregl-ctrl-compass { display: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PRINT — clean map-only output.  Hide every interactive panel so the
+   printed page is just the map.  MapLibre's WebGL canvas requires
+   preserveDrawingBuffer:true (set in map.js) to capture into the print
+   pipeline; without it most browsers print a blank canvas.
+   ════════════════════════════════════════════════════════════════════════ */
+@media print {
+  /* Hide every panel / control / overlay — print the map alone */
+  #header, #footer, #sidebar, #filter-sidebar, #table-panel,
+  #tbl-resize-handle, .legend-toggle-btn, #basemap-switcher,
+  #tbl-toggle, .maplibregl-ctrl,
+  #toast-container, #edit-banner, #save-banner,
+  #map-context-menu, .measure-distance-display,
+  #search-area { display: none !important; }
+  /* Reset shell layout so the map fills the printable page */
+  html, body, #app, #body, #main-content {
+    height: auto !important; min-height: 0 !important;
+    overflow: visible !important; display: block !important;
+  }
+  #map {
+    position: static !important;
+    width: 100% !important; height: 100vh !important;
+  }
+  /* Keep the maplibre attribution control visible — it's required by
+     the basemap licence terms. */
+  .maplibregl-ctrl-attrib { display: block !important; }
+  /* Force colour fidelity for area fills (browsers strip non-essential
+     backgrounds in print by default). */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }

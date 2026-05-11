@@ -27,7 +27,9 @@
       "Bash(curl -sS *)",
       "Bash(where ogrinfo 2>&1 *)",
       "Read(//c/Program Files/**)",
-      "Read(//c/OSGeo4W/**)"
+      "Read(//c/OSGeo4W/**)",
+      "Bash(grep -nE \"#[0-9a-fA-F]{3,6}|rgba?\\\\\\(|^\\\\s*[0-9]+\\(\\\\.[0-9]+\\)?\\(px|em|rem\\)\" css/styles.css)",
+      "Bash(grep -nE \"rgba\\\\\\(0,?\\\\s*0,?\\\\s*0,?\\\\s*\\\\.[0-9]+\\\\\\)|#[0-9a-fA-F]{3,6}\" css/styles.css)"
     ],
     "additionalDirectories": [
       "C:\\Users\\DavidRasner\\Documents\\GitHub\\green-inventory\\data",

@@ -124,6 +124,11 @@ const map = new maplibregl.Map({
   style: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
   center: [7.45, 46.95],   // Bern - actual bounds applied after data loads
   zoom: 12, maxZoom: 22,
+  // Required for the header Print button: without preserveDrawingBuffer the
+  // WebGL canvas is discarded between paints, and the browser captures a
+  // blank canvas during print().  ~10-15% rendering cost vs default; an
+  // acceptable trade for "print just works".
+  preserveDrawingBuffer: true,
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
@@ -545,31 +550,40 @@ const INTERACTIVE_LAYERS = ['site-fill', 'area-fill', 'canopy-fill',
 // IconCtrl is a thin reusable wrapper that produces a single-button MapLibre
 // IControl matching the visual style of the built-in zoom / compass buttons.
 // ═══════════════════════════════════════════════════════════════════════════
+// Single MapLibre IControl that hosts one or more buttons in a shared
+// `.maplibregl-ctrl-group` div.  Grouping is purely cosmetic — multiple
+// buttons in one group render as a single rounded card with one stack of
+// shadows, instead of N cards with N shadows.  Each button can be looked
+// up by its `key` for later state updates.
 class IconCtrl {
-  constructor({ title, html, onClick }) {
-    this._title = title; this._html = html; this._onClick = onClick;
+  constructor(spec) {
+    // Backwards-compat: a single `{ title, html, onClick }` makes one
+    // button; passing `{ buttons: [...] }` makes a group.
+    this._specs = Array.isArray(spec.buttons) ? spec.buttons : [spec];
+    this._byKey = {};
   }
   onAdd(map) {
     this._map = map;
     this._container = document.createElement('div');
     this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
-    this._btn = document.createElement('button');
-    this._btn.type = 'button';
-    this._btn.title = this._title;
-    this._btn.setAttribute('aria-label', this._title);
-    this._btn.innerHTML = this._html;
-    this._btn.addEventListener('click', (e) => this._onClick(e, this._btn));
-    this._container.appendChild(this._btn);
+    for (const s of this._specs) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = s.title || '';
+      b.setAttribute('aria-label', s.title || '');
+      b.innerHTML = s.html;
+      b.addEventListener('click', (e) => s.onClick(e, b));
+      this._container.appendChild(b);
+      if (s.key) this._byKey[s.key] = b;
+    }
     return this._container;
   }
-  onRemove() { this._container.parentNode.removeChild(this._container); this._map = undefined; }
-  setActive(on) { if (this._btn) this._btn.classList.toggle('ctrl-active', on); }
-  setHtml(html) { if (this._btn) this._btn.innerHTML = html; }
-  setTitle(t) {
-    if (!this._btn) return;
-    this._btn.title = t;
-    this._btn.setAttribute('aria-label', t);
+  onRemove() {
+    this._container.parentNode.removeChild(this._container);
+    this._map = undefined;
   }
+  // Lookup helper for state updates after the control is mounted.
+  getButton(key) { return this._byKey[key] || null; }
 }
 
 const ICON_HOME = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -587,12 +601,27 @@ function goHome() {
   }
 }
 
-const homeCtrl = new IconCtrl({
-  title: 'Zur Übersicht',
-  html: ICON_HOME,
-  onClick: goHome,
+// Home + 2D/3D live in the SAME control group so they share one card +
+// one drop-shadow with each other — but are separate from MapLibre's
+// native nav group (zoom +/−, compass), since those have their own
+// internal stylesheet expectations.
+const mapCtrls = new IconCtrl({
+  buttons: [
+    {
+      key: 'home',
+      title: 'Zur Übersicht',
+      html: ICON_HOME,
+      onClick: goHome,
+    },
+    {
+      key: '3d',
+      title: 'Zur 3D-Ansicht wechseln',
+      html: '3D',
+      onClick: () => set3D(!is3D),
+    },
+  ],
 });
-map.addControl(homeCtrl, 'top-right');
+map.addControl(mapCtrls, 'top-right');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2D / 3D TOGGLE
@@ -727,11 +756,16 @@ function remove3DLayers() {
 
 function set3D(on) {
   is3D = on;
-  threeDCtrl.setActive(on);
-  // Button shows the destination mode: in 2D it reads "3D" (tap to enter 3D)
-  // and vice versa.  Same convention as Mapbox / Cesium toggles.
-  threeDCtrl.setHtml(on ? '2D' : '3D');
-  threeDCtrl.setTitle(on ? 'Zur 2D-Ansicht wechseln' : 'Zur 3D-Ansicht wechseln');
+  // Update the 3D button visual + label.  Button shows the *destination*
+  // mode (Mapbox / Cesium convention): in 2D it reads "3D" (tap to enter
+  // 3D), in 3D it reads "2D".
+  const btn = mapCtrls.getButton('3d');
+  if (btn) {
+    btn.classList.toggle('ctrl-active', on);
+    btn.innerHTML = on ? '2D' : '3D';
+    btn.title = on ? 'Zur 2D-Ansicht wechseln' : 'Zur 3D-Ansicht wechseln';
+    btn.setAttribute('aria-label', btn.title);
+  }
   if (on) {
     map.easeTo({ pitch: D3_PITCH, duration: 500 });
     add3DLayers();
@@ -740,13 +774,6 @@ function set3D(on) {
     remove3DLayers();
   }
 }
-
-const threeDCtrl = new IconCtrl({
-  title: 'Zur 3D-Ansicht wechseln',
-  html: '3D',
-  onClick: () => set3D(!is3D),
-});
-map.addControl(threeDCtrl, 'top-right');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXTERNAL LAYERS  (swisstopo / federal data via search → add to map)
@@ -1610,6 +1637,47 @@ const saveBanner    = document.getElementById('save-banner');
 if (editBanner) editBanner.textContent = 'Bearbeitungs-Modus (in Entwicklung) – Funktionen folgen.';
 // Save banner has no purpose without the offset workflow; never shown.
 if (saveBanner) saveBanner.classList.remove('visible');
+
+// ── Header: Share & Print ──────────────────────────────────────────────
+// The current URL is auto-synced via syncViewUrl() (center/zoom on moveend)
+// + sel/ext/scope params, so `location.href` is already a deep-link to the
+// view the user is sharing.  Use the system share sheet when available,
+// fall back to clipboard.
+(function initShareButton() {
+  const btn = document.getElementById('share-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const url = location.href;
+    const title = 'Grünflächen Inventar';
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;                                  // success — system sheet handled it
+      } catch (err) {
+        if (err.name === 'AbortError') return;   // user cancelled the sheet
+        // fall through to clipboard fallback
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link kopiert', 'success');
+    } catch {
+      showToast('Teilen fehlgeschlagen', 'error');
+    }
+  });
+})();
+
+(function initPrintButton() {
+  const btn = document.getElementById('print-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    // Trigger a fresh repaint so preserveDrawingBuffer has up-to-date
+    // pixels for the print engine to capture.  The print dialog opens on
+    // the next tick, after the canvas is rendered.
+    map.triggerRepaint();
+    setTimeout(() => window.print(), 50);
+  });
+})();
 
 editToggleBtn.addEventListener('click', () => {
   editMode = !editMode;

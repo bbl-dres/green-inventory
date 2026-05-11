@@ -2,15 +2,29 @@
 
 ![Social Media Preview](assets/Preview1.jpg)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blue?logo=github)](https://bbl-dres.github.io/green-inventory/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![MapLibre GL JS](https://img.shields.io/badge/MapLibre_GL_JS-v4.7-396CB2?logo=maplibre&logoColor=white)](https://maplibre.org/)
+[![No Build Tools](https://img.shields.io/badge/build-none_%F0%9F%8E%89-brightgreen)](#tech-stack)
+
 > [!CAUTION]
 > **This is an unofficial mockup for demonstration purposes only.**
 > All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.
 
-**Simple Viewer:** https://bbl-dres.github.io/green-inventory
+## What is this?
 
-**Advanced Prototype:** https://bbl-dres.github.io/green-inventory/prototype1
+A pair of interactive **GIS web prototypes** for urban green-space inventory, maintenance planning, and field survey of properties managed by the Swiss Federal Office for Buildings and Logistics (BBL). The main app loads ~6 000 features extracted from a Bundesgärtnerei FileGDB and shows them on a map with care-profile classification, attribute filtering, table view, and identify against external swisstopo layers.
 
-Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
+Both prototypes are **vanilla HTML/CSS/JS, zero build step, zero npm dependencies**, served as static files via GitHub Pages.
+
+## Prototypes
+
+### Main App (Standorte / Grünflächen)
+
+The current focus: GDB-backed inventory of 73 sites (Standorte) and ~6 000 green-area features (areas, trees, canopies, small structures). MapLibre GL JS, four basemaps, 2D / 3D toggle with OSM building extrusion + tree cylinders, right-click Distanz / Teilen / Drucken, identify-on-click for external swisstopo layers, scoped table view (Standorte / Grünflächen tabs).
+
+- Link: https://bbl-dres.github.io/green-inventory/
 
 <p align="center">
   <img src="assets/images/preview1.jpg" width="45%" style="vertical-align: top;"/>
@@ -19,216 +33,134 @@ Interactive GIS web application mockup for urban green space inventory, maintena
 
 ---
 
-## Project structure
+### Prototype 1 — Earlier mock-up
+
+Original feature-rich mock-up exploring care profiles, contracts, inspections, tasks, and cost tracking against a denormalised dataset. Multilingual support, separate data model, more attribute panels per entity.
+
+- Link: https://bbl-dres.github.io/green-inventory/prototype1/
+
+<p align="center">
+  <img src="assets/images/preview3.jpg" width="45%" style="vertical-align: top;"/>
+</p>
+
+
+## Features (Main App)
+
+### Map
+- **MapLibre GL JS** map with four basemaps: CARTO Positron / Dark Matter / Voyager + **swisstopo Luftbild** (vector tiles).
+- **2D / 3D toggle** — camera pitches to 60°; OSM building footprints extrude (via [OpenFreeMap](https://openfreemap.org) `render_height` with 8 m default); each tree renders as a 12-gon cylinder coloured by species class.
+- **Home button** resets to the data bbox; full-screen zoom range to z22.
+- **Identify on click** for external swisstopo layers via the federal MapServer API; results returned as `geoJSON` in LV95 and re-projected client-side.
+
+### Legend (left drawer)
+- **GSZ Profilkatalog grouping** — Rasen / Wiesen / Rabatten / Hecken / Gehölzflächen / Spezielle Bepflanzungsformen / Beläge / Wasserflächen / Anderes, plus Baum / Spezielle Bepflanzungsformen (Punkt) / Kleinstrukturen.
+- **PDF-faithful colours and pattern swatches** (Wechselflor purple dots, Magerrasen brown dots, Rasengittersteine cross-hatch, Bollensteine grey dots, etc.).
+- Eye-toggle per group filters the map at the **profile-code** level (e.g. hide all `Hecken` codes 16/17/18 in one click).
+
+### Filter sidebar (right drawer)
+- Collapsible accordion groups: Standort / Profil / Baumart / Typ / Los / Pflegeklasse / Eigentümer / Pflege durch.
+- Search-within-filters auto-expands matching groups; per-group active-count chip; "Alle zurücksetzen" link.
+- Mobile: slides in from the right with scrim, same pattern as the legend drawer.
+
+### Table panel
+- **Standorte / Grünflächen tabs** — segmented control filters table to sites only (73) or green features only (~6 000); per-tab column-visibility defaults.
+- Search, sort, configurable columns, 100/200/500 rows-per-page pagination, CSV / GeoJSON / Excel export (all data or filtered set).
+- Selecting a row pans the map and opens its popup; row hover highlights the feature on the map.
+
+### Coordinate handling
+- Footer shows live **WGS 84** + **LV95** (Swiss-grid) coordinates as the cursor moves; right-click copies both forms.
+- Identify-on-click converts the query point to LV95 (`EPSG:2056`) because many swisstopo WMS layers refuse `sr=4326`.
+
+### Header actions
+- **Filter** (with active-count badge), **Share** (Web Share API + clipboard fallback), **Drucken** (preserveDrawingBuffer print pipeline), 2D/3D toggle.
+- All view state — center, zoom, selection, active external layers, tab scope — round-trips through URL parameters (`?center=…&zoom=…&sel=…&ext=…&scope=…`).
+
+## Data pipeline
+
+The map data lives in [`data/data.geojson`](data/data.geojson) (~10 MB, 6 164 features). It's generated from a Bundesgärtnerei FileGDB by [`scripts/gdb_to_geojson.py`](scripts/gdb_to_geojson.py), which:
+
+1. Reads three GDB layers via **pyogrio** + the bundled GDAL FileGDB driver.
+2. Extracts **17 field-domain codelists** (idPP polygon profiles, idPP point profiles, idBa species list, etc.) via `ctypes` against the GDAL OGR field-domain API.
+3. Reprojects **LV03 → LV95** (CHENyx06 NTv2 grid, 0.2 m accuracy) **→ WGS 84** (1.0 m accuracy, the published ceiling for non-Reframe transforms).
+4. Validates geometry (`make_valid`), simplifies high-vertex outliers at 5 cm in LV95, enforces RFC 7946 right-hand winding.
+5. Embeds all codelists, accuracy info, attribution, and `bbox` into the output metadata.
+
+The full data-model contract is documented in [`docs/DATAMODEL.md`](docs/DATAMODEL.md).
+
+## Tech Stack
+
+| Technology | Version | Usage |
+|---|---|---|
+| Vanilla JavaScript | ES6+ | Application logic |
+| MapLibre GL JS | v4.7 | Map rendering (WebGL) |
+| CSS3 | Modern | Design tokens + flex/grid layouts |
+| GeoJSON | RFC 7946 | Geospatial data format |
+| swisstopo MapServer | v3 | External-layer search + identify |
+| OpenFreeMap | planet | 3D OSM building tiles |
+| pyogrio + GDAL | 0.12 / 3.11 | FileGDB read + field domain extraction (Python pipeline) |
+| pyproj | 3.x | CRS reprojection (CHENyx06 grid) |
+| shapely | 2.x | Geometry validation + simplification |
+
+No build tools or frameworks for the frontend; pure static files.
+
+## Getting Started
+
+```bash
+# Any static file server works:
+python -m http.server 8000
+# or
+npx http-server
+```
+
+Then open <http://localhost:8000>. The root page is the main app; `/prototype1/` is the earlier mock-up.
+
+To regenerate `data/data.geojson` from a fresh GDB:
+
+```bash
+pip install pyogrio pyproj shapely pandas
+python scripts/gdb_to_geojson.py
+```
+
+Edit the `GDB_PATH` constant at the top of the script if your GDB lives elsewhere.
+
+## Project Structure
 
 ```
 green-inventory/
-├── index.html              # Map viewer (MapLibre GL JS + CARTO basemap)
-├── extract_features.py     # PDF → GeoJSON extraction script
+├── index.html                 # Main app entry point
+├── README.md
+├── assets/
+│   ├── images/                # Preview screenshots (used by README)
+│   ├── Preview1.jpg           # Social-media preview
+│   └── swiss-logo-*           # Federal logos
+├── js/
+│   ├── config.js              # Legend groups, profile styles, table columns, basemaps
+│   ├── map.js                 # MapLibre init, layers, controls, popups, search
+│   └── table.js               # Table widget: tabs, scope, filtering, export
+├── css/
+│   ├── tokens.css             # Design tokens (colors, spacing, shadows, …)
+│   └── styles.css             # Component styles
 ├── data/
-│   ├── [838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.pdf
-│   └── [838147959] 1602.GR_Mühlestrasse 2+4+6+8Grünflächenpflege.geojson
-└── prototype1/             # Earlier prototype (separate app)
+│   └── data.geojson           # Single FeatureCollection (6 164 features)
+├── scripts/
+│   └── gdb_to_geojson.py      # GDB → GeoJSON conversion pipeline
+├── docs/
+│   └── DATAMODEL.md           # Source GDB schema, codelists, output contract
+└── prototype1/                # Earlier prototype (separate app, own README)
 ```
 
----
+## Deployment
 
-## extract_features.py
+**GitHub Pages:** push to `main` deploys automatically.
 
-Extracts vector features from a Swiss landscape plan PDF (*Grünflächenpflege*, scale 1:650) and outputs a WGS 84 GeoJSON file.
+**Alternatives:** Netlify, Vercel, CloudFlare Pages, or any static file server.
 
-### Dependencies
+## License
 
-```bash
-pip install pymupdf shapely numpy pyproj
-```
-
-### Usage
-
-```bash
-python extract_features.py
-```
-
-Input and output paths are configured at the top of the script (`PDF_PATH`, `OUTPUT_PATH`).
-
-### How it works
-
-The script reads all vector drawing paths from the PDF page using **PyMuPDF** and processes them in two passes:
-
-#### Pass 1 — Large filled areas (`>= 20 pt` in both dimensions)
-These are solid-colour polygons and hatching stripes that define feature boundaries directly. Paths are grouped by their classified feature type, then merged using a **buffer → union → erode** operation (`MERGE_BUFFER_M = 1.8 m`) to collapse individual hatch stripes into unified area polygons. The result is exploded back into individual polygons per spatially disconnected region.
-
-#### Pass 2 — Pattern tiles (`< 20 pt`)
-These are the small repeated elements (dots, dashes, crosshatch marks) that fill patterned areas. Each tile's bounding rect is converted to a small Shapely polygon, then the same **buffer → union → erode** approach merges adjacent tiles into area polygons. This replaces the earlier convex-hull-of-centroids approach, which over-estimated boundaries.
-
-#### Color classification
-Each path's fill RGB is matched against `FEATURE_COLORS` (a lookup table of ~30 entries) using Euclidean distance in RGB space with a tolerance of `0.04`. Unclassified fills (white building footprints, etc.) are skipped — those will be sourced from official survey data.
-
-#### Georeferencing
-A single ground control point (GCP) is used:
-
-| GCP | WGS 84 | Assumed local position |
-|-----|--------|----------------------|
-| 1 | 46.97510 N, 7.47417 E | Map centre |
-
-The scale is calibrated from the plan's scale bar (174.49 PDF points = 40 m → **1 pt ≈ 0.2292 m**). Local metre coordinates are converted to WGS 84 via Swiss LV95 (EPSG:2056) as an intermediate CRS for accurate metric offsets.
-
-> **Note:** North is assumed to be up. The plan may have a slight rotation. Use the **Position bearbeiten** tool in the map viewer to drag and correct the position, then save the updated GeoJSON.
+Licensed under [MIT](https://opensource.org/licenses/MIT).
 
 ---
 
-## Legend layers
-
-Building footprints and the site boundary (red outline) are intentionally excluded — these will be sourced from official Swiss survey data (amtliche Vermessung).
-
-**How to read the matching column:**
-- **Solid fill** — one or more large closed polygons drawn with this fill colour. Directly converted to geometry.
-- **Hatch stripes** — many overlapping diagonal parallelograms in this colour tiling the area. Merged via buffer→union→erode.
-- **Pattern tiles** — thousands of tiny (< 5 mm²) repeated dot/dash/crosshatch elements. Merged the same way.
-- ⚠️ **Cannot distinguish** — two or more legend subtypes share an identical fill colour; they are merged into a single subtype in the output.
-- ➖ **Not present** — this legend type does not appear in this particular plan file.
-
----
-
-### Rasen
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Geb.Rasen kf. | `lawn` | `#97e600` rgb(0.596, 0.902, 0) | Solid fill |
-| Blumenrasen | `lawn` | `#97e600` on white | ⚠️ Same base colour as Geb.Rasen kf. — dot tiles not yet distinguished; merged into `lawn` |
-
-### Wiesen
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Feuchtwiese | `meadow` | `#a8e3d9` rgb(0.659, 0.890, 0.851) | ➖ Not present in this plan |
-| Blumenwiese gf. | `meadow` | `#e9ffbd` rgb(0.914, 1.0, 0.745) | ⚠️ Same colour as Blumenwiese kf. — stripe overlay tiles not yet distinguished; both merged into `Blumenwiese` |
-| Blumenwiese kf. | `meadow` | `#e9ffbd` rgb(0.914, 1.0, 0.745) | Solid fill |
-| Magerrasen | `meadow` | `#f5f579` rgb(0.961, 0.961, 0.478) | ⚠️ Same base colour as Saumvegetation — dot tile colours differ but not yet classified separately; merged into `Saumvegetation` |
-| Saumvegetation | `meadow` | `#f5f579` rgb(0.961, 0.961, 0.478) | Solid fill |
-
-### Rabatten
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Wechselflor | `planting_bed` | `#ff73df` rgb(1.0, 0.451, 0.875) | ➖ Not present in this plan |
-| Moorbeet | `planting_bed` | `#5c45a8` rgb(0.361, 0.271, 0.659) | ➖ Not present in this plan |
-| Stauden. int. | `planting_bed` | `#df73ff` rgb(0.875, 0.451, 1.0) | ⚠️ Same base colour as Stauden ext. — stripe tiles not yet distinguished; both merged into `Stauden` |
-| Stauden. ext. | `planting_bed` | `#df73ff` rgb(0.875, 0.451, 1.0) | Solid fill |
-| Beetrosen | `planting_bed` | `#ff5500` rgb(1.0, 0.333, 0) | ➖ Not present in this plan |
-| Ruderalfläche | `planting_bed` | `#ffaa00` rgb(1.0, 0.667, 0) | ➖ Not present in this plan |
-
-### Hecken
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Wildhecke | `hedge` | `#d9d89e` rgb(0.843, 0.843, 0.620) | ➖ Not present in this plan |
-| Formhecke + 1.5 m | `hedge` | `#a86f00` rgb(0.659, 0.439, 0) | ⚠️ Same tile colour as Formhecke - 1.5 m — height cannot be read from fill alone; merged into `Formhecke` |
-| Formhecke - 1.5 m | `hedge` | `#a86f00` rgb(0.659, 0.439, 0) | Pattern tiles (small hatch marks) |
-
-### Gehölzflächen
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Gehölz & Bodend. | `woody_area` | `#896e44` rgb(0.537, 0.439, 0.267) | ➖ Not present in this plan |
-| Bodendecker | `woody_area` | `#896e44` rgb(0.537, 0.439, 0.267) | ➖ Not present in this plan |
-| Gehölzrabatte | `woody_area` | `#718844` rgb(0.447, 0.537, 0.267) | Pattern tiles (small dots) |
-| Wald | `woody_area` | `#267300` rgb(0.150, 0.450, 0) | ➖ Not present in this plan |
-
-### Spezielle Bepflanzungsformen
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Dach: ext. Stauden | `special_planting` | `#ffbdbd` rgb(1.0, 0.745, 0.745) | Solid fill |
-
-### Beläge
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Asphaltbelag | `surface` | `#686868` rgb(0.408, 0.408, 0.408) | ➖ Not present in this plan — the dark-grey tiles (`#4e4e4e`) are 12-sided circle polygons (Bollensteine), not asphalt texture |
-| Rasengittersteine | `surface` | `#6fa800` rgb(0.439, 0.659, 0) | Pattern tiles (green diamond crosshatch, ~1 760 tiles) |
-| Holzhäckselbelag | `surface` | `#a83800` rgb(0.659, 0.220, 0) | Pattern tiles (dark-brown diamond crosshatch, ~7 500 tiles) |
-| Chaussierung | `surface` | `#cd8866` rgb(0.804, 0.537, 0.4) | Fill+stroke boundaries (17 direct polygon outlines) |
-| Betonpl./Verbund/Naturstein | `surface` | `#9c9c9c` rgb(0.612, 0.612, 0.612) | ➖ Not present in this plan |
-| Geröllstreifen/Bollensteine | `surface` | `#4e4e4e` rgb(0.306, 0.306, 0.306) | Pattern tiles (dark-grey 12-gon circle polygons, ~2 280 tiles) — previously misidentified as Asphaltbelag |
-
-### Wasserflächen
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Brunnen | `water` | `#00a9e6` rgb(0, 0.663, 0.902) | ➖ Not present in this plan |
-| Gewässer, ruhend | `water` | `#006fff` rgb(0, 0.439, 1.0) | ➖ Not present in this plan |
-
-### Anderes
-
-| Subtype | Category | PDF colour | Match method |
-|---------|----------|-----------|--------------|
-| Anderes | `other` | `#ffff00` rgb(1.0, 1.0, 0) | ➖ Not present in this plan |
-
----
-
-### Known limitations
-
-| Issue | Affected subtypes | Workaround |
-|-------|-------------------|------------|
-| Identical base fill colour | Blumenwiese gf. vs kf. / Stauden int. vs ext. / Formhecke +1.5m vs -1.5m | The distinguishing feature is the overlay pattern colour, not the base fill. Future improvement: cross-reference tile colour with base polygon area to resolve. |
-| Magerrasen vs Saumvegetation | Both use `#f5f579` base | Tile dot colour differs (yellow vs orange-brown) — could be classified separately with a lower `COLOR_TOL`. |
-| Gehölz & Bodend. vs Bodendecker | Both use `#896e44` | These differ only by the presence/absence of dot overlay tiles. |
-| Formhecke only partially in map | 8 tiles at the east edge (x ≈ MAP_X_MAX) | The hedge runs mostly outside the plan extent; the 8 edge tiles are too small to produce a meaningful polygon after merging. |
-| Plan-specific presence | Many types absent | Only the feature types drawn in a given PDF will appear. Run the script on a different plan to get different results. |
-
----
-
-## GeoJSON output format
-
-```json
-{
-  "type": "FeatureCollection",
-  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-  "metadata": {
-    "source_pdf": "...",
-    "site": "Muehlestrasse 2-6, 3063 Ittigen",
-    "scale": "1:650",
-    "gcp1_wgs84": [46.97510, 7.47417],
-    "map_extent_m": [245.7, 251.8],
-    "approx_bbox_wgs84": [7.4726, 46.9740, 7.4758, 46.9762],
-    "offset_m": [0.0, 0.0]
-  },
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [...] },
-      "properties": {
-        "feature_type": "Belag",
-        "subtype": "Chaussierung",
-        "category": "surface",
-        "fill_rgb": [0.804, 0.537, 0.4],
-        "source": "area_merged",
-        "area_m2": 283.0
-      }
-    }
-  ]
-}
-```
-
-**`source` field values:**
-- `area_merged` — reconstructed from large filled paths (solid areas or merged hatch stripes)
-- `pattern_merged` — reconstructed from small pattern tiles (dots, dashes, crosshatch)
-
----
-
-## Map viewer
-
-Open `index.html` via a local HTTP server (required for the `fetch` call):
-
-```bash
-python -m http.server 8000
-# then open http://localhost:8000
-```
-
-Features:
-- CARTO Positron basemap via MapLibre GL JS (no API key required)
-- Full legend panel matching the plan legend, grouped identically
-- Eye icon toggles per legend group
-- Hover popup with feature type, subtype, area m²
-- **Position bearbeiten** — drag the entire layer to correct georeferencing offset, then download the updated GeoJSON
+> [!CAUTION]
+> **This is an unofficial mockup for demonstration purposes only.**
+> All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.

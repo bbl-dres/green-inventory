@@ -36,6 +36,20 @@
     </div>
 
     <div class="header-right">
+      <button class="edit-btn icon-btn" id="share-toggle" title="Aktuelle Ansicht teilen" aria-label="Teilen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
+      <button class="edit-btn icon-btn" id="print-toggle" title="Drucken" aria-label="Drucken">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+      </button>
       <button class="edit-btn" id="filter-toggle" title="Filter">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
@@ -154,6 +168,17 @@
 
         <!-- Action bar -->
         <div id="tbl-action-bar">
+          <div id="tbl-tabs" role="tablist" aria-label="Tabellen-Ansicht">
+            <button class="tbl-tab active" data-scope="sites" role="tab" aria-selected="true">
+              <span class="tbl-tab-label">Standorte</span>
+              <span class="tbl-tab-count" id="tbl-tab-count-sites"></span>
+            </button>
+            <button class="tbl-tab" data-scope="green" role="tab" aria-selected="false">
+              <span class="tbl-tab-label">Grünflächen</span>
+              <span class="tbl-tab-count" id="tbl-tab-count-green"></span>
+            </button>
+          </div>
+
           <div id="tbl-search-wrap">
             <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -176,14 +201,6 @@
               </button>
               <div class="dd-menu" id="tbl-col-dd" style="right:0;left:auto"></div>
             </div>
-
-            <button class="dd-btn" id="filter-dd-btn" title="Filter (rechts)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-              </svg>
-              Filter
-              <span class="tbl-badge" id="tbl-filter-badge" style="display:none"></span>
-            </button>
 
             <div class="dd-wrap" id="export-dd-wrap">
               <button class="dd-btn" id="export-dd-btn">
@@ -264,6 +281,7 @@
   <!-- ── Footer ─────────────────────────────────────────────────────────── -->
   <footer id="footer">
     <div id="coordinates">WGS 84 | Koordinaten: --</div>
+    <div id="footer-prototype">Prototyp – nur zur Demonstration</div>
     <div id="footer-links">
       <a href="https://github.com/bbl-dres/green-inventory" target="_blank">Quellcode</a>
       <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>

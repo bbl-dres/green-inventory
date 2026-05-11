@@ -346,6 +346,34 @@ const TABLE_COLS = [
   { key: 'source',                label: 'Quelle',           visible: false },
 ];
 
+// Default-visible column keys per scope tab.  Switching tabs applies the
+// corresponding set; once the user toggles columns via the Spalten
+// dropdown, their picks are remembered per scope for the rest of the
+// session (state held in table.js _scopeColMemory).
+const TABLE_COL_DEFAULTS = {
+  sites: [
+    '_idx',
+    'site_name',
+    'site_objektnummer',
+    'site_adresse',
+    'site_lose',
+    'parzelle',
+    'pflegeklasse',
+    'eigentuemer',
+    'erstellungsjahr',
+    'area_m2',
+  ],
+  green: [
+    '_idx',
+    'entity_type',
+    'subtype',
+    'site_name',
+    'profil_label',
+    'baumart',
+    'area_m2',
+  ],
+};
+
 // Filter dropdown columns - which columns get a checkbox-list filter,
 // AND in what order they appear in the dropdown.  Order matters: surveyors
 // almost always start by narrowing to a specific Standort, then refine by

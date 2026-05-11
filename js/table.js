@@ -9,6 +9,39 @@ let tblSortCol = 'entity_type', tblSortDir = 1;
 let tblSearch = '';
 let tblFilterAttrs = {};          // { field: Set<string> }
 
+// ── Tab scope ────────────────────────────────────────────────────────
+// Two tab views over the data:
+//   'sites'  → entity_type === 'site'           (Standorte)
+//   'green'  → entity_type in {area, tree_canopy, tree, point}  (Grünflächen)
+// site_location features (centroid markers) are hidden from BOTH tabs —
+// they're a map-only affordance, not data.
+let tblScope = 'sites';
+const SCOPE_HIDDEN_FROM_TABLE = new Set(['site_location']);
+
+function inScope(row, scope) {
+  const e = row.entity_type;
+  if (SCOPE_HIDDEN_FROM_TABLE.has(e)) return false;
+  if (scope === 'sites') return e === 'site';
+  return e !== 'site';            // 'green' = everything else
+}
+
+// Per-scope column visibility memory.  null = use TABLE_COL_DEFAULTS.
+// Populated lazily: the first time a scope's visibility is touched (column
+// toggle or scope-leave), the current state is snapshotted into here so
+// subsequent re-entries restore the user's preferences for that tab.
+const _scopeColMemory = { sites: null, green: null };
+
+function applyColStateForScope(scope) {
+  const saved = _scopeColMemory[scope];
+  const keys = saved || (TABLE_COL_DEFAULTS && TABLE_COL_DEFAULTS[scope]) || [];
+  const visible = new Set(keys);
+  TABLE_COLS.forEach(c => { c.visible = visible.has(c.key); });
+}
+
+function rememberColStateForScope(scope) {
+  _scopeColMemory[scope] = TABLE_COLS.filter(c => c.visible).map(c => c.key);
+}
+
 // URL-param short keys for filter columns
 const FILTER_URL_KEYS = {
   entity_type: 'ent', site_lose: 'lo', pflegeklasse: 'pk',
@@ -19,8 +52,16 @@ let tblPage = 0, tblPageSize = 100;
 
 function buildTable() {
   if (!geojsonData) return;
+  // tableRows = FULL set (every feature including site_location).  Tab
+  // scoping is applied later, on a per-render basis, so the map's
+  // tblActiveIds stays comprehensive (the tab is a *table* filter, not
+  // a global one).
   tableRows = geojsonData.features.map((f, i) => ({ ...f.properties, _idx: i }));
+  restoreScopeFromUrl();
   restoreFiltersFromUrl();
+  applyColStateForScope(tblScope);   // initial column visibility for active tab
+  updateTabUI();
+  updateTabCounts();
   buildColDropdown();
   buildFilterSidebar();
   updateFilterBadge();
@@ -28,8 +69,10 @@ function buildTable() {
   renderTable();
 }
 
-function getFilteredRows() {
-  let rows = tableRows;
+// Apply the same search + sidebar filters to an arbitrary row array.  Used
+// twice per render: once on the full set (for the map's tblActiveIds) and
+// once on the scoped set (for the table view).
+function getFilteredRows(rows = tableRows) {
   if (tblSearch) {
     const q = tblSearch.toLowerCase();
     rows = rows.filter(r =>
@@ -55,17 +98,26 @@ function getSortedRows(rows) {
 }
 
 function renderTable() {
-  const filtered = getFilteredRows();
+  // Step 1: Map filter — applies search + sidebar filters to the FULL set
+  // so the map reflects user intent across all entity types.  The tab is
+  // intentionally NOT applied here: switching tabs shouldn't make features
+  // vanish from the map.
+  const globalFiltered = getFilteredRows(tableRows);
+  tblActiveIds = globalFiltered.length < tableRows.length
+    ? globalFiltered.map(r => r._idx)
+    : null;
+  applyMapFilters();
+
+  // Step 2: Table view — apply scope first, then filters.  This is what
+  // ends up rendered into the <tbody>.
+  const scoped = tableRows.filter(r => inScope(r, tblScope));
+  const filtered = getFilteredRows(scoped);
   const sorted = getSortedRows(filtered);
 
   // Clamp page
   const totalPages = Math.max(1, Math.ceil(sorted.length / tblPageSize));
   if (tblPage >= totalPages) tblPage = totalPages - 1;
   const pageRows = sorted.slice(tblPage * tblPageSize, (tblPage + 1) * tblPageSize);
-
-  // Sync table filter to map
-  tblActiveIds = filtered.length < tableRows.length ? filtered.map(r => r._idx) : null;
-  applyMapFilters();
 
   // thead
   const visCols = TABLE_COLS.filter(c => c.visible);
@@ -191,7 +243,12 @@ function buildColDropdown() {
   dd.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => {
       const col = TABLE_COLS.find(c => c.key === cb.dataset.col);
-      if (col) { col.visible = cb.checked; renderTable(); }
+      if (!col) return;
+      col.visible = cb.checked;
+      // Persist this toggle into the current tab's memory so switching
+      // tabs and back doesn't undo the user's choice.
+      rememberColStateForScope(tblScope);
+      renderTable();
     });
   });
 }
@@ -211,14 +268,20 @@ function buildFilterSidebar() {
   const root = document.getElementById('filter-groups');
   if (!root) return;
 
+  // Scope the filter options to what's actually visible in the current
+  // tab — so "Baumart" doesn't show 137 species when you're viewing
+  // Standorte (where every row's baumart is null).  Empty groups still
+  // render but collapse with a "Keine Werte" placeholder.
+  const scopedRows = tableRows.filter(r => inScope(r, tblScope));
+
   // For each filter column, collect distinct non-empty values from the
-  // currently-loaded tableRows.  Sort ascending by display value (German
-  // locale collation - "Ä" sorts after "A", not after "Z").
+  // scoped row set.  Sort ascending by display value (German locale
+  // collation - "Ä" sorts after "A", not after "Z").
   const collator = new Intl.Collator('de');
   root.innerHTML = FILTER_COLS.map(key => {
     const col = TABLE_COLS.find(c => c.key === key);
     const label = col ? col.label : key;
-    const vals = [...new Set(tableRows.map(r => String(r[key] ?? '')).filter(Boolean))]
+    const vals = [...new Set(scopedRows.map(r => String(r[key] ?? '')).filter(Boolean))]
       .sort((a, b) => collator.compare(a, b));
     const checked = tblFilterAttrs[key] || new Set();
     const activeCount = checked.size;
@@ -354,20 +417,16 @@ function countActiveFilters() {
 
 function updateFilterBadge() {
   const n = countActiveFilters();
-  // All three places share the same active-filter count:
-  //   - table-bar dropdown trigger  (#tbl-filter-badge on #filter-dd-btn)
-  //   - header filter button         (#filter-toggle-badge on #filter-toggle)
-  //   - sidebar header               (#filter-sidebar-badge in #filter-sidebar)
-  for (const id of ['tbl-filter-badge', 'filter-toggle-badge', 'filter-sidebar-badge']) {
+  // Two places now share the active-filter count: the header trigger
+  // (#filter-toggle-badge) and the sidebar header (#filter-sidebar-badge).
+  for (const id of ['filter-toggle-badge', 'filter-sidebar-badge']) {
     const b = document.getElementById(id);
     if (!b) continue;
     b.textContent = n > 0 ? n : '';
     b.style.display = n > 0 ? 'inline-block' : 'none';
   }
-  for (const id of ['filter-dd-btn', 'filter-toggle']) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('has-active', n > 0);
-  }
+  const el = document.getElementById('filter-toggle');
+  if (el) el.classList.toggle('has-active', n > 0);
 }
 
 // ── Filter pills ─────────────────────────────────────────────────────────────
@@ -550,13 +609,72 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
 });
 
+// ── Tab strip (Standorte / Grünflächen) ─────────────────────────────────
+function setScope(newScope) {
+  if (newScope !== 'sites' && newScope !== 'green') return;
+  if (newScope === tblScope) return;
+  // Snapshot the leaving scope's column visibility so the user's edits
+  // come back when they return to this tab.
+  rememberColStateForScope(tblScope);
+  tblScope = newScope;
+  applyColStateForScope(newScope);
+  tblPage = 0;
+  updateTabUI();
+  buildColDropdown();          // checkboxes reflect new visibility set
+  buildFilterSidebar();         // filter-group values rebuilt for new scope
+  updateFilterBadge();
+  renderFilterPills();
+  renderTable();
+  syncScopeUrl();
+}
+
+function updateTabUI() {
+  document.querySelectorAll('.tbl-tab').forEach(t => {
+    const active = t.dataset.scope === tblScope;
+    t.classList.toggle('active', active);
+    t.setAttribute('aria-selected', String(active));
+  });
+}
+
+function updateTabCounts() {
+  let nSites = 0, nGreen = 0;
+  for (const r of tableRows) {
+    if (SCOPE_HIDDEN_FROM_TABLE.has(r.entity_type)) continue;
+    if (r.entity_type === 'site') nSites++;
+    else nGreen++;
+  }
+  const a = document.getElementById('tbl-tab-count-sites');
+  const b = document.getElementById('tbl-tab-count-green');
+  if (a) a.textContent = nSites;
+  if (b) b.textContent = nGreen;
+}
+
+function syncScopeUrl() {
+  try {
+    const url = new URL(location.href);
+    if (tblScope === 'sites') url.searchParams.delete('scope');
+    else url.searchParams.set('scope', tblScope);
+    history.replaceState(null, '', url);
+  } catch (_) { /* file:// or sandboxed */ }
+}
+
+function restoreScopeFromUrl() {
+  try {
+    const v = new URLSearchParams(location.search).get('scope');
+    if (v === 'green' || v === 'sites') tblScope = v;
+  } catch (_) { /* ignore */ }
+}
+
+document.querySelectorAll('.tbl-tab').forEach(btn => {
+  btn.addEventListener('click', () => setScope(btn.dataset.scope));
+});
+
 // ── Filter sidebar open/close ──────────────────────────────────────────
 // Two triggers (header button + table-bar button) toggle the same panel.
 // Mobile mirrors the legend drawer behaviour.
 (function initFilterSidebar() {
   const sidebar       = document.getElementById('filter-sidebar');
   const headerToggle  = document.getElementById('filter-toggle');
-  const tableToggle   = document.getElementById('filter-dd-btn');
   const closeBtn      = document.getElementById('filter-sidebar-close');
   const mqPhone       = window.matchMedia('(max-width: 768px)');
   if (!sidebar) return;
@@ -574,7 +692,6 @@ document.addEventListener('click', () => {
   }
 
   if (headerToggle) headerToggle.addEventListener('click', toggle);
-  if (tableToggle)  tableToggle.addEventListener('click',  toggle);
   if (closeBtn)     closeBtn.addEventListener('click',     close);
 
   // On rotate / resize across the breakpoint, force the drawer-style

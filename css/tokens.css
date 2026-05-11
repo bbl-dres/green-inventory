@@ -32,11 +32,17 @@
   --row-active: #dceaf8;
   --pg-hover:   #f0f5ff;
 
+  /* Surfaces / borders */
+  --scrim-bg:       rgba(0, 0, 0, 0.42);   /* drawer overlays */
+  --border-subtle:  rgba(0, 0, 0, 0.12);   /* image / swatch outlines */
+
   /* Typography */
   --text-label: 10px;
   --text-xs:    11px;
-  --text-sm:    12.5px;
+  --text-sm:    13px;       /* was 12.5 — round to integer for crisper glyphs */
   --text-base:  14px;
+  --text-md:    15px;       /* header app title */
+  --text-lg:    18px;       /* popup close, large icon buttons */
   --fw-medium:  500;
   --fw-semibold: 600;
   --fw-bold:    700;
@@ -48,6 +54,7 @@
   --sp4: 12px;
   --sp5: 16px;
   --sp6: 24px;
+  --sp-btn-y: 5px;          /* button vertical padding (between sp2 and sp3) */
 
   /* Border radius */
   --radius-sm:   3px;
@@ -64,6 +71,10 @@
   --shadow-pill:      0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
   --shadow-pill-hover:0 2px 8px var(--primary-a18), 0 0 0 1px rgba(0,94,168,.1);
   --shadow-map-ctrl:  0 2px 8px rgba(0,0,0,.2);
+  --shadow-pop:       0 2px 12px rgba(0,0,0,.15);     /* save banner, popups */
+  --shadow-panel:     0 4px 16px rgba(0,0,0,.18);     /* basemap-panel, sticky filter wrap */
+  --shadow-drawer-l:  4px 0 16px rgba(0,0,0,.18);     /* left drawer (legend) */
+  --shadow-drawer-r: -4px 0 16px rgba(0,0,0,.18);     /* right drawer (filter) */
 
   /* Transitions */
   --t-fast: .12s ease;
@@ -90,8 +101,11 @@
   --map-ctrl-bottom: 10px;  /* MapLibre native control margin — toggle matches this */
   --map-ctrl-right:  20px;  /* basemap sits right: 20px, bottom: 50px (above ctrl-bottom-right) */
 
-  /* Control heights — keeps all interactive elements consistently sized */
-  --ctrl-h:    30px;
+  /* Control heights — keeps all interactive elements consistently sized.
+     32 matches the @media (pointer:coarse) touch-target floor, so the
+     desktop size already meets touch ergonomics (no jump on hybrid
+     devices).  --ctrl-h-sm is for compact contexts (pagination, secondary
+     inputs inside dropdowns). */
+  --ctrl-h:    32px;
   --ctrl-h-sm: 26px;
-  --ctrl-h-pg: 28px;
 }
