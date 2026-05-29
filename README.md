@@ -20,7 +20,7 @@ Both prototypes are **vanilla HTML/CSS/JS, zero build step, zero npm dependencie
 
 ## Solutions
 
-### Main App (Standorte / Grünflächen)
+### Main App (Sites / Green Areas)
 
 The current focus: GDB-backed inventory of 73 sites (Standorte) and ~6 000 green-area features (areas, trees, canopies, small structures). MapLibre GL JS, four basemaps, 2D / 3D toggle with OSM building extrusion + tree cylinders, right-click Distanz / Teilen / Drucken, identify-on-click for external swisstopo layers, scoped table view (Standorte / Grünflächen tabs).
 
