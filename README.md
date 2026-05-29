@@ -18,7 +18,7 @@ A pair of interactive **GIS web prototypes** for urban green-space inventory, ma
 
 Both prototypes are **vanilla HTML/CSS/JS, zero build step, zero npm dependencies**, served as static files via GitHub Pages.
 
-## Prototypes
+## Solutions
 
 ### Main App (Standorte / Grünflächen)
 
