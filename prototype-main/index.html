@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Grünflächen Inventar – BBL</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header id="header">
+    <div class="header-title">
+      <span class="header-agency">Bundesamt für Bauten und Logistik</span>
+      <span class="header-app">Grünflächen Inventar</span>
+    </div>
+    <div id="search-area" role="search">
+      <div id="search-wrapper">
+        <div id="search-container">
+          <svg id="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="search" id="search-input" placeholder="Ort oder Adresse suchen…" autocomplete="off">
+          <div id="search-spinner"></div>
+          <button class="input-clear-x" id="search-clear-btn" aria-label="Suche löschen" style="display:none">&times;</button>
+        </div>
+        <div id="search-results" role="listbox"></div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button class="edit-btn icon-btn" id="share-toggle" title="Aktuelle Ansicht teilen" aria-label="Teilen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
+      <button class="edit-btn icon-btn" id="print-toggle" title="Drucken" aria-label="Drucken">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+      </button>
+      <button class="edit-btn" id="filter-toggle" title="Filter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+        </svg>
+        Filter
+        <span class="tbl-badge" id="filter-toggle-badge" style="display:none"></span>
+      </button>
+      <button class="edit-btn" id="edit-toggle" title="Position korrigieren">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Bearbeiten
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Body ───────────────────────────────────────────────────────────── -->
+  <div id="body">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <span>Legende</span>
+        <button id="sidebar-close" class="sidebar-close-btn" aria-label="Legende schliessen">&times;</button>
+      </div>
+      <div id="legend-scroll" id="legend-list"></div>
+    </aside>
+
+    <!-- Map + Table column -->
+    <div id="main-content">
+
+      <!-- Map -->
+      <div id="map">
+        <!-- Permanent disclaimer banner — matches the centered footer pill -->
+        <div id="map-prototype-banner">Prototyp – nur zur Demonstration</div>
+        <button id="legend-toggle" class="legend-toggle-btn" title="Legende einblenden" style="display:none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+        </button>
+        <div id="edit-banner">Ziehen Sie die Karte, um alle Features zu verschieben. Klicken Sie auf Speichern.</div>
+        <!-- Basemap switcher -->
+        <div id="basemap-switcher">
+          <div class="bm-panel" id="bm-panel"></div>
+          <button class="bm-btn" id="bm-btn" title="Hintergrund wechseln">
+            <img id="bm-current-thumb" alt="Hintergrund">
+            <span>Hintergrund</span>
+          </button>
+        </div>
+        <div id="save-banner">
+          <span id="offset-label">Verschiebung: 0 m, 0 m</span>
+          <button id="save-offset">Speichern</button>
+          <button class="cancel-btn" id="cancel-offset">Abbrechen</button>
+        </div>
+        <!-- Context menu (right-click) -->
+        <div id="map-context-menu" class="map-context-menu">
+          <div class="context-menu-item context-menu-coords" id="context-menu-coords" title="Klicken zum Kopieren">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <span id="context-menu-coords-text">0, 0</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-share">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Teilen</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-measure">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-4 2 8 2-4h4"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+            <span id="context-menu-measure-text">Distanz messen</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-print">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Drucken</span>
+          </div>
+          <div class="context-menu-item" id="context-menu-report">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <span>Problem melden</span>
+          </div>
+        </div>
+
+        <!-- Measure distance display -->
+        <div id="measure-distance-display" class="measure-distance-display">
+          <div class="measure-distance-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-4 2 8 2-4h4"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+            <span>Distanz messen</span>
+            <button id="measure-distance-close" class="measure-distance-close" title="Schliessen">&times;</button>
+          </div>
+          <div class="measure-distance-info">Klicken Sie auf die Karte, um einen Pfad zu zeichnen.</div>
+          <div class="measure-distance-result">
+            <div class="measure-result-row">
+              <span class="measure-result-label">Gesamtdistanz:</span>
+              <span class="measure-result-value" id="measure-total-distance">0 m</span>
+            </div>
+            <div class="measure-result-row" id="measure-area-row" style="display:none">
+              <span class="measure-result-label">Fläche:</span>
+              <span class="measure-result-value" id="measure-total-area">0 m²</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast container -->
+        <div id="toast-container"></div>
+
+        <!-- Toggle lives inside #map so it stays visible when table collapses -->
+        <button id="tbl-toggle" title="Tabelle ein-/ausblenden">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          Tabelle
+        </button>
+      </div>
+
+      <!-- Resize handle (outside table-panel to avoid overflow:hidden clipping) -->
+      <div id="tbl-resize-handle"></div>
+
+      <!-- Table panel -->
+      <div id="table-panel">
+
+        <!-- Action bar -->
+        <div id="tbl-action-bar">
+          <div id="tbl-tabs" role="tablist" aria-label="Tabellen-Ansicht">
+            <button class="tbl-tab active" data-scope="sites" role="tab" aria-selected="true">
+              <span class="tbl-tab-label">Standorte</span>
+              <span class="tbl-tab-count" id="tbl-tab-count-sites"></span>
+            </button>
+            <button class="tbl-tab" data-scope="green" role="tab" aria-selected="false">
+              <span class="tbl-tab-label">Grünflächen</span>
+              <span class="tbl-tab-count" id="tbl-tab-count-green"></span>
+            </button>
+          </div>
+
+          <div id="tbl-search-wrap">
+            <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="tbl-search" placeholder="Suche…">
+            <button class="input-clear-x" id="tbl-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
+          </div>
+
+          <div id="tbl-action-right">
+            <div class="dd-wrap" id="col-dd-wrap">
+              <button class="dd-btn" id="col-dd-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+                Spalten
+                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="dd-menu" id="tbl-col-dd" style="right:0;left:auto"></div>
+            </div>
+
+            <div class="dd-wrap" id="export-dd-wrap">
+              <button class="dd-btn" id="export-dd-btn">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export
+                <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="dd-menu" id="tbl-export-dd" style="right:0;left:auto">
+                <div class="dd-menu-label">Alle Daten</div>
+                <div class="dd-item" id="exp-csv">CSV</div>
+                <div class="dd-item" id="exp-geojson">GeoJSON</div>
+                <div class="dd-item" id="exp-xlsx">Excel</div>
+                <div class="dd-divider"></div>
+                <div class="dd-menu-label">Gefilterte Daten</div>
+                <div class="dd-item" id="exp-csv-f">CSV</div>
+                <div class="dd-item" id="exp-geojson-f">GeoJSON</div>
+                <div class="dd-item" id="exp-xlsx-f">Excel</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active filter pills -->
+        <div id="tbl-filter-pills" style="display:none"></div>
+
+        <!-- Table -->
+        <div id="table-scroll">
+          <table id="tbl">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination bar: [info] · [nav cluster] · [size] -->
+        <div id="tbl-pagination">
+          <span class="pg-info" id="pg-info"></span>
+          <div class="pg-spacer"></div>
+          <button class="pg-btn" id="pg-first" title="Erste Seite">«</button>
+          <button class="pg-btn" id="pg-prev"  title="Vorherige Seite">‹</button>
+          <div id="pg-pages"></div>
+          <button class="pg-btn" id="pg-next"  title="Nächste Seite">›</button>
+          <button class="pg-btn" id="pg-last"  title="Letzte Seite">»</button>
+          <div class="pg-spacer"></div>
+          <select id="pg-size-select" title="Zeilen pro Seite">
+            <option value="100" selected>100 / Seite</option>
+            <option value="200">200 / Seite</option>
+            <option value="500">500 / Seite</option>
+          </select>
+        </div>
+      </div>
+
+    </div><!-- #main-content -->
+
+    <!-- Filter Sidebar (right side) -->
+    <aside id="filter-sidebar" class="collapsed" aria-label="Filter">
+      <div id="filter-sidebar-header">
+        <span>Filter</span>
+        <span class="tbl-badge" id="filter-sidebar-badge" style="display:none"></span>
+        <button id="filter-sidebar-close" class="sidebar-close-btn" aria-label="Filter schliessen">&times;</button>
+      </div>
+      <div id="filter-sidebar-controls">
+        <div id="filter-sidebar-search-wrap">
+          <input type="text" id="filter-sidebar-search" placeholder="Filter durchsuchen…">
+          <button class="input-clear-x" id="filter-sidebar-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
+        </div>
+        <button class="filter-reset-link" id="filter-sidebar-clear">Alle zurücksetzen</button>
+      </div>
+      <div id="filter-sidebar-body">
+        <div id="filter-groups"></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer id="footer">
+    <div id="coordinates">WGS 84 | Koordinaten: --</div>
+    <div id="footer-links">
+      <a href="https://github.com/bbl-dres/green-inventory" target="_blank">Quellcode</a>
+      <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
+      <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank">Kontakt</a>
+    </div>
+  </footer>
+
+</div><!-- #app -->
+
+<script src="js/config.js"></script>
+<script src="js/map.js"></script>
+<script src="js/table.js"></script>
+</body>
+</html>

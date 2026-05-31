@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# FME run logs (workspaces *.fmw are kept)
+*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

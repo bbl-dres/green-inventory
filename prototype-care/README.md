@@ -1,14 +1,16 @@
-# Green Area Inventory / Grünflächeninventar
+# Green Inventory — Care & Maintenance Prototype
 
-![Social Media PReview](assets/Preview1.jpg)
+> **Unofficial mockup.** Fictional data, not for production use. Part of the [`green-inventory`](../README.md) repo.
 
-> [!CAUTION]
-> **This is an unofficial mockup for demonstration purposes only.**
-> All data is fictional. Not all features are fully functional. This project serves as a visual and conceptual prototype — it is not intended for production use.
+![Social Media Preview](assets/Preview1.jpg)
 
-Interactive GIS web application mockup for urban green space inventory, maintenance planning, and field survey — built around interactive maps, care profiles, and task management.
+The earlier, feature-rich prototype: an interactive GIS mockup for urban green-space inventory, maintenance planning, and field survey — built around interactive maps, a care-profile library, and task management against a denormalised data model.
 
-**Live Demo:** [bbl-dres.github.io/green-inventory](https://bbl-dres.github.io/green-inventory/)
+## Live app
+
+https://bbl-dres.github.io/green-inventory/prototype-care/
+
+The old `/prototype1/` path redirects here.
 
 ## Features
 
@@ -74,39 +76,32 @@ npx http-server
 php -S localhost:8000
 ```
 
-Then open http://localhost:8000
+Then open <http://localhost:8000/prototype-care/>.
 
 ## Project Structure
 
 ```
-green-inventory/
-├── index.html                    # HTML structure
+prototype-care/
+├── index.html              # App shell
 ├── js/
-│   └── app.js                    # Application logic (~4,100 lines)
+│   └── app.js              # Application logic (~4,800 lines)
 ├── css/
-│   ├── tokens.css                # Design token system
-│   └── main.css                  # Styles & design system
-├── data/
-│   ├── sites.geojson             # Site/location perimeters
-│   ├── green-areas.geojson       # Green space areas
-│   ├── trees.geojson             # Tree inventory
-│   ├── furniture.geojson         # Park furniture/equipment
-│   ├── buildings.geojson         # Building geometries
-│   ├── parcels.geojson           # Land parcels
-│   ├── care-profiles.json        # GSZ care profile library (31 profiles)
-│   ├── contacts.json             # Personnel & stakeholders
-│   ├── contracts.json            # Service agreements
-│   ├── costs.json                # Operational expenses
-│   ├── documents.json            # Plans, certificates, permits
-│   ├── assets.json               # Equipment inventory
-│   ├── furniture.json            # Additional furniture data
-│   └── area-measurements.json    # Area measurement data
-├── assets/
-│   └── images/                   # Preview screenshots & icons
-├── documentation/
-│   ├── DATAMODEL.md              # Complete entity schema
-│   └── DESIGNGUIDE.md            # Design system & components
-├── REQUIEREMENTS.md              # 171 detailed requirements (MoSCoW)
+│   ├── tokens.css          # Design token system
+│   └── main.css            # Styles & design system
+├── data/                   # ~24 denormalised layers + lookup tables
+│   ├── sites · parcels · buildings · gardens · forest · woodlands .geojson
+│   ├── lawns · plantings · surfaces · trees · furniture · …  .geojson
+│   ├── care-profiles.json  # GSZ care-profile library
+│   └── contracts · costs · contacts · documents · inspections · tasks · species .json
+├── scripts/                # FME workspaces + PDF feature extractor
+│   ├── AV Landcover.fmw
+│   ├── Parcels FME.fmw
+│   └── extract_features.py # PDF plan → data/extracted_features.geojson
+├── docs/
+│   ├── DATAMODEL.md · DESIGNGUIDE.md · LAYERSTYLE.md
+│   ├── REQUIEREMENTS.md    # detailed requirements (MoSCoW)
+│   └── RESEARCH.md · Archive/
+├── assets/                 # logos + preview screenshots
 ├── README.md
 └── LICENSE
 ```
@@ -134,7 +129,7 @@ green-inventory/
 
 ## License
 
-Licensed under [MIT](https://opensource.org/licenses/MIT)
+[MIT](LICENSE)
 
 ---
 
