@@ -35,10 +35,6 @@ Earlier feature-rich mockup exploring care profiles, contracts, inspections, tas
 - Live app: https://bbl-dres.github.io/green-inventory/prototype-care/
 - Source code: [`prototype-care/`](prototype-care/)
 
-<p align="center">
-  <img src="prototype-care/assets/images/preview3.jpg" width="90%"/>
-</p>
-
 ## Running locally
 
 No build tools, no dependencies — just static files. From the repo root:
