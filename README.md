@@ -37,8 +37,8 @@ Aggregate land cover area (m²) per Swiss cadastral parcel from official Amtlich
 - Source Code: https://github.com/bbl-dres/landcover-survey
 
 <p align="center">
-  <img src="assets/preview5.jpg" width="45%" style="vertical-align: top;"/>
-  <img src="assets/preview6.jpg" width="45%" style="vertical-align: top;"/>
+  <img src="assets/Preview5.jpg" width="45%" style="vertical-align: top;"/>
+  <img src="assets/Preview6.jpg" width="45%" style="vertical-align: top;"/>
 </p>
 
 
