@@ -10,7 +10,7 @@
 
 > [!CAUTION]
 > **Unofficial mockup for demonstration purposes only.**
-> All data is fictional. Not all features are fully functional. This project is a visual and conceptual prototype — not intended for production use.
+> The data shown is a limited sample for demonstration only — not the full dataset. Not all features are fully functional. This project is a visual and conceptual prototype — not intended for production use.
 
 Interactive GIS web-app mockups for urban green-space inventory, maintenance planning, and field survey of properties managed by the Swiss Federal Office for Buildings and Logistics (BBL / Bundesgärtnerei). The repo holds **two independent prototypes**, each in its own folder with its own README.
 
@@ -32,8 +32,15 @@ GDB-backed inventory of 73 sites (Standorte) and ~6 000 green-area features on a
 ### Care & Maintenance Prototype
 
 Earlier feature-rich mockup exploring care profiles, contracts, inspections, task planning, and cost tracking against a denormalised data model. Multilingual, with tabbed per-property detail views and more attribute panels per entity.
+
+Built on **public sample data** from the [BBL Bundesgärtnerei](https://www.bbl.admin.ch/de/bundesgaertnerei) — a representative excerpt for demonstration only; the full dataset is not published here.
+
 - Live app: https://bbl-dres.github.io/green-inventory/prototype-care/
 - Source code: [`prototype-care/`](prototype-care/)
+
+<p align="center">
+  <img src="assets/Preview2.jpg" width="70%"/>
+</p>
 
 ## Running locally
 
