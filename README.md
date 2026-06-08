@@ -18,7 +18,10 @@ Interactive GIS web-app mockups for urban green-space inventory, maintenance pla
 
 ### Main App — Green Areas
 
-GDB-backed inventory of 73 sites (Standorte) and ~6 000 green-area features on a MapLibre GL map: care-profile classification, PDF-faithful legend grouping, attribute filters, scoped table view (Standorte / Grünflächen), 2D/3D toggle, and identify against external swisstopo layers.
+Mockup exploring care profiles, contracts, inspections, task planning, and cost tracking against a denormalised data model. Multilingual, with tabbed per-property detail views and more attribute panels per entity.
+
+Built on **public sample data** from the [BBL Bundesgärtnerei](https://www.bbl.admin.ch/de/bundesgaertnerei) — a representative excerpt for demonstration only; the full dataset is not published here.
+
 - Live app: https://bbl-dres.github.io/green-inventory/prototype-main/
 - Source code: [`prototype-main/`](prototype-main/)
 
@@ -42,22 +45,6 @@ Aggregate land cover area (m²) per Swiss cadastral parcel from official Amtlich
 <p align="center">
   <img src="assets/Preview5.jpg" width="45%" style="vertical-align: top;"/>
   <img src="assets/Preview6.jpg" width="45%" style="vertical-align: top;"/>
-</p>
-
-
----
-
-### Care & Maintenance Prototype
-
-Earlier feature-rich mockup exploring care profiles, contracts, inspections, task planning, and cost tracking against a denormalised data model. Multilingual, with tabbed per-property detail views and more attribute panels per entity.
-
-Built on **public sample data** from the [BBL Bundesgärtnerei](https://www.bbl.admin.ch/de/bundesgaertnerei) — a representative excerpt for demonstration only; the full dataset is not published here.
-
-- Live app: https://bbl-dres.github.io/green-inventory/prototype-care/
-- Source code: [`prototype-care/`](prototype-care/)
-
-<p align="center">
-  <img src="assets/Preview2.jpg" width="70%"/>
 </p>
 
 ## Running locally
