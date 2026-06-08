@@ -33,6 +33,9 @@ GDB-backed inventory of 73 sites (Standorte) and ~6 000 green-area features on a
 
 Aggregate land cover area (m²) per Swiss cadastral parcel from official Amtliche Vermessung (AV) data — supports single-parcel EGRID lookup and full municipal batch processing.
 
+> [!TIP]
+> See related repo: https://github.com/bbl-dres/landcover-survey
+
 - Live app: https://bbl-dres.github.io/landcover-survey/web/
 - Source Code: https://github.com/bbl-dres/landcover-survey
 
