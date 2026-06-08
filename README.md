@@ -20,7 +20,7 @@ Interactive GIS web-app mockups for urban green-space inventory, maintenance pla
 
 Mockup exploring care profiles, contracts, inspections, task planning, and cost tracking against a denormalised data model. Multilingual, with tabbed per-property detail views and more attribute panels per entity.
 
-Built on **public sample data** from the [BBL Bundesgärtnerei](https://www.bbl.admin.ch/de/bundesgaertnerei) — a representative excerpt for demonstration only; the full dataset is not published here.
+Built on **public sample data** from the [Federal Horticulture/Gardening Service](https://www.bbl.admin.ch/de/bundesgaertnerei) — a representative excerpt for demonstration only; the full dataset is not published here.
 
 - Live app: https://bbl-dres.github.io/green-inventory/prototype-main/
 - Source code: [`prototype-main/`](prototype-main/)
