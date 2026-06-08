@@ -169,6 +169,15 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
+// The map is constructed (above) before table.js runs _applyTableState(),
+// so the canvas is sized while #table-panel still occupies its default
+// --table-height (300px). When table.js then collapses the panel, #map grows
+// to full height but the WebGL canvas keeps the stale, shorter size — leaving
+// a white strip at the bottom. trackResize's ResizeObserver usually heals this
+// but races first paint, so it only shows "sometimes". Force one explicit
+// resize once layout has settled (rAF = after the collapse layout flush).
+map.once('load', () => requestAnimationFrame(() => map.resize()));
+
 // ── State ──────────────────────────────────────────────────────────────────
 let offsetDeltaLon = 0, offsetDeltaLat = 0;
 let editMode = false;
