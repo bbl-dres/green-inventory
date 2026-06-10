@@ -724,10 +724,12 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
 
   function open() {
     sidebar.classList.remove('collapsed');
+    if (headerToggle) headerToggle.classList.add('active');   // mirror "Bearbeiten"
     if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
   }
   function close() {
     sidebar.classList.add('collapsed');
+    if (headerToggle) headerToggle.classList.remove('active');
     if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
   }
   function toggle() {
