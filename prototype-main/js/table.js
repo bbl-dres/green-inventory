@@ -474,7 +474,7 @@ function renderFilterPills() {
     const col = TABLE_COLS.find(c => c.key === field);
     const label = col ? col.label : field;
     for (const v of vals) {
-      html += `<span class="filter-pill" data-field="${field}" data-value="${v}">${label}: ${v}<button class="pill-x" aria-label="Entfernen">&times;</button></span>`;
+      html += `<span class="filter-pill" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}">${escapeHtmlSafe(label)}: ${escapeHtmlSafe(v)}<button class="pill-x" aria-label="Entfernen">&times;</button></span>`;
     }
   }
   html += `<button class="filter-reset-link" id="tbl-filter-clear">Filter zurücksetzen</button>`;
@@ -512,7 +512,10 @@ function syncFiltersToUrl() {
     for (const short of Object.values(FILTER_URL_KEYS)) url.searchParams.delete(short);
     // Set active ones
     for (const [field, vals] of Object.entries(tblFilterAttrs)) {
-      if (vals.size) url.searchParams.set(FILTER_URL_KEYS[field], [...vals].join(','));
+      // Percent-encode each value before joining so a value that itself
+      // contains a comma (addresses, some labels) survives the round-trip —
+      // restoreFiltersFromUrl splits on ',' and decodes each part.
+      if (vals.size) url.searchParams.set(FILTER_URL_KEYS[field], [...vals].map(encodeURIComponent).join(','));
     }
     history.replaceState(null, '', url);
   } catch (_) { /* file:// or sandboxed */ }
@@ -524,7 +527,12 @@ function restoreFiltersFromUrl() {
     for (const [short, field] of Object.entries(FILTER_URL_KEYS_REV)) {
       const raw = params.get(short);
       if (raw) {
-        const vals = raw.split(',').filter(Boolean);
+        // Mirror syncFiltersToUrl's per-value encoding.  Decode defensively so
+        // one malformed token (e.g. a bare '%' from an old-format link) can't
+        // abort restoration of the other filters.
+        const vals = raw.split(',').filter(Boolean).map(s => {
+          try { return decodeURIComponent(s); } catch { return s; }
+        });
         if (vals.length) tblFilterAttrs[field] = new Set(vals);
       }
     }
@@ -609,7 +617,10 @@ document.getElementById('pg-first').addEventListener('click', () => { tblPage = 
 document.getElementById('pg-prev').addEventListener('click',  () => { tblPage--; renderTable(); });
 document.getElementById('pg-next').addEventListener('click',  () => { tblPage++; renderTable(); });
 document.getElementById('pg-last').addEventListener('click',  () => {
-  const total = getSortedRows(getFilteredRows()).length;
+  // Count over the SAME scoped+filtered set renderTable paginates, otherwise
+  // the last-page math is computed on the wrong basis (the full unscoped set).
+  const scoped = tableRows.filter(r => inScope(r, tblScope));
+  const total = getFilteredRows(scoped).length;
   tblPage = Math.max(0, Math.ceil(total / tblPageSize) - 1);
   renderTable();
 });
@@ -779,7 +790,14 @@ function closeExportDd() {
     const onMove = (ev) => {
       const delta = startY - ev.clientY;          // drag up = grow
       const maxH  = window.innerHeight * MAX_FRAC;
-      panel.style.height = Math.min(maxH, Math.max(MIN_H, startH + delta)) + 'px';
+      // Drive the resize through the --table-height CSS variable rather than
+      // an inline `height`.  An inline height would beat the stylesheet's
+      // `#table-panel.collapsed { height: 0 }` rule (inline > class), leaving
+      // the toggle unable to collapse the panel after a resize.  Setting the
+      // variable keeps the collapse rule winning by specificity, and the
+      // resized height is remembered across collapse/expand.
+      panel.style.setProperty('--table-height',
+        Math.min(maxH, Math.max(MIN_H, startH + delta)) + 'px');
       map.resize();
     };
     const onUp = () => {

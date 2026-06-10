@@ -1262,10 +1262,12 @@ function clearIdentifyHighlight() {
   if (map.getSource('ext-highlight')) map.removeSource('ext-highlight');
 }
 
-// Layer-scoped MapLibre listeners are torn down when setStyle() removes the
-// layers, so we reattach them after every style change.  Tracked so the
-// empty-map click handler can also be rebound (it isn't layer-scoped but
-// keeping it idempotent keeps the model simple).
+// MapLibre delegated (layer-scoped) listeners are keyed by layer-ID string and
+// are NOT dropped by setStyle() — and our data layers are preserved across
+// basemap swaps by transformStyle anyway.  So the click/hover handlers below
+// are bound exactly once (see attachInteractionHandlers); re-binding them on
+// every style change used to stack duplicate handlers, which made a feature
+// click select-then-clear after the first basemap switch.
 let _hovId = null;
 function setHover(id) {
   _hovId = id;
@@ -1278,27 +1280,34 @@ function setHover(id) {
 }
 
 let _emptyClickBound = false;
+let _layerHandlersBound = false;
 function attachInteractionHandlers() {
-  for (const lyr of INTERACTIVE_LAYERS) {
-    if (!map.getLayer(lyr)) continue;
-    map.on('mousemove', lyr, (e) => {
-      if (editMode) return;
-      if (!e.features.length) return;
-      map.getCanvas().style.cursor = 'pointer';
-      const f = e.features[0];
-      if (_hovId !== f.id) setHover(f.id);
-    });
-    map.on('mouseleave', lyr, () => {
-      if (editMode) return;
-      map.getCanvas().style.cursor = '';
-      setHover(null);
-    });
-    map.on('click', lyr, (e) => {
-      if (editMode || measureActive) return;
-      const fid = Number(e.features[0].id);
-      if (fid === selectedId) { clearSelection(); return; }
-      selectFeature(fid, e.lngLat);
-    });
+  // Bind the per-layer hover/click handlers exactly once.  They're keyed by
+  // layer-ID string, so they survive setStyle() and keep working even if a
+  // layer is later removed and re-added — re-binding on every basemap change
+  // (as this used to) stacked duplicate handlers and broke selection.
+  if (!_layerHandlersBound) {
+    for (const lyr of INTERACTIVE_LAYERS) {
+      map.on('mousemove', lyr, (e) => {
+        if (editMode) return;
+        if (!e.features.length) return;
+        map.getCanvas().style.cursor = 'pointer';
+        const f = e.features[0];
+        if (_hovId !== f.id) setHover(f.id);
+      });
+      map.on('mouseleave', lyr, () => {
+        if (editMode) return;
+        map.getCanvas().style.cursor = '';
+        setHover(null);
+      });
+      map.on('click', lyr, (e) => {
+        if (editMode || measureActive) return;
+        const fid = Number(e.features[0].id);
+        if (fid === selectedId) { clearSelection(); return; }
+        selectFeature(fid, e.lngLat);
+      });
+    }
+    _layerHandlersBound = true;
   }
   // Background click → clear selection.  Bind exactly once - this listener
   // is global, not layer-scoped, so style changes don't drop it.
@@ -2148,6 +2157,9 @@ function showToast(msg, type = '') {
       layers = data.results || [];
     } catch (e) { /* ignore */ }
 
+    // A newer keystroke may have aborted this search; if so, don't clobber
+    // the in-flight newer results (or hide its spinner) with our stale set.
+    if (sig.aborted) return;
     spinner.style.display = 'none';
     renderResults(localMatches, locations, layers);
   }
