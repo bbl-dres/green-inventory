@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "layerInfo": {
     "name": "Rasen & Wiesen",
-    "description": "Rasen- und Wiesenflächen mit Pflegeprofilen gemäss GSZ Profilkatalog Kategorie 1: Sportrasen, Gebrauchsrasen, Blumenrasen, Blumenwiese, Ruderalvegetation, Schotterrasen.",
+    "description": "Rasen- und Wiesenflächen mit Pflegeprofilen gemäss BBL Standard Grünflächenunterhalt: Sportrasen, Gebrauchsrasen, Blumenrasen, Blumenwiese, Ruderalvegetation, Schotterrasen.",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

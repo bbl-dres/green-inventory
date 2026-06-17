@@ -17,7 +17,7 @@ Der Anforderungskatalog deckt die Eigenentwicklung eines Grünflächeninventarsy
 
 ### 1.3 Referenzdokumente
 
-Die Pflegeprofil-Struktur orientiert sich massgeblich an den folgenden Referenzdokumenten der Stadt Zürich / Grün Stadt Zürich (Projekt «Mehr als Grün», ZHAW, 2019):
+Die Pflegeprofil-Struktur orientiert sich massgeblich am **BBL Standard Grünflächenunterhalt** (BBL, Bundesgärtnerei, 2020; basierend auf VSSG-Profilen, angepasst durch nateco) und den folgenden Referenzdokumenten:
 
 | Dokument | Beschreibung |
 |----------|-------------|
@@ -42,11 +42,11 @@ Diese Dokumente definieren die fachliche Grundstruktur der Pflegeprofil-Biblioth
 | Abkürzung | Bedeutung |
 |-----------|-----------|
 | AV | Amtliche Vermessung |
+| BBL | Bundesamt für Bauten und Logistik |
 | BIM | Building Information Modeling |
 | CAD | Computer-Aided Design |
 | CRS | Coordinate Reference System |
 | GIS | Geoinformationssystem |
-| GSZ | Grün Stadt Zürich |
 | IFC | Industry Foundation Classes |
 | ÖREB | Öffentlich-rechtliche Eigentumsbeschränkungen |
 | PWA | Progressive Web App |
@@ -116,10 +116,10 @@ Das Inventarmodul dient der Erfassung, Verwaltung und Geometrie-Bearbeitung alle
 | I-002 | **Must** | Baumkataster (Punkte) | Erfassung von Einzelbäumen als Punktobjekte: Baumart, Stammumfang, Kronendurchmesser, Pflanzjahr, Zustand, Schutzstatus, Profilzuordnung (Parkbaum / Strassenbaum / Obstbaum). |
 | I-003 | Should | Linienobjekte | Erfassung von Hecken (Form-/Wildhecken), Mauern, Zäunen und Wegen als Linienobjekte. |
 | I-004 | Should | Mobiliar & Ausstattung | Erfassung von Bänken, Brunnen, Spielgeräten etc. als Punktobjekte mit Typisierung. |
-| I-005 | Should | Strukturelemente | Erfassung ökologischer Strukturelemente (Trockenmauern, Asthaufen, Steinhaufen, Nisthilfen, Totholz) als Punkt- oder Polygonobjekte gemäss GSZ-Profilkatalog. |
+| I-005 | Should | Strukturelemente | Erfassung ökologischer Strukturelemente (Trockenmauern, Asthaufen, Steinhaufen, Nisthilfen, Totholz) als Punkt- oder Polygonobjekte gemäss BBL Standard Grünflächenunterhalt. |
 | I-006 | Should | Belagsflächen | Erfassung von Hartbelägen innerhalb des Perimeters (Chaussierung, Pflasterung, Fallschutz, Asphalt) als Polygone mit Profilzuordnung. |
 | I-007 | Should | Gewässer | Erfassung von Gewässern (ruhend, fliessend, Brunnen/Wasserbecken) als Polygon- oder Linienobjekte. |
-| I-008 | Could | Gruppierung / Cluster | Zusammenfassung mehrerer Objekte zu logischen Gruppen (z.B. Parkanlage mit allen Teilflächen) analog dem GSZ-Pflegeübersichtsplan. |
+| I-008 | Could | Gruppierung / Cluster | Zusammenfassung mehrerer Objekte zu logischen Gruppen (z.B. Parkanlage mit allen Teilflächen) analog dem Pflegeübersichtsplan. |
 
 ### 3.2 Geometrie-Editing im Web
 
@@ -249,9 +249,9 @@ Strukturierte Workflows für die Zustandsbeurteilung von Bäumen, Grünflächen 
 
 ## 4. Pflegeprofil-Bibliothek
 
-Die Pflegeprofil-Bibliothek ist ein zentrales Katalogsystem, das standardisierte Pflegeanweisungen verwaltet. Die Struktur orientiert sich am Profilkatalog «Mehr als Grün» der Stadt Zürich (ZHAW/GSZ 2019). Profile werden Grünflächen-Polygonen zugeordnet und steuern die automatische Generierung von Pflegemassnahmen.
+Die Pflegeprofil-Bibliothek ist ein zentrales Katalogsystem, das standardisierte Pflegeanweisungen verwaltet. Die Struktur orientiert sich am **BBL Standard Grünflächenunterhalt** (BBL, Bundesgärtnerei, 2020; basierend auf VSSG-Profilen, angepasst durch nateco). Profile werden Grünflächen-Polygonen zugeordnet und steuern die automatische Generierung von Pflegemassnahmen.
 
-### 4.1 Profilkategorien (basierend auf GSZ-Profilkatalog)
+### 4.1 Profilkategorien (basierend auf BBL Standard Grünflächenunterhalt)
 
 Das System wird mit folgenden vorkonfigurierten Profilkategorien ausgeliefert. Alle Profile sind editierbar und erweiterbar.
 
@@ -269,7 +269,7 @@ Das System wird mit folgenden vorkonfigurierten Profilkategorien ausgeliefert. A
 
 ### 4.2 Profil-Datenstruktur
 
-Jedes Pflegeprofil enthält folgende Datenstruktur (abgeleitet aus dem GSZ-Profilkatalog):
+Jedes Pflegeprofil enthält folgende Datenstruktur (abgeleitet aus dem BBL Standard Grünflächenunterhalt):
 
 | ID | Prio | Anforderung | Beschreibung |
 |----|------|-------------|--------------|
@@ -278,9 +278,9 @@ Jedes Pflegeprofil enthält folgende Datenstruktur (abgeleitet aus dem GSZ-Profi
 | P-003 | **Must** | Massnahmen-Tabelle | Strukturierte Erfassung der Pflegemassnahmen mit den Feldern: Massnahme, Bemerkung, Zeitpunkt (Monat), Intervall (x pro Jahr), Material/Maschinen. |
 | P-004 | **Must** | Spannungsfeld-Bewertung | Bewertung des Profils im Spannungsfeld Ökologie – Gestaltung – Nutzung (je als Slider oder Dreieck-Darstellung), differenziert nach «naturnaher Pflege» vs. «konventioneller Pflege». |
 | P-005 | **Must** | Zuordnung zu Polygonen | n:m-Beziehung zwischen Profilen und Grünflächen-Polygonen. Ein Polygon kann mehrere Profile haben, ein Profil wird mehreren Polygonen zugeordnet. |
-| P-006 | Should | Farbcodierung & Kartensymbolik | Jedes Profil hat eine definierte Farbe und ein Symbol für die Darstellung auf dem Pflegeübersichtsplan (analog GSZ-Pflegeübersichtsplan). |
+| P-006 | Should | Farbcodierung & Kartensymbolik | Jedes Profil hat eine definierte Farbe und ein Symbol für die Darstellung auf dem Pflegeübersichtsplan (analog dem Pflegeübersichtsplan). |
 | P-007 | Should | Qualitätsstufen | Pro Profil: Definition von «naturnaher Pflege» (Soll) vs. «konventioneller Pflege» (Vergleich) mit je einer Liste von Massnahmen und erwarteten Qualitäten. |
-| P-008 | Should | Saisonaler Kalender | Jahreskalender (12 Monate) mit farblicher Darstellung, wann welche Massnahmen durchzuführen sind (analog GSZ-Jahrespflegeplaner). |
+| P-008 | Should | Saisonaler Kalender | Jahreskalender (12 Monate) mit farblicher Darstellung, wann welche Massnahmen durchzuführen sind (analog dem Jahrespflegeplaner). |
 | P-009 | Should | Material-/Maschinenreferenz | Verknüpfung der Massnahmen mit einem Katalog von Maschinen und Materialien (z.B. Balkenmäher, Sense, organischer Dünger, Rechen). |
 | P-010 | Could | Ökologische Indikatoren | Optionale Erfassung von Biodiversitäts-Indikatoren: Artenvielfalt (Flora/Fauna), Ressourcenverbrauch, Versiegelungsgrad. |
 
@@ -289,7 +289,7 @@ Jedes Pflegeprofil enthält folgende Datenstruktur (abgeleitet aus dem GSZ-Profi
 | ID | Prio | Anforderung | Beschreibung |
 |----|------|-------------|--------------|
 | P-020 | **Must** | CRUD-Operationen | Erstellen, Bearbeiten, Duplizieren und Löschen von Pflegeprofilen mit Berechtigungsprüfung. |
-| P-021 | **Must** | GSZ-Standardprofile | Das System wird mit den 31 Profilen aus dem GSZ-Profilkatalog als editierbare Vorlagen ausgeliefert. |
+| P-021 | **Must** | BBL-Standardprofile | Das System wird mit den Standardprofilen aus dem BBL Standard Grünflächenunterhalt als editierbare Vorlagen ausgeliefert. |
 | P-022 | Should | Versionshistorie | Änderungsverfolgung: wer hat wann welche Änderungen vorgenommen. |
 | P-023 | Should | Import/Export | Import und Export von Pflegeprofilen als JSON/CSV für den Austausch zwischen Instanzen. |
 | P-024 | Should | Profil-Vergleich | Nebeneinanderstellung von zwei Profilen zum visuellen Vergleich (naturnahe vs. konventionelle Pflege oder zwei unterschiedliche Profile). |
@@ -302,7 +302,7 @@ Jedes Pflegeprofil enthält folgende Datenstruktur (abgeleitet aus dem GSZ-Profi
 | P-030 | **Must** | Automatische Generierung | Automatische Generierung eines Pflegeübersichtsplans pro Objekt/Perimeter auf Basis der zugeordneten Profile und deren Farbcodierung. |
 | P-031 | Should | Profilcode-Beschriftung | Anzeige des Profilcodes und optionaler Nummerierung (bei unterschiedlicher Pflege gleicher Profile) direkt auf der Karte. |
 | P-032 | Should | PDF-Export Pflegeübersichtsplan | Export des Pflegeübersichtsplans als druckfähiges PDF (A3/A4) mit Legende, Massstab und Nordpfeil. |
-| P-033 | Could | Schraffur-Differenzierung | Unterschiedliche Schraffuren für Teilflächen desselben Profils, wenn unterschiedliche Pflegemassnahmen angewandt werden (analog GSZ). |
+| P-033 | Could | Schraffur-Differenzierung | Unterschiedliche Schraffuren für Teilflächen desselben Profils, wenn unterschiedliche Pflegemassnahmen angewandt werden (analog dem Pflegeübersichtsplan). |
 
 ---
 
@@ -317,10 +317,10 @@ Dieses Modul verknüpft Pflegeprofile mit konkreten Aufgaben, Terminen und Zust�
 | M-001 | **Must** | Massnahmen erfassen | Erstellen von Massnahmen mit: Titel, Beschreibung, Typ (Pflege, Neubau, Sanierung, Inspektion, Neophytenbekämpfung), Priorität, Fälligkeitsdatum. |
 | M-002 | **Must** | Räumliche Verknüpfung | Jede Massnahme ist mit einem oder mehreren Kartenobjekten verknüpft und auf der Karte visualisierbar. |
 | M-003 | **Must** | Statusverfolgung | Workflow-basierter Status: Geplant → In Bearbeitung → Abgeschlossen → Abgenommen. Mit Zeitstempeln und Benutzerprotokoll. |
-| M-004 | Should | Automatische Generierung | Automatische Erstellung wiederkehrender Massnahmen basierend auf den Massnahmen-Tabellen der zugeordneten Pflegeprofile (Zeitpunkt, Intervall). Analog zum GSZ-Jahrespflegeplaner. |
+| M-004 | Should | Automatische Generierung | Automatische Erstellung wiederkehrender Massnahmen basierend auf den Massnahmen-Tabellen der zugeordneten Pflegeprofile (Zeitpunkt, Intervall). Analog zum Jahrespflegeplaner. |
 | M-005 | Should | Massnahmen-Kalender | Kalenderansicht (Monat, Woche, Tag) aller geplanten und fälligen Massnahmen mit Filtermöglichkeiten. |
-| M-006 | Should | Jahrespflegeplaner-Ansicht | Tabellarische Jahresübersicht aller Massnahmen pro Objekt (Zeilen: Massnahmen, Spalten: Monate) — digitale Version des GSZ-Jahrespflegeplaners. |
-| M-007 | Should | Massnahmentyp «Neophytenbekämpfung» | Dedizierter Massnahmentyp für invasive Neophyten mit Feldern: Art, Bekämpfungsmethode, Sicherheitsmassnahmen, Entsorgungsart (gemäss GSZ-Richtlinien und Infoflora). |
+| M-006 | Should | Jahrespflegeplaner-Ansicht | Tabellarische Jahresübersicht aller Massnahmen pro Objekt (Zeilen: Massnahmen, Spalten: Monate) — digitale Version des Jahrespflegeplaners. |
+| M-007 | Should | Massnahmentyp «Neophytenbekämpfung» | Dedizierter Massnahmentyp für invasive Neophyten mit Feldern: Art, Bekämpfungsmethode, Sicherheitsmassnahmen, Entsorgungsart (gemäss BBL-Richtlinien und Infoflora). |
 | M-008 | Could | Abhängigkeiten | Definition von Abhängigkeiten zwischen Massnahmen (z.B. Bodenvorbereitung vor Neupflanzung). |
 
 ### 5.2 Aufgabenverwaltung
@@ -408,7 +408,7 @@ Finanzielle Planung und Überwachung der Grünflächenbewirtschaftung, von der E
 | F-011 | Should | Dashboard / KPI | Dashboard mit Kennzahlen: Gesamtfläche nach Profiltyp, Kosten/m², offene Massnahmen, Budget-Auslastung, Anteil naturnaher Pflege. |
 | F-012 | Should | Berichtsexport | Export von Kosten- und Massnahmenberichten als PDF oder CSV. |
 | F-013 | Could | Trendsanalyse | Mehrjährige Kostenentwicklung pro Fläche oder Pflegeprofil mit grafischer Darstellung. |
-| F-014 | Could | Szenarien-Vergleich | Vergleich verschiedener Pflegeszenarien (z.B. «naturnahe Pflege» vs. «konventionelle Pflege» gemäss GSZ-Systematik) hinsichtlich Kosten, Aufwand und ökologischem Nutzen. |
+| F-014 | Could | Szenarien-Vergleich | Vergleich verschiedener Pflegeszenarien (z.B. «naturnahe Pflege» vs. «konventionelle Pflege» gemäss der Systematik des BBL Standard Grünflächenunterhalt) hinsichtlich Kosten, Aufwand und ökologischem Nutzen. |
 
 ### 8.3 Ökosystemleistungen
 
@@ -566,7 +566,7 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 - [ ] Abgrenzung der Pilotphase: welche Module werden zuerst umgesetzt?
 - [ ] Hosting-Modell: On-Premise vs. Cloud (Swiss Cloud Provider)?
 - [ ] Integration mit bestehenden Fachsystemen (z.B. SAP PM, GEVER)?
-- [ ] Lizenzklärung der GSZ-Profilkatalog-Inhalte für die Verwendung als Standardprofile
+- [ ] Lizenzklärung der Inhalte des BBL Standard Grünflächenunterhalt für die Verwendung als Standardprofile
 - [ ] Definition der Datenmigrationsstrategie für bestehende Inventardaten
 - [ ] Entscheid PWA vs. native App für das Mobile-Modul
 - [ ] Technologie-Stack-Entscheid (Frontend-Framework, Karten-Library, Backend)
@@ -584,8 +584,7 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 
 | Quelle | Titel | Jahr |
 |--------|-------|------|
-| ZHAW / Grün Stadt Zürich | Profilkatalog naturnahe Pflege «Mehr als Grün» | 2019 |
-| ZHAW / Grün Stadt Zürich | Praxishandbuch naturnahe Pflege «Mehr als Grün» | 2019 |
+| Bundesamt für Bauten und Logistik (BBL), Bundesgärtnerei | Standard Grünflächenunterhalt | 2020 |
 | Stadt Zürich | VVO über die naturnahe Pflege und Bewirtschaftung städtischer Grün- und Freiflächen | — |
 | BAFU | Aktionsplan Strategie Biodiversität Schweiz | 2017 |
 | SIA | SIA 491 – Vermeidung unnötiger Lichtemissionen im Aussenraum | 2013 |
@@ -613,6 +612,6 @@ Effizientes Auffinden und Selektieren von Objekten über räumliche und attribut
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 0.1 | Februar 2026 | Erster Entwurf, 106 Anforderungen |
-| 0.2 | Februar 2026 | Erweiterung um GSZ-Profilstruktur (31 Profile, Spannungsfeld Ökologie–Gestaltung–Nutzung, Massnahmen-Tabellen), Pflegeübersichtsplan-Modul, Mobile-Modul (Field Survey mit Offline-Fähigkeit), Neophyten-Erfassung, Jahrespflegeplaner-Ansicht, erweiterte Objekttypen (Strukturelemente, Beläge, Gewässer). 130 Anforderungen. |
+| 0.2 | Februar 2026 | Erweiterung um BBL-Profilstruktur (Standardprofile, Spannungsfeld Ökologie–Gestaltung–Nutzung, Massnahmen-Tabellen), Pflegeübersichtsplan-Modul, Mobile-Modul (Field Survey mit Offline-Fähigkeit), Neophyten-Erfassung, Jahrespflegeplaner-Ansicht, erweiterte Objekttypen (Strukturelemente, Beläge, Gewässer). 130 Anforderungen. |
 | 0.3 | Februar 2026 | Umfassende Erweiterung des Geometrie-Editing-Moduls (Kap. 3.2): Aufgliederung nach Geometrietyp (Polygon, Punkt, Linie), neue Abschnitte für Selektion, Bearbeitungsworkflow, Zeichenhilfen und Geometrie-Validierung. +41 neue Anforderungen basierend auf Analyse von QGIS, ArcGIS Web Editor, Mapbox GL Draw und Leaflet-Geoman. Neu 171 Anforderungen. |
 | 0.4 | Februar 2026 | Abgleich mit RESEARCH.md und DATAMODEL.md: Neue Abschnitte Artenverwaltung & Taxonomie (Kap. 3.4, Darwin Core, Infoflora, GALK), Zustandserfassung & Inspektion (Kap. 3.5, FLL-Baumkontrollrichtlinie, VTA, DIN EN 1176/1177), Ökosystemleistungen (Kap. 8.3, i-Tree Eco), Moderne Datenschnittstellen (Kap. 9.4, GeoPackage, OGC API Features, DCAT-AP CH, GBIF), Standards & Interoperabilität (Kap. 12.4, EU NRR, CityGML 3.0, INSPIRE). +27 neue Anforderungen. Erweiterte Referenzen und offene Punkte. Neu 198 Anforderungen. |

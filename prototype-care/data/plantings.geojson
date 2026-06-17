@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "layerInfo": {
     "name": "Stauden & Sträucher",
-    "description": "Stauden-, Strauch- und Wechselflorpflanzungen gemäss GSZ Profilkatalog Kategorie 2: Strauchbepflanzung, Bodendecker, Staudenbepflanzung, Hochstaudenflur, Wechselflor, Beetrosen, Moorbeet.",
+    "description": "Stauden-, Strauch- und Wechselflorpflanzungen gemäss BBL Standard Grünflächenunterhalt: Strauchbepflanzung, Bodendecker, Staudenbepflanzung, Hochstaudenflur, Wechselflor, Beetrosen, Moorbeet.",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

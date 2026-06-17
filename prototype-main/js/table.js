@@ -634,19 +634,58 @@ document.getElementById('pg-size-select').addEventListener('change', (e) => {
 // Filter is no longer a dropdown - it lives in the right-side sidebar (see
 // #filter-sidebar wiring further down).  Only column- and export-pickers
 // remain as dropdowns.
+// Place a (position:fixed) dropdown menu relative to its trigger button,
+// flipping it above the button when there isn't enough room below.  Fixed
+// positioning means #table-panel's overflow:hidden can't clip it.
+function positionDropdownMenu(wrap) {
+  const btn  = wrap.querySelector('.dd-btn');
+  const menu = wrap.querySelector('.dd-menu');
+  if (!btn || !menu) return;
+  menu.style.maxHeight = '';                          // measure natural size first
+  const r = btn.getBoundingClientRect();
+  const GAP = 5, EDGE = 8;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const menuW = menu.offsetWidth;
+  let   menuH = menu.offsetHeight;
+
+  // Horizontal: right-align to the button, clamped into the viewport.
+  const left = Math.max(EDGE, Math.min(r.right - menuW, vw - menuW - EDGE));
+
+  const below = vh - r.bottom - GAP;
+  const above = r.top - GAP;
+  let top;
+  if (menuH <= below || below >= above) {
+    top = r.bottom + GAP;                             // open downward
+    if (menuH > below) menu.style.maxHeight = below + 'px';
+  } else {
+    if (menuH > above) { menu.style.maxHeight = above + 'px'; menuH = above; }
+    top = r.top - GAP - menuH;                        // flip upward
+  }
+  menu.style.right = 'auto';
+  menu.style.left  = left + 'px';
+  menu.style.top   = Math.max(EDGE, top) + 'px';
+}
+
 ['col-dd-wrap', 'export-dd-wrap'].forEach(wrapId => {
   const wrap = document.getElementById(wrapId);
   wrap.querySelector('.dd-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     const isOpen = wrap.classList.contains('open');
     document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
-    if (!isOpen) wrap.classList.add('open');
+    if (!isOpen) {
+      wrap.classList.add('open');
+      positionDropdownMenu(wrap);
+    }
   });
   // Stop clicks inside the menu from bubbling to document — otherwise the
   // document handler closes the dropdown before <select> pickers can open.
   wrap.querySelector('.dd-menu').addEventListener('click', e => e.stopPropagation());
 });
 document.addEventListener('click', () => {
+  document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
+});
+// A fixed-position menu detaches from its button on resize — close it.
+window.addEventListener('resize', () => {
   document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
 });
 

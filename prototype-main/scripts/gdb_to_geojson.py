@@ -66,8 +66,8 @@ WGS84 = "EPSG:4326"
 # pyogrio doesn't expose GDAL >= 3.3's OGR_FieldDomain API.  We load GDAL
 # directly via ctypes and read the coded-value enumerations.  This gives us
 # real labels for every fk_* code in the GDB - the legacy GFM domain
-# catalog (idPP, idPPy, idBa, idPd, ...) which the GSZ Profilkatalog and
-# the inventory toolchain were built around.
+# catalog (idPP, idPPy, idBa, idPd, ...) which the BBL Standard
+# Grünflächenunterhalt and the inventory toolchain were built around.
 #
 # Cross-platform note: this works wherever pyogrio.libs has a shared
 # library.  On Windows it's gdal-*.dll, on Linux it's libgdal-*.so, on
@@ -908,7 +908,7 @@ def main():
             "fk_profil_values": profile_codes,
             "fk_profil_area_counts": dict(sorted(profile_counts.items(), key=lambda kv: -kv[1])),
             "todo_codelists": [
-                "fk_profil (1..40)  - GSZ care profile codes",
+                "fk_profil (1..40)  - BBL care profile codes",
                 "fk_pflegedurchfuehrung (1..9)",
                 "fk_pflegeklasse (point/polygon)",
                 "fk_zustand",

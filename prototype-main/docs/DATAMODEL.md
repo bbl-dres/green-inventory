@@ -472,7 +472,7 @@ Used by `Pflegeelement_polygon.fk_profil`.
 44  Magerrasen                          Wiesen
 ```
 
-The category column is the GSZ-Profilkatalog grouping (Rasen / Wiesen /
+The category column is the BBL profile-catalog grouping (Rasen / Wiesen /
 Rabatten / Hecken / Gehölzflächen / Spezielle Bepflanzungsformen /
 Beläge / Wasserflächen / Anderes) used downstream for legend buckets.
 

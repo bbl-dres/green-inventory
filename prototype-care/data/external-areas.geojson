@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "layerInfo": {
     "name": "Ext. Bewirtschaftung",
-    "description": "Flächen mit wechselnder Vegetation oder externer Bewirtschaftung gemäss GSZ Profilkatalog Kategorie 7: Grabpflege, Kontrolle GSZ, verpachtete Flächen.",
+    "description": "Flächen mit wechselnder Vegetation oder externer Bewirtschaftung gemäss BBL Standard Grünflächenunterhalt: Grabpflege, externe Kontrolle, verpachtete Flächen.",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

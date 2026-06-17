@@ -23,62 +23,62 @@ function fmtNum(v, decimals) {
 }
 
 // ── Profile styling ──────────────────────────────────────────────────────
-// Explicit colour + swatch-pattern for every GSZ profile.  Sourced from the
-// original Grünflächenpflege PDF legend (1602.GR_Mühlestrasse 2-6) so the
+// Explicit colour + swatch-pattern for every BBL care profile.  Sourced from
+// the original Grünflächenpflege PDF legend (1602.GR_Mühlestrasse 2-6) so the
 // app matches what surveyors are used to.  Codes: idPPy = polygon profiles,
 // idPP = point profiles.  swatchClass refers to a CSS pattern class
 // (sw-dots, sw-pstripe, sw-xhatch, ...) defined in styles.css.
 const AREA_PROFILE_STYLE = {
   // ── Rasen ──
-  1:  { fill: '#97e600' },                                // Geb.Rasen kf.
-  2:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Geb.Rasen gf.  (extrapolated)
-  3:  { fill: '#97e600' },                                // Strap./Sportr. kf. (extrapolated)
-  4:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Strap./Sportr. gf. (extrapolated)
+  1:  { fill: '#97e600' },                                // Gebrauchsrasen kleinflächig
+  2:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Gebrauchsrasen grossflächig (extrapolated)
+  3:  { fill: '#97e600' },                                // Strapazierrasen / Sportrasen kleinflächig (extrapolated)
+  4:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Strapazierrasen / Sportrasen grossflächig (extrapolated)
   5:  { fill: '#97e600', swatchClass: 'sw-dots' },        // Blumenrasen
   // ── Wiesen ──
-  6:  { fill: '#c6eeab' },                                // Blumenwiese kf.
-  7:  { fill: '#c6eeab', swatchClass: 'sw-pstripe' },     // Blumenwiese gf.
+  6:  { fill: '#c6eeab' },                                // Blumenwiese kleinflächig
+  7:  { fill: '#c6eeab', swatchClass: 'sw-pstripe' },     // Blumenwiese grossflächig
   8:  { fill: '#a8e3d9' },                                // Feuchtwiese
-  43: { fill: '#f5f579', swatchClass: 'sw-odots' },       // Saumvegetation
+  43: { fill: '#f5f579', swatchClass: 'sw-odots' },       // Saumvegetation / Säume von Hecken
   44: { fill: '#f5f579', swatchClass: 'sw-vdots' },       // Magerrasen
   // ── Rabatten ──
   9:  { fill: '#ff73df', swatchClass: 'sw-dots' },        // Wechselflor
   10: { fill: '#ff73df' },                                // Grab (extrapolated)
   11: { fill: '#ff5500' },                                // Beetrosen
   12: { fill: '#5c45a8' },                                // Moorbeet
-  13: { fill: '#df73ff' },                                // Stauden ext.
-  14: { fill: '#df73ff', swatchClass: 'sw-pstripe' },     // Stauden int.
-  15: { fill: '#ffaa00', swatchClass: 'sw-ostripe' },     // Ruderalfl.
+  13: { fill: '#df73ff' },                                // Staudenmischpflanzung, extensiv
+  14: { fill: '#df73ff', swatchClass: 'sw-pstripe' },     // Staudenmischpflanzung, intensiv
+  15: { fill: '#ffaa00', swatchClass: 'sw-ostripe' },     // Ruderalfläche
   // ── Hecken ──
-  16: { fill: '#a86f00' },                                // Formhecke - 1.5 m
-  17: { fill: '#a86f00', swatchClass: 'sw-hstripe' },     // Formhecke + 1.5 m
+  16: { fill: '#a86f00' },                                // Formhecke, Höhe unter 1.5 m
+  17: { fill: '#a86f00', swatchClass: 'sw-hstripe' },     // Formhecke, Höhe über 1.5 m
   18: { fill: '#d9d89e' },                                // Wildhecke
   // ── Gehölzflächen ──
   19: { fill: '#718844', swatchClass: 'sw-gdots' },       // Gehölzrabatte
   20: { fill: '#896e44' },                                // Bodendecker
-  21: { fill: '#896e44', swatchClass: 'sw-dots' },        // Gehölz & Bodend.
+  21: { fill: '#896e44', swatchClass: 'sw-dots' },        // Gehölzrabatte mit Bodendecker
   22: { fill: '#267300', swatchClass: 'sw-dots' },        // Parkwald (extrapolated)
   23: { fill: '#267300' },                                // Wald
   // ── Spezielle Bepflanzungsformen ──
-  24: { fill: '#ffbdbd' },                                // Dach: ext. Stauden
-  38: { fill: '#ffbdbd', swatchClass: 'sw-dots' },        // Dach: intensiv begrünt (extrapolated)
+  24: { fill: '#ffbdbd' },                                // Dachbegrünung, extensive Staudenmischsaat
+  38: { fill: '#ffbdbd', swatchClass: 'sw-dots' },        // Dach, intensiv begrünt (extrapolated)
   39: { fill: '#cccccc' },                                // Flachdach ohne Bewuchs
   40: { fill: '#bfbfbf' },                                // Steildach
   41: { fill: '#e8d4a0' },                                // Dachterrasse
   // ── Beläge ──
   25: { fill: '#686868' },                                // Asphaltbelag
-  26: { fill: '#9c9c9c' },                                // Betonpl./Verbund/Naturstein
+  26: { fill: '#9c9c9c' },                                // Betonplatten, Verbund-, Natursteine
   27: { fill: '#cd8866' },                                // Chaussierung
   28: { fill: '#e8d4a0' },                                // Sand (extrapolated)
   29: { fill: '#6fa800', swatchClass: 'sw-xhatch' },      // Rasengittersteine
   30: { fill: '#a83800', swatchClass: 'sw-xhatch' },      // Holzhäckselbelag
-  31: { fill: '#7a7a7a' },                                // Fallschutzpl./-beläge (extrapolated)
-  32: { fill: '#5a5a5a' },                                // Kunststoff/Sportbelag (extrapolated)
+  31: { fill: '#7a7a7a' },                                // Fallschutzplatten / -beläge (extrapolated)
+  32: { fill: '#5a5a5a' },                                // Kunststoff- / Sportbelag (extrapolated)
   33: { fill: '#7fc858' },                                // Kunstrasen (extrapolated)
-  37: { fill: '#4e4e4e', swatchClass: 'sw-gdots' },       // Geröllstreifen/Bollensteine
+  37: { fill: '#4e4e4e', swatchClass: 'sw-gdots' },       // Geröllstreifen und Bollensteine
   42: { fill: '#9c9c9c' },                                // Naturstein-Pflästerung
   // ── Wasserflächen ──
-  34: { fill: '#006fff' },                                // Gewässer ruhend
+  34: { fill: '#006fff' },                                // Gewässer, ruhend, naturnah
   35: { fill: '#00a9e6' },                                // Brunnen
   // ── Anderes ──
   36: { fill: '#ffff00' },                                // Anderes
@@ -86,20 +86,20 @@ const AREA_PROFILE_STYLE = {
 
 const POINT_PROFILE_STYLE = {
   // ── Bäume (Laub) ──
-  1: { fill: '#38b000', swatchClass: 'sw-circ' },         // Laubb. nat. grossk.
-  2: { fill: '#60c800', swatchClass: 'sw-circ' },         // Laubb. nat. kleink.
-  3: { fill: '#b0e000', swatchClass: 'sw-circ-cross' },   // Laubb. Kopf-/Form
+  1: { fill: '#38b000', swatchClass: 'sw-circ' },         // Laubbaum, natürlicher Wuchs, grosskronig
+  2: { fill: '#60c800', swatchClass: 'sw-circ' },         // Laubbaum, natürlicher Wuchs, kleinkronig
+  3: { fill: '#b0e000', swatchClass: 'sw-circ-cross' },   // Laubbaum, Kopf- / Formschnitt
   // ── Strassenbäume ──
-  4: { fill: '#006680', swatchClass: 'sw-circ' },         // Strassenb. Laub nat. grossk.
-  5: { fill: '#008aaa', swatchClass: 'sw-circ' },         // Strassenb. Laub nat. kleink.
-  6: { fill: '#007a94', swatchClass: 'sw-circ-cross' },   // Strassenb. Laub Kopf/Form
+  4: { fill: '#006680', swatchClass: 'sw-circ' },         // Strassenbaum, Laub, natürlicher Wuchs, grosskronig
+  5: { fill: '#008aaa', swatchClass: 'sw-circ' },         // Strassenbaum, Laub, natürlicher Wuchs, kleinkronig
+  6: { fill: '#007a94', swatchClass: 'sw-circ-cross' },   // Strassenbaum, Laub, Kopf- / Formschnitt
   // ── Bäume (Nadel + Obst) ──
-  7: { fill: '#1a7000', swatchClass: 'sw-circ' },         // Nadelb. nat.
-  8: { fill: '#60c800', swatchClass: 'sw-circ-cross' },   // Hochstammobst
+  7: { fill: '#1a7000', swatchClass: 'sw-circ' },         // Nadelbaum, natürlicher Wuchs
+  8: { fill: '#60c800', swatchClass: 'sw-circ-cross' },   // Hochstamm-Obstbaum
   // ── Spezielle Bepflanzungsformen (Punkt) ──
-  9:  { fill: '#cc0000', swatchClass: 'sw-triangle' },    // Schling-& Kletterpf.
-  10: { fill: '#1a1a8a', swatchClass: 'sw-circ' },        // Pflanzgefäss mobil Dauerbepflanzung
-  11: { fill: '#cc00cc', swatchClass: 'sw-circ' },        // Pflanzgefäss Wechselflor
+  9:  { fill: '#cc0000', swatchClass: 'sw-triangle' },    // Schling- und Kletterpflanze
+  10: { fill: '#1a1a8a', swatchClass: 'sw-circ' },        // Mobiles Pflanzgefäss, Dauerbepflanzung
+  11: { fill: '#cc00cc', swatchClass: 'sw-circ' },        // Mobiles Pflanzgefäss, Wechselflor
   // ── Möbel / Ausstattung ──
   12: { fill: '#666666', swatchClass: 'sw-circ' },        // Abfalleimer
   13: { fill: '#996633', swatchClass: 'sw-circ' },        // Sitzbank
@@ -108,8 +108,8 @@ const POINT_PROFILE_STYLE = {
   17: { fill: '#ffff00', swatchClass: 'sw-circ' },        // Anderes (Punkt)
   // ── Kleinstrukturen ──
   18: { fill: '#c09060', swatchClass: 'sw-circ' },        // Asthaufen
-  19: { fill: '#604020', swatchClass: 'sw-circ' },        // Baumstamm
-  20: { fill: '#808080', swatchClass: 'sw-circ' },        // Steinhaufen
+  19: { fill: '#604020', swatchClass: 'sw-circ' },        // Liegende Baumstämme
+  20: { fill: '#808080', swatchClass: 'sw-circ' },        // Steinhaufen / Steinlinsen
   21: { fill: '#804000', swatchClass: 'sw-circ' },        // Wildbienenhotel
   22: { fill: '#a06030', swatchClass: 'sw-circ' },        // Nistkasten
   // ── Solitär ──
@@ -152,7 +152,7 @@ const ENTITY_COLORS = {
   point:         { fill: '#e08a1c', stroke: '#7a4a06' },
 };
 
-// ── GSZ Profilkatalog grouping ──────────────────────────────────────────
+// ── BBL Standard Grünflächenunterhalt – profile grouping ──────────────────────────────────────────
 // Maps every idPPy (polygon profile) and idPP (point profile) code to a
 // human-meaningful category.  This mirrors the original PDF-legend
 // structure surveyors / BBL staff are used to.  Codes come from the GDB
@@ -226,7 +226,7 @@ const LEGEND_GROUPS = [
   { id: 'pt_anderes',  label: 'Anderes (Punkt)',
     entity_type: 'point', profileCodes: [17] },
 
-  // ── AREAS — GSZ Profilkatalog grouping ────────────────────────────
+  // ── AREAS — BBL Standard Grünflächenunterhalt – profile grouping ────────────────────────────
   // (the user-visible feature these legend changes brought back)
   { id: 'rasen',         label: 'Rasen',                  entity_type: 'area', profileCodes: [1, 2, 3, 4, 5] },
   { id: 'wiesen',        label: 'Wiesen',                 entity_type: 'area', profileCodes: [6, 7, 8, 43, 44] },

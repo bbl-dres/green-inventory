@@ -573,10 +573,14 @@ html, body {
 /* ── Dropdown menus ────────────────────────────────────── */
 .dd-wrap { position: relative; }
 .dd-menu {
-  position: absolute; top: calc(100% + 5px); z-index: var(--z-dropdown);
+  /* position:fixed (placed by positionDropdownMenu in table.js) so the menu
+     can flip above its button and isn't clipped by #table-panel's
+     overflow:hidden.  top/left are set in JS; 80vh cap is a fallback. */
+  position: fixed; z-index: var(--z-dropdown);
   background: var(--white); border: 1px solid var(--grey-200);
   border-radius: var(--radius); box-shadow: var(--shadow-lg);
   min-width: 160px; padding: var(--sp2);
+  max-height: 80vh; overflow-y: auto;
   display: none;
   animation: ddFadeIn .1s ease;
 }
@@ -585,6 +589,11 @@ html, body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .dd-wrap.open .dd-menu { display: block; }
+
+/* The column picker lists ~30 columns — cap its height so it scrolls instead
+   of dominating the screen.  positionDropdownMenu() shrinks this further when
+   the space above/below the button is smaller (short viewports). */
+#tbl-col-dd { max-height: 360px; }
 
 .dd-menu-label { padding: var(--sp2) 10px var(--sp1); }
 .dd-item {

@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "layerInfo": {
     "name": "Gebäude-/Ausstattungsbegrünung",
-    "description": "Begrünungen an Gebäuden und Ausstattungselementen gemäss GSZ Profilkatalog Kategorie 5: Dachbegrünung extensiv, Vertikalbegrünung, Gefäss-/Trogbegrünung.",
+    "description": "Begrünungen an Gebäuden und Ausstattungselementen gemäss BBL Standard Grünflächenunterhalt: Dachbegrünung extensiv, Vertikalbegrünung, Gefäss-/Trogbegrünung.",
     "geometryType": "Polygon",
     "source": "Green Area Inventory Intern"
   },

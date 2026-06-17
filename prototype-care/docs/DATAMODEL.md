@@ -25,10 +25,10 @@ This document defines the canonical data model for the Green Area Inventory — 
 |-----------|-------------|
 | **Flat Structure** | All fields live at the top level of each entity. Extension fields use dot-notation flat keys (e.g., `extensionData.numberOfFloors`) rather than nested objects. This simplifies querying, aligns with FME GeoJSON output, and keeps the structure compatible with standard GIS tooling. |
 | **Traceability** | All entities include `validFrom`/`validUntil` for temporal tracking and `eventType` for domain events. |
-| **Standards Compliance** | Uses ISO 8601 for dates, ISO 4217 for currencies (`CHF`), Darwin Core for species taxonomy, and aligns with the GSZ Profilkatalog for care profiles. |
+| **Standards Compliance** | Uses ISO 8601 for dates, ISO 4217 for currencies (`CHF`), Darwin Core for species taxonomy, and aligns with the BBL Standard Grünflächenunterhalt for care profiles. |
 | **Spatial First** | Core entities carry geometry; GeoJSON files comply with RFC 7946 (WGS84 coordinates). Optional LV95 fields provide Swiss coordinate support. |
 | **Bilingual Support** | All enumerations provide both English (EN) and German (DE) values; the demo uses German values. |
-| **GSZ Alignment** | Care profiles align with the Grün Stadt Zürich «Mehr als Grün» Profilkatalog (ZHAW/GSZ 2019), providing 46 standardized profiles as a baseline. |
+| **BBL Alignment** | Care profiles align with the BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020; based on VSSG profiles, adapted by nateco), providing standardized profiles as a baseline. |
 | **Inspection History** | Condition scores on spatial entities reflect the latest snapshot; the Inspection entity provides full assessment history per FLL and DIN standards. |
 
 ### 1.3 Swiss Context
@@ -36,7 +36,7 @@ This document defines the canonical data model for the Green Area Inventory — 
 | Standard / Identifier | Description | Usage |
 |-----------------------|-------------|-------|
 | **LV95 (EPSG:2056)** | Swiss coordinate reference system | Optional `lv95East`/`lv95North` fields on spatial entities. GeoJSON geometry uses WGS84. |
-| **GSZ Profilkatalog** | 46 standardized care profiles from «Mehr als Grün» (ZHAW/GSZ 2019) | CareProfile entity; pre-configured system profiles |
+| **BBL Standard Grünflächenunterhalt** | Standardized care profiles (Bundesgärtnerei, 2020; based on VSSG profiles, adapted by nateco) | CareProfile entity; pre-configured system profiles |
 | **ÖREB-Kataster** | Public-law restrictions on land ownership | Layer integration (Gewässerschutzzonen, Waldgrenzen, Nutzungsplanung) |
 | **Amtliche Vermessung (AV)** | Official Swiss cadastral survey | Layer integration (Liegenschaften, Bodenbedeckung) |
 | **DMAV Bodenbedeckung** | Minimales Geodatenmodell amtliche Vermessung — Bodenbedeckung (V1.0, swisstopo). Defines the official land-cover classification (BoFlaechenart) replacing DM.01-AV-CH. | Reference model for SurfaceArea / GreenArea land-cover alignment. Legal basis: VAV (SR 211.432.2). |
@@ -238,7 +238,7 @@ erDiagram
 
 #### Entity Overview
 
-Entities are organized by their role in the application. **Reference layers** provide spatial context from external facility management systems. **Managed layers** are the core editable entities for green area inventory and maintenance. Each managed layer maps to one or more GSZ care profile categories (A.3) and DMAV land cover types (A.25).
+Entities are organized by their role in the application. **Reference layers** provide spatial context from external facility management systems. **Managed layers** are the core editable entities for green area inventory and maintenance. Each managed layer maps to one or more BBL care profile categories (A.3) and DMAV land cover types (A.25).
 
 ##### Reference Layers (read-only, external FM systems)
 
@@ -247,9 +247,9 @@ Entities are organized by their role in the application. **Reference layers** pr
 | 1 | **Building** | Gebäude | Polygon | MVP | `data/buildings.geojson` | Building footprints from external FM master system. Type field: `primaryTypeOfBuilding` (Bürogebäude, Wohngebäude, Bildungsgebäude, Lagergebäude, Technisches Gebäude). |
 | 2 | **Parcel** | Grundstück | Polygon | MVP | `data/parcels.geojson` | Land parcels from cadastral/FM system. Type field: `landUseZone` (Verwaltungszone, Wohnzone, Industriezone, Bildungszone). |
 
-##### Vegetation Layers (editable polygons — GSZ Cat. 1, 2, 5, 7, 8)
+##### Vegetation Layers (editable polygons — BBL Cat. 1, 2, 5, 7, 8)
 
-| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | BBL Cat. | DMAV |
 |--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
 | 3 | **Lawn** | Rasen & Wiese | Polygon | MVP | `data/lawns.geojson` | `lawnType` | 1 | Humusierte Fl. |
 | 4 | **Planting** | Staude & Strauch | Polygon | MVP | `data/plantings.geojson` | `plantingType` | 2 | Humusierte Fl. |
@@ -257,31 +257,31 @@ Entities are organized by their role in the application. **Reference layers** pr
 | 6 | **Garden** | Garten | Polygon | MVP | `data/gardens.geojson` | `gardenType` | 8 | Humusierte Fl. |
 | 7 | **ExternalArea** | Ext. Bewirtschaftung | Polygon | MVP | `data/external-areas.geojson` | `externalType` | 7 | Humusierte Fl. |
 
-##### Wooded Area Layers (editable polygons — forestry + GSZ Cat. 2 Parkwald)
+##### Wooded Area Layers (editable polygons — forestry + BBL Cat. 2 Parkwald)
 
 | # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | DMAV |
 |--:|-------------|-------------|----------|--------|-------------|------------|------|
 | 8 | **Forest** | Wald | Polygon | MVP | `data/forest.geojson` | `forestType` | Bestockte Fl. |
 | 9 | **Woodland** | Gehölz & Parkwald | Polygon | MVP | `data/woodlands.geojson` | `woodlandType` | Bestockte Fl. |
 
-##### Surface & Water Layers (editable polygons/lines — GSZ Cat. 3, 4)
+##### Surface & Water Layers (editable polygons/lines — BBL Cat. 3, 4)
 
-| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. | DMAV |
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | BBL Cat. | DMAV |
 |--:|-------------|-------------|----------|--------|-------------|------------|----------|------|
 | 10 | **Surface** | Belagsfläche | Polygon | MVP | `data/surfaces.geojson` | `surfaceType` | 3 | Befestigte Fl. |
 | 11 | **WaterFeature** | Gewässer | Polygon / Line | MVP | `data/water-features.geojson` | `waterType` | 4 | Gewässer |
 
-##### Object Layers (editable points — GSZ Cat. 6)
+##### Object Layers (editable points — BBL Cat. 6)
 
-| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | BBL Cat. |
 |--:|-------------|-------------|----------|--------|-------------|------------|----------|
 | 12 | **Tree** | Baum | Point | MVP | `data/trees.geojson` | `treeCategory` | — |
 | 13 | **Furniture** | Mobiliar | Point | MVP | `data/furniture.geojson` | `furnitureType` | — |
 | 14 | **StructureElement** | Strukturelement | Point | MVP | `data/structure-elements.geojson` | `elementType` | 6 |
 
-##### Line Layers (editable lines — GSZ Cat. 2, 6)
+##### Line Layers (editable lines — BBL Cat. 2, 6)
 
-| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | GSZ Cat. |
+| # | Entity (EN) | Entity (DE) | Geometry | Status | Data Source | Type field | BBL Cat. |
 |--:|-------------|-------------|----------|--------|-------------|------------|----------|
 | 15 | **LinearFeature** | Linienobjekt | LineString | MVP | `data/linear-features.geojson` | `linearType` | 2, 6 |
 
@@ -290,7 +290,7 @@ Entities are organized by their role in the application. **Reference layers** pr
 | # | Entity (EN) | Entity (DE) | Status | Data Source | Description |
 |--:|-------------|-------------|--------|-------------|-------------|
 | 16 | **Species** | Art | MVP | `data/species.json` | Taxonomic reference record for plant species. Links to Infoflora, GALK, i-Tree. |
-| 17 | **CareProfile** | Pflegeprofil | MVP | `data/care-profiles.json` | Standardized maintenance regime (46 GSZ profiles). |
+| 17 | **CareProfile** | Pflegeprofil | MVP | `data/care-profiles.json` | Standardized maintenance regime (BBL standard profiles). |
 | 18 | **CareAction** | Pflegemassnahme | MVP | `data/care-profiles.json` | Maintenance task template within a care profile. |
 | 19 | **Task** | Massnahme | Planned | — | Concrete, scheduled maintenance work order. |
 | 20 | **Inspection** | Kontrolle | Planned | — | Structured field assessment (FLL VTA, DIN EN 1176). |
@@ -415,7 +415,7 @@ Sites use **Point** geometry representing the site location (map marker). Coordi
     "nativeSpeciesRatioPercent": 72.3,
     "biodiversityScore": 3,
     "ownershipType": "Öffentlich",
-    "managingOrganisation": "Grün Stadt Zürich",
+    "managingOrganisation": "Bundesgärtnerei BBL",
     "responsibleContactId": "CONT-001",
     "status": "Aktiv",
     "lv95East": 2683200,
@@ -742,7 +742,7 @@ Furniture uses **Point** geometry. Coordinates are WGS84 (EPSG:4326).
 
 ### 3.6 StructureElement (Strukturelement)
 
-A structure element represents an ecological feature within a site, such as dry stone walls, brush piles, stone piles, nesting aids, or dead wood. These elements are tracked for their biodiversity value per the GSZ Profilkatalog.
+A structure element represents an ecological feature within a site, such as dry stone walls, brush piles, stone piles, nesting aids, or dead wood. These elements are tracked for their biodiversity value per the BBL Standard Grünflächenunterhalt.
 
 #### Schema Definition
 
@@ -1026,7 +1026,7 @@ The species lookup table is seeded with ~200 common Swiss urban species covering
 
 ### 5.1 CareProfile (Pflegeprofil)
 
-A care profile defines a standardized maintenance regime for a type of green space. The system ships with 46 pre-configured profiles based on the GSZ «Mehr als Grün» Profilkatalog. Profiles can be customized and extended by administrators.
+A care profile defines a standardized maintenance regime for a type of green space. The system ships with pre-configured profiles based on the BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020; based on VSSG profiles, adapted by nateco). Profiles can be customized and extended by administrators.
 
 Each profile includes a tension field rating (ecology vs. design vs. usage) and references a list of care actions with their timing and frequency.
 
@@ -1046,7 +1046,7 @@ Each profile includes a tension field rating (ecology vs. design vs. usage) and 
 | **mapColor** | | string | Hex color for map rendering (e.g., «#7CB342»). | **mandatory**, pattern: `^#[0-9A-Fa-f]{6}$` | Map Color | Kartenfarbe |
 | **mapSymbol** | | string | Symbol identifier for map rendering. | maxLength: 50 | Map Symbol | Kartensymbol |
 | **costPerM2Year** | | number | Estimated annual maintenance cost in CHF per m². | minimum: 0 | Cost/m²/yr | Kosten/m²/Jahr |
-| **isSystemProfile** | | boolean | Is this a pre-configured GSZ standard profile? | | System Profile | Standardprofil |
+| **isSystemProfile** | | boolean | Is this a pre-configured BBL standard profile? | | System Profile | Standardprofil |
 | **referenceImageUrl** | | string | URL to reference image. | maxLength: 500 | Reference Image | Referenzbild |
 | **validFrom** | | string | Record validity start date. ISO 8601 format. | **mandatory** | Valid From | Gültig von |
 | **validUntil** | | string | Record validity end date. | null allowed | Valid Until | Gültig bis |
@@ -1366,7 +1366,7 @@ Contacts represent people and organisations involved in green space management �
   "name": "Martin Huber",
   "contactType": "Mitarbeiter",
   "role": "Bereichsleiter Grünflächen",
-  "organisation": "Grün Stadt Zürich",
+  "organisation": "Bundesgärtnerei BBL",
   "phone": "+41 44 412 27 00",
   "email": "martin.huber@zuerich.ch",
   "siteIds": ["SITE-001", "SITE-002"],
@@ -1527,7 +1527,7 @@ Costs represent financial entries for green space maintenance — personnel cost
   "currency": "CHF",
   "period": "Jährlich",
   "budgetYear": 2026,
-  "costCenter": "CC-GSZ-410",
+  "costCenter": "CC-BG-410",
   "isActual": false,
   "referenceDate": "2026-01-01T00:00:00Z",
   "notes": "Budget für Eigenleistungen Pflege (2 FTE Reviergärtner/in).",
@@ -1732,7 +1732,7 @@ Used by: Tree, Species. Aligned with Darwin Core `establishmentMeans`.
 
 ### A.3 Care Profile Categories
 
-Categories as defined in the GSZ Profilkatalog «Mehr als Grün» (9 categories, 46 profiles):
+Categories as defined in the BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020; based on VSSG profiles, adapted by nateco):
 
 | # | Category (EN) | Category (DE) | Color | Hex | Profiles (count) |
 |--:|---------------|---------------|-------|-----|------------------|
@@ -1742,11 +1742,11 @@ Categories as defined in the GSZ Profilkatalog «Mehr als Grün» (9 categories,
 | 4 | `Water elements` | `Wasserelemente` | 🩵 Teal | `#00A0A0` | Gewässer fliessend, Gewässer ruhend, Brunnen/Wasserbecken/Planschbecken (3) |
 | 5 | `Building/Fixture greening` | `Gebäude-/Ausstattungsbegrünung` | 🟢 Green | `#6AAD45` | Dachbegrünung extensiv, Vertikalbegrünung, Gefäss-/Trogbegrünung (3) |
 | 6 | `Fixed elements` | `Befestigte Elemente` | ⚪ Gray | `#999999` | Mauer, Trockenmauer, Treppe/Sitzstufe, Uferverbauung, Gebäude (5) |
-| 7 | `Changing vegetation, external mgmt` | `Wechselnde Vegetation, externe Bewirtschaftung` | 🟣 Purple | `#8B6BAE` | Grabpflege, Kontrolle GSZ, Verpachtet (3) |
+| 7 | `Changing vegetation, external mgmt` | `Wechselnde Vegetation, externe Bewirtschaftung` | 🟣 Purple | `#8B6BAE` | Grabpflege, Kontrolle (extern), Verpachtet (3) |
 | 8 | `Gardens` | `Gärten` | 🩷 Pink | `#D48EB4` | Schulgarten, Schülergarten, Mietergarten, Nutzgarten (4) |
 | 9 | `Other` | `Sonstige` | 🤎 Beige | `#C4B899` | Sonstige (1) |
 
-> **Note:** Color values are eyeballed from the GSZ Profilkatalog table of contents and may differ slightly from the original PDF. These colors are used as `categoryColor` defaults for the care profile overview plan (Pflegeübersichtsplan).
+> **Note:** Color values are eyeballed from the BBL Standard Grünflächenunterhalt table of contents and may differ slightly from the original PDF. These colors are used as `categoryColor` defaults for the care profile overview plan (Pflegeübersichtsplan).
 
 ---
 
@@ -1760,9 +1760,9 @@ Categories as defined in the GSZ Profilkatalog «Mehr als Grün» (9 categories,
 
 ---
 
-### A.5 GSZ Care Profile Codes
+### A.5 BBL Care Profile Codes
 
-Complete list of **46 pre-configured profiles** based on the GSZ Profilkatalog «Mehr als Grün» (ZHAW/GSZ 2019):
+Complete list of pre-configured profiles based on the BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020; based on VSSG profiles, adapted by nateco):
 
 #### Rasen, Wiesen (6)
 
@@ -1837,7 +1837,7 @@ Complete list of **46 pre-configured profiles** based on the GSZ Profilkatalog �
 | # | Code | Profile Name (DE) | Profile Name (EN) | Page |
 |--:|------|-------------------|-------------------|-----:|
 | 39 | GP | Grabpflege | Grave maintenance | 67 |
-| 40 | KG | Kontrolle GSZ | GSZ inspection | 70 |
+| 40 | KG | Kontrolle (extern) | External inspection | 70 |
 | 41 | VP | Verpachtet | Leased | 71 |
 
 #### Gärten (4)
@@ -1855,7 +1855,7 @@ Complete list of **46 pre-configured profiles** based on the GSZ Profilkatalog �
 |--:|------|-------------------|-------------------|-----:|
 | 46 | SO | Sonstige | Other | 77 |
 
-> **Note:** The `careProfileId` in data files uses the format `CP-{CODE}` (e.g., `CP-BW`, `CP-GW-RU`). Codes GW-RU, GW-FL, GW-BR use a category prefix to avoid collisions. Page numbers refer to the GSZ Profilkatalog «Mehr als Grün» (ZHAW/GSZ 2019).
+> **Note:** The `careProfileId` in data files uses the format `CP-{CODE}` (e.g., `CP-BW`, `CP-GW-RU`). Codes GW-RU, GW-FL, GW-BR use a category prefix to avoid collisions. Page numbers refer to the BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020).
 
 ---
 
@@ -2206,7 +2206,7 @@ When importing data in LV95, convert to WGS84 for GeoJSON storage and retain ori
 | Version | Date | Changes |
 |---------|------|---------|
 | 2.0 | February 2026 | Major update based on RESEARCH.md v2.0 (572+ sources). Added Species entity (Section 4) for authoritative taxonomy with Darwin Core alignment, Infoflora neophyte status, and i-Tree ecosystem service parameters. Promoted ConditionAssessment → Inspection entity (Section 5.4) with FLL VTA damage zones and DIN EN 1176 playground protocol support. Extended Tree entity with multi-level taxonomy (genus, cultivar, commonNameDe/Fr, establishmentMeans), ecosystem fields (canopyAreaM2, co2SequestrationKgYr, co2StoredKg, replacementValueCHF), and crownBaseHeightM. Added Site aggregate computed fields (canopyCoverPercent, greenAreaRatioPercent, treeCount, nativeSpeciesRatioPercent, biodiversityScore). Added Issue [Preview] entity aligned with Open311 GeoReport v2. New appendix enumerations: A.19–A.25. Replaced Requirements Coverage with Standards Alignment matrix. Renamed project from «Groundskeeper» to «Green Area Inventory». 17 entities + 3 preview (was 15 + 3). |
-| 1.1 | February 2026 | Added category colors (hex values) to A.3 Care Profile Categories based on GSZ Profilkatalog table of contents. |
+| 1.1 | February 2026 | Added category colors (hex values) to A.3 Care Profile Categories based on BBL Standard Grünflächenunterhalt table of contents. |
 | 1.0 | February 2026 | Complete rewrite for green space management domain. Replaces BBL Immobilienportfolio data model. 15 entities covering spatial inventory, care profiles, maintenance tasks, contacts, contracts, documents, and costs. |
 
 ---
@@ -2239,8 +2239,7 @@ When importing data in LV95, convert to WGS84 for GeoJSON storage and retain ori
 
 | Source | Title | Year |
 |--------|-------|------|
-| ZHAW / Grün Stadt Zürich | Profilkatalog naturnahe Pflege «Mehr als Grün» | 2019 |
-| ZHAW / Grün Stadt Zürich | Praxishandbuch naturnahe Pflege «Mehr als Grün» | 2019 |
+| Bundesamt für Bauten und Logistik (BBL), Bundesgärtnerei | Standard Grünflächenunterhalt | 2020 |
 | BAFU | Aktionsplan Strategie Biodiversität Schweiz | 2017 |
 | VSSG | Grünstadt Schweiz® — Label für grüne Städte und Gemeinden | 2020 |
 | ZHAW | Q-Index — Green Space Quality Assessment Method | 2021 |

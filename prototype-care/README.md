@@ -36,7 +36,7 @@ The old `/prototype1/` path redirects here.
 - Full polygon/point/line editing with snapping, undo/redo, validation, and split/merge operations
 
 ### Care Profile Library (Pflegeprofil-Bibliothek)
-- 31 standardized GSZ profiles across 9 categories (lawns, plantings, shrubs, trees, special surfaces, structural elements, surfaces, water features, usage areas)
+- Standardized care profiles based on the official BBL Standard Grünflächenunterhalt (Bundesgärtnerei, 2020) across categories (lawns, plantings, shrubs, trees, special surfaces, structural elements, surfaces, water features, usage areas)
 - Structured maintenance instructions with timing, frequency, equipment, and cost data
 - Automatic map coloring based on assigned care profile
 
@@ -91,7 +91,7 @@ prototype-care/
 ├── data/                   # ~24 denormalised layers + lookup tables
 │   ├── sites · parcels · buildings · gardens · forest · woodlands .geojson
 │   ├── lawns · plantings · surfaces · trees · furniture · …  .geojson
-│   ├── care-profiles.json  # GSZ care-profile library
+│   ├── care-profiles.json  # BBL care-profile library
 │   └── contracts · costs · contacts · documents · inspections · tasks · species .json
 ├── scripts/                # FME workspaces + PDF feature extractor
 │   ├── AV Landcover.fmw
@@ -110,7 +110,7 @@ prototype-care/
 
 | Standard / Service | Description |
 |--------------------|-------------|
-| GSZ "Mehr als Grün" | Care profile catalog for green space maintenance |
+| BBL Standard Grünflächenunterhalt | Care-profile catalog for green-space maintenance (Bundesgärtnerei, 2020; VSSG-based, profiles adapted by nateco) |
 | SIA 416 | Building area measurements (BGF, NGF, EBF) |
 | SIA 380/1 | Energy reference area |
 | LV95 (EPSG:2056) | Swiss coordinate system |
