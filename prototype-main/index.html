@@ -8,6 +8,9 @@
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- PDF report (Pflegebericht): jsPDF + autoTable for vector PDF tables -->
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/styles.css">
@@ -170,6 +173,14 @@
 
         <!-- Action bar -->
         <div id="tbl-action-bar">
+          <div id="tbl-search-wrap">
+            <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="tbl-search" placeholder="Suche…">
+            <button class="input-clear-x" id="tbl-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
+          </div>
+
           <div id="tbl-tabs" role="tablist" aria-label="Tabellen-Ansicht">
             <button class="tbl-tab active" data-scope="sites" role="tab" aria-selected="true">
               <span class="tbl-tab-label">Standorte</span>
@@ -179,14 +190,6 @@
               <span class="tbl-tab-label">Grünflächen</span>
               <span class="tbl-tab-count" id="tbl-tab-count-green"></span>
             </button>
-          </div>
-
-          <div id="tbl-search-wrap">
-            <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" id="tbl-search" placeholder="Suche…">
-            <button class="input-clear-x" id="tbl-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
           </div>
 
           <div id="tbl-action-right">
@@ -295,5 +298,6 @@
 <script src="js/config.js"></script>
 <script src="js/map.js"></script>
 <script src="js/table.js"></script>
+<script src="js/report.js"></script>
 </body>
 </html>

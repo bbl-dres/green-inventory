@@ -209,6 +209,15 @@ function popupHTML(p) {
     case 'area':          swatch = profilColor(p.fk_profil); break;
   }
 
+  // Combine the LV95 coordinate pair into a single "LV95" row ("<Ost>, <Nord>").
+  // Sites carry the centroid pair (…_centroid); trees/points the direct pair.
+  const _lv95E = p.lv95_east != null ? p.lv95_east : p.lv95_east_centroid;
+  const _lv95N = p.lv95_north != null ? p.lv95_north : p.lv95_north_centroid;
+  const d = { ...p };
+  d.lv95 = (_lv95E != null && _lv95N != null)
+    ? fmtNum(_lv95E, 0) + ', ' + fmtNum(_lv95N, 0)
+    : null;
+
   // Field order: identity → site → measurements → care attributes → free-form.
   // Hide fields that are null/empty/zero-only-placeholder.
   const FIELD_GROUPS = [
@@ -256,16 +265,12 @@ function popupHTML(p) {
       title: 'Geometrie',
       keys: [
         ['area_m2',           'Fläche m²',     v => fmtNum(v, 1)],
-        ['shape_area_m2',     'Standort m²',   v => fmtNum(v, 1)],
         ['shape_length_m',    'Umfang m',      v => fmtNum(v, 1)],
         ['crown_diameter_m',  'Kronen-Ø m'],
         ['crown_radius_m',    'Kronen-Radius m'],
         ['max_hoehe_m',       'Max. Höhe m'],
         ['hoehe',             'Höhe'],
-        ['lv95_east',         'LV95 Ost',      v => fmtNum(v, 0)],
-        ['lv95_north',        'LV95 Nord',     v => fmtNum(v, 0)],
-        ['lv95_east_centroid', 'LV95 Ost (Z.)', v => fmtNum(v, 0)],
-        ['lv95_north_centroid','LV95 Nord (Z.)',v => fmtNum(v, 0)],
+        ['lv95',              'LV95'],   // combined "<Ost>, <Nord>" (see above)
       ],
     },
     {
@@ -292,16 +297,27 @@ function popupHTML(p) {
   let body = '';
   for (const grp of FIELD_GROUPS) {
     const rows = grp.keys
-      .filter(([k]) => !isEmpty(p[k]))
+      .filter(([k]) => !isEmpty(d[k]))
       .map(([k, lbl, fmt]) => {
         // Formatters may return numeric/string already-formatted; escape
         // the result either way since the Bemerkung field is free text.
-        const v = fmt ? fmt(p[k]) : p[k];
+        const v = fmt ? fmt(d[k]) : d[k];
         return `<div class="pu-row"><span>${escapeHtml(lbl)}</span><strong>${escapeHtml(v)}</strong></div>`;
       });
     if (rows.length === 0) continue;
     body += `<div class="pu-section">${escapeHtml(grp.title)}</div>` + rows.join('');
   }
+
+  // Standort popups get a "PDF" button (top-right, clearing the × close
+  // button) that downloads the per-Standort Pflegebericht.  Wired via a
+  // delegated click handler in report.js (popup HTML is injected, not bound).
+  const reportBtn = p.entity_type === 'site'
+    ? `<button class="pu-report-btn" data-oid="${escapeHtml(p.objectid)}" title="Pflegebericht als PDF herunterladen" aria-label="Pflegebericht herunterladen">
+         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+         </svg>PDF
+       </button>`
+    : '';
 
   return `
     <div class="pu-header">
@@ -310,6 +326,7 @@ function popupHTML(p) {
         <div class="pu-type">${escapeHtml(p.feature_type || p.entity_type || '–')}</div>
         <div class="pu-sub">${escapeHtml(p.subtype || '')}</div>
       </div>
+      ${reportBtn}
     </div>
     <div class="pu-body">${body}</div>
   `;

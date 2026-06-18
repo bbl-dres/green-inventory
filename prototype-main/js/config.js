@@ -142,6 +142,210 @@ function profilColor(p) {
   return profilStyle('area', p).fill;
 }
 
+// ── Pflegekalender catalog (BBL Standard Grünflächenunterhalt 2020) ───────
+// Maintenance schedule per care profile, transcribed from the official BBL
+// "Standard Grünflächenunterhalt" (EFD/BBL/Bundesgärtnerei, 2020).  The PDF
+// gives, per profile, the Haupttätigkeiten (tasks) + Häufigkeit pro Jahr +
+// timing wording embedded in prose.  It does NOT provide a month-by-month
+// grid, a Material/Maschinen column, or a short Code — those are derived /
+// estimated here (the BBL doc remains the authoritative source for the rest):
+//   • h     = Häufigkeit pro Jahr (verbatim from the Standard)
+//   • mon   = months a task runs (1=Jan … 12=Dez)
+//   • monG  = subset of `mon` whose month is an *educated guess* (the Standard
+//             states only a frequency, not the month) — rendered lighter.
+//   • mat   = Material/Maschinen — NOT in the Standard; estimated from the
+//             task type, flagged with ° in the report.
+//   • code  = estimated short code; the report appends the site's Pflege-
+//             klasse number (e.g. "BLW 2").  `quelle` = chapter in the PDF.
+// Profiles with no chapter in the Standard get a generic fallback row (see
+// careProfile + report.js).  Keyed by profile code: AREA = idPPy domain,
+// POINT = idPP domain (the two share integers — never merge them).
+const CARE_CATALOG_AREA = {
+  1:  { code: 'GRK', quelle: '§2.1.1', tasks: [
+    { m: 'Mähen', b: 'Schnitthöhe 4–5 cm (Schatten ≥ 6 cm)', h: '16×', mat: 'Rasenmäher', mon: [4,5,6,7,8,9,10], monG: [4,5,6,7,8,9,10] },
+    { m: 'Rasen ausputzen', b: 'Annahme 25 cm / m²', h: '16×', mat: 'Rechen', mon: [4,5,6,7,8,9,10], monG: [4,5,6,7,8,9,10] },
+    { m: 'Schnittgut zusammennehmen, Grüngut abführen', b: '', h: '16×', mat: 'Fahrzeug', mon: [4,5,6,7,8,9,10], monG: [4,5,6,7,8,9,10] },
+  ]},
+  5:  { code: 'BLR', quelle: '§2.1.2', tasks: [
+    { m: 'Mähen mit hochgestelltem Rasenmäher', b: 'Letzter Durchgang im Oktober', h: '4–6×', mat: 'Rasenmäher', mon: [5,6,7,8,9,10], monG: [5,6,7,8,9] },
+    { m: 'Neophyten kontrollieren / jäten + entsorgen', b: 'Schwarze & Watch-Liste, Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Blumenrasen ausputzen', b: '', h: '6×', mat: 'Rechen', mon: [4,5,6,7,8,9], monG: [4,5,6,7,8,9] },
+    { m: 'Schnittgut zusammennehmen, Grüngut abführen', b: 'Nach jedem Durchgang', h: 'laufend', mat: 'Fahrzeug', mon: [5,6,7,8,9,10], monG: [5,6,7,8,9,10] },
+  ]},
+  6:  { code: 'BWK', quelle: '§2.2.1', tasks: [
+    { m: 'Mähen (Sense / kleiner Balkenmäher)', b: '1. Schnitt Ende Juni, 2. Schnitt Oktober; 10 % Restfläche stehen lassen', h: '2×', mat: 'Balkenmäher', mon: [6,10], monG: [] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Schwarze & Watch-Liste, Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+    { m: 'Wiese ausputzen', b: '', h: '2×', mat: 'Rechen', mon: [6,10], monG: [6,10] },
+    { m: 'Schnittgut zusammennehmen, Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [6,10], monG: [] },
+  ]},
+  7:  { code: 'BWG', quelle: '§2.2.2', tasks: [
+    { m: 'Mähen (Motormäher / Traktor)', b: '1. Schnitt Ende Juni, 2. Schnitt Oktober; 10 % Restfläche stehen lassen', h: '2×', mat: 'Motormäher', mon: [6,10], monG: [] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Schwarze & Watch-Liste, Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+    { m: 'Wiese ausputzen', b: '', h: '2×', mat: 'Rechen', mon: [6,10], monG: [6,10] },
+    { m: 'Schnittgut zusammennehmen, Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [6,10], monG: [] },
+  ]},
+  8:  { code: 'FEW', quelle: '§2.2.3', tasks: [
+    { m: 'Mähen und Abführen', b: 'ab 15. September (vor erstem Schneefall)', h: '1×', mat: 'Balkenmäher', mon: [9,10], monG: [10] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+    { m: 'Wiese ausputzen', b: '', h: '1×', mat: 'Rechen', mon: [9], monG: [9] },
+    { m: 'Schnittgut zusammennehmen, Grüngut abführen', b: '', h: '1×', mat: 'Fahrzeug', mon: [9,10], monG: [10] },
+  ]},
+  43: { code: 'SAU', quelle: '§2.2.4', tasks: [
+    { m: 'Schnitt (Balkenmäher / Handsense)', b: '1× jährlich, September–November; 10 % Restfläche bei > 200 m²', h: '1×', mat: 'Balkenmäher', mon: [9,10,11], monG: [] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+    { m: 'Saum ausputzen, Grüngut abführen', b: '', h: '1×', mat: 'Fahrzeug', mon: [9,10,11], monG: [9,10,11] },
+  ]},
+  44: { code: 'MAG', quelle: '§2.2.5', tasks: [
+    { m: 'Schnitt (Balkenmäher / Handsense)', b: '1× jährlich, September–November; 10 % Restfläche bei > 200 m²', h: '1×', mat: 'Balkenmäher', mon: [9,10,11], monG: [] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+    { m: 'Magerrasen ausputzen, Grüngut abführen', b: '', h: '1×', mat: 'Fahrzeug', mon: [9,10,11], monG: [9,10,11] },
+  ]},
+  11: { code: 'BER', quelle: '§2.3.1', tasks: [
+    { m: 'Pflanzenschutz', b: '', h: '6×', mat: 'Spritze', mon: [4,5,6,7,8,9], monG: [4,5,6,7,8,9] },
+    { m: 'Ausschneiden / Blütenschnitt', b: 'verblühte Triebe', h: '2×', mat: 'Gartenschere', mon: [6,8], monG: [6,8] },
+    { m: 'Unkraut entfernen', b: '', h: '5×', mat: 'Hacke', mon: [4,5,6,7,9], monG: [4,5,6,7,9] },
+    { m: 'Winterschnitt, Winterschutz', b: '', h: '2×', mat: 'Gartenschere', mon: [3,11], monG: [3,11] },
+    { m: 'Düngen', b: '', h: '2×', mat: 'Dünger', mon: [4,6], monG: [4,6] },
+    { m: 'Grüngut abführen', b: '', h: '8×', mat: 'Fahrzeug', mon: [3,4,5,6,7,8,9,11], monG: [3,4,5,6,7,8,9,11] },
+  ]},
+  12: { code: 'MOB', quelle: '§2.3.2', tasks: [
+    { m: 'Unkraut entfernen', b: '', h: '2×', mat: 'Hacke', mon: [5,8], monG: [5,8] },
+    { m: 'Wässern', b: '', h: '1×', mat: 'Schlauch', mon: [7], monG: [7] },
+    { m: 'Vegetationsschicht ergänzen', b: 'Moorbeetsubstrat', h: '1×', mat: 'Substrat', mon: [4], monG: [4] },
+    { m: 'Rückschnitt', b: 'ca. alle 2 Jahre', h: '0.5×', mat: 'Gartenschere', mon: [3], monG: [3] },
+    { m: 'Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [5,8], monG: [5,8] },
+  ]},
+  13: { code: 'STE', quelle: '§2.3.3', tasks: [
+    { m: 'Unkraut entfernen + Neophyten bekämpfen', b: 'Schwarze & Watch-Liste', h: '3×', mat: 'Hacke', mon: [5,7,9], monG: [5,7,9] },
+    { m: 'Vegetationsregulierung, Auslichten, Schneiden', b: 'Funktion der Pflanzung erhalten', h: '2×', mat: 'Gartenschere', mon: [3,9], monG: [3,9] },
+    { m: 'Grüngut abführen', b: '', h: '3×', mat: 'Fahrzeug', mon: [3,5,9], monG: [3,5,9] },
+  ]},
+  14: { code: 'STI', quelle: '§2.3.4', tasks: [
+    { m: 'Unkraut entfernen + Neophyten bekämpfen', b: 'Schwarze & Watch-Liste', h: '5×', mat: 'Hacke', mon: [4,5,6,7,9], monG: [4,5,6,7,9] },
+    { m: 'Düngen', b: '', h: '1×', mat: 'Dünger', mon: [4], monG: [4] },
+    { m: 'Remontier-/Rück-/Vorblütenschnitt', b: 'verwelkte Blütenstände entfernen', h: '3×', mat: 'Gartenschere', mon: [3,6,8], monG: [3,6,8] },
+    { m: 'Grüngut abführen', b: '', h: '5×', mat: 'Fahrzeug', mon: [3,4,6,8,10], monG: [3,4,6,8,10] },
+  ]},
+  16: { code: 'FHN', quelle: '§2.4.1', tasks: [
+    { m: 'Formschnitt', b: 'Schnittzeitpunkt: Frühsommer', h: '2×', mat: 'Heckenschere', mon: [6,8], monG: [8] },
+    { m: 'Jäten + Neophyten bekämpfen', b: 'Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [6,8], monG: [6,8] },
+  ]},
+  17: { code: 'FHU', quelle: '§2.4.2', tasks: [
+    { m: 'Formschnitt', b: 'Steighilfen nötig', h: '2×', mat: 'Heckenschere', mon: [6,8], monG: [6,8] },
+    { m: 'Jäten + Neophyten bekämpfen', b: 'Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [6,8], monG: [6,8] },
+  ]},
+  19: { code: 'GER', quelle: '§2.5.1', tasks: [
+    { m: 'Auslichtungs- / Erhaltungsschnitt', b: 'Winter; Astmaterial als Asthaufen anlegen', h: '1×', mat: 'Gartensäge', mon: [1,2,12], monG: [1,2,12] },
+    { m: 'Jäten + Neophyten bekämpfen', b: 'Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '2×', mat: 'Fahrzeug', mon: [2,7], monG: [2,7] },
+  ]},
+  20: { code: 'BOD', quelle: '§2.5.2', tasks: [
+    { m: 'Verjüngungsschnitt', b: 'Winter', h: '1×', mat: 'Gartenschere', mon: [1,2,12], monG: [1,2,12] },
+    { m: 'Jäten + Neophyten bekämpfen', b: 'Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Kanten schneiden', b: '', h: '2×', mat: 'Kantenstecher', mon: [5,8], monG: [5,8] },
+    { m: 'Grüngut abführen', b: '', h: '1×', mat: 'Fahrzeug', mon: [2], monG: [2] },
+  ]},
+  21: { code: 'GBD', quelle: '§2.5.3', tasks: [
+    { m: 'Auslichtungs-/Erhaltungsschnitt Gehölze', b: 'Winter', h: '1×', mat: 'Gartensäge', mon: [1,2,12], monG: [1,2,12] },
+    { m: 'Verjüngungsschnitt Bodendecker', b: 'Winter', h: '1×', mat: 'Gartenschere', mon: [1,2,12], monG: [1,2,12] },
+    { m: 'Jäten + Neophyten bekämpfen', b: 'Juni–September', h: '4×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Kanten schneiden Bodendecker', b: '', h: '1×', mat: 'Kantenstecher', mon: [5], monG: [5] },
+    { m: 'Grüngut abführen', b: '', h: '4×', mat: 'Fahrzeug', mon: [2,6,8,12], monG: [2,6,8,12] },
+  ]},
+  18: { code: 'WIH', quelle: '§2.5.4', tasks: [
+    { m: 'Kontrolle / leitender Schnitt, Wege freischneiden', b: 'ganze Hecke', h: '1×', mat: 'Gartensäge', mon: [1,2], monG: [1,2] },
+    { m: 'Selektive Pflege / auf Stock setzen', b: 'jährlich 1/3 der Heckenlänge (Winter)', h: '1×', mat: 'Motorsäge', mon: [12,1,2], monG: [12,1,2] },
+    { m: 'Astmaterial als Asthaufen anlegen', b: 'auf 1/3 der Heckenlänge', h: '1×', mat: 'manuell', mon: [1,2], monG: [1,2] },
+  ]},
+  24: { code: 'DAE', quelle: '§2.6.2', tasks: [
+    { m: 'Kontrolle Problempflanzen / Wassereinläufe', b: 'Gehölzsämlinge, Klee, Wicken', h: '1×', mat: 'manuell', mon: [5], monG: [5] },
+    { m: 'Neophyten kontrollieren / entfernen', b: 'Mai–September', h: '3×', mat: 'manuell', mon: [5,6,7,8,9], monG: [] },
+    { m: 'Rückschnitt (> 5–7 cm)', b: 'bis 30. Mai', h: '1×', mat: 'Sense', mon: [5], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '3×', mat: 'Fahrzeug', mon: [5,7,9], monG: [5,7,9] },
+  ]},
+  26: { code: 'BVN', quelle: '§2.7.1', tasks: [
+    { m: 'Unkraut entfernen', b: 'mechanisch / thermisch (keine Herbizide)', h: '5×', mat: 'Abflammgerät', mon: [4,5,6,7,9], monG: [4,5,6,7,9] },
+    { m: 'Grüngut abführen', b: '', h: '5×', mat: 'Fahrzeug', mon: [4,5,6,7,9], monG: [4,5,6,7,9] },
+  ]},
+  27: { code: 'CHA', quelle: '§2.7.2', tasks: [
+    { m: 'Spontanbewuchs mähen', b: 'Schnitt mit Rasenmäher', h: '5×', mat: 'Rasenmäher', mon: [5,6,7,8,9], monG: [5,6,7,8,9] },
+    { m: 'Neophyten kontrollieren / entfernen', b: 'vor dem Mähen, Mai–September', h: '5×', mat: 'Hacke', mon: [5,6,7,8,9], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '5×', mat: 'Fahrzeug', mon: [5,6,7,8,9], monG: [5,6,7,8,9] },
+  ]},
+  29: { code: 'RGS', quelle: '§2.7.3', tasks: [
+    { m: 'Mähen', b: '', h: '5×', mat: 'Rasenmäher', mon: [5,6,7,8,9], monG: [5,6,7,8,9] },
+    { m: 'Grüngut abführen', b: '', h: '5×', mat: 'Fahrzeug', mon: [5,6,7,8,9], monG: [5,6,7,8,9] },
+  ]},
+  37: { code: 'GES', quelle: '§2.7.4', tasks: [
+    { m: 'Steine reinigen, Laub & Schmutz entfernen', b: 'Fassadenschutz', h: '2×', mat: 'Rechen', mon: [4,10], monG: [4,10] },
+    { m: 'Unkraut entfernen + Neophyten bekämpfen', b: 'Juni–September', h: '3×', mat: 'Hacke', mon: [6,7,8,9], monG: [] },
+    { m: 'Grüngut abführen', b: '', h: '3×', mat: 'Fahrzeug', mon: [4,7,10], monG: [4,7,10] },
+  ]},
+  28: { code: 'SAN', quelle: '§2.7.5', tasks: [
+    { m: 'Sand reinigen', b: 'Sandkasten', h: '10×', mat: 'Rechen', mon: [3,4,5,6,7,8,9,10], monG: [3,4,5,6,7,8,9,10] },
+    { m: 'Sand ergänzen / lockern', b: '', h: '0–1×', mat: 'Schaufel', mon: [4], monG: [4] },
+    { m: 'Sand auswechseln', b: '', h: '1×', mat: 'Fahrzeug', mon: [4], monG: [4] },
+  ]},
+  34: { code: 'GEW', quelle: '§2.8.5', tasks: [
+    { m: 'Kontrolle (Wasserstand, Algen, Fischbestand)', b: '', h: '3×', mat: 'manuell', mon: [4,7,10], monG: [4,7,10] },
+    { m: 'Vegetation regulieren / Schlamm entfernen', b: 'ca. 1/3 zurückschneiden, Herbst–Winter', h: '0.3×', mat: 'Balkenmäher', mon: [10,11], monG: [11] },
+    { m: 'Neophyten kontrollieren / bekämpfen', b: 'Juni–September', h: '3×', mat: 'Stechgabel', mon: [6,7,8,9], monG: [] },
+  ]},
+  35: { code: 'BRU', quelle: '§2.8.6', tasks: [
+    { m: 'Wasser- und Brunnenzustand kontrollieren', b: '', h: '2×', mat: 'manuell', mon: [4,9], monG: [4,9] },
+    { m: 'Brunnen reinigen (Algen usw.)', b: '', h: '12×', mat: 'Bürste', mon: [1,2,3,4,5,6,7,8,9,10,11,12], monG: [1,2,3,4,5,6,7,8,9,10,11,12] },
+    { m: 'Brunnen reinigen (Wasser ablassen, abspritzen)', b: '', h: '1×', mat: 'Hochdruck', mon: [4], monG: [4] },
+  ]},
+};
+
+const CARE_CATALOG_POINT = {
+  1:  { code: 'LBG', quelle: '§2.9 (analog kleinkronig)', tasks: [
+    { m: 'Auslichtungs- / Erhaltungsschnitt', b: 'auf Umgebung (Fassade/Grenze) angepasst', h: '1×', mat: 'Baumpflege', mon: [1,2,12], monG: [1,2,12] },
+  ]},
+  2:  { code: 'LBK', quelle: '§2.9.5', tasks: [
+    { m: 'Auslichtungs- / Erhaltungsschnitt', b: 'auf Umgebung (Fassade/Grenze) angepasst', h: '1×', mat: 'Baumpflege', mon: [1,2,12], monG: [1,2,12] },
+  ]},
+  7:  { code: 'NAB', quelle: '§2.9.6', tasks: [
+    { m: 'Auslichtungs- / Erhaltungsschnitt', b: 'natürliche Wuchsform belassen', h: '1×', mat: 'Baumpflege', mon: [1,2,12], monG: [1,2,12] },
+  ]},
+  9:  { code: 'SKP', quelle: '§2.6.1', tasks: [
+    { m: 'Kontrolle der Kletterhilfen', b: '', h: '1×', mat: 'manuell', mon: [3], monG: [3] },
+    { m: 'Schnitt / Eindämmung', b: 'Ausschneiden von Bauwerksteilen', h: '3×', mat: 'Gartenschere', mon: [3,6,9], monG: [3,6,9] },
+    { m: 'Grüngut abführen', b: '', h: '1×', mat: 'Fahrzeug', mon: [9], monG: [9] },
+  ]},
+  10: { code: 'PGD', quelle: '§2.6.3', tasks: [
+    { m: 'Jäten', b: '', h: '6×', mat: 'manuell', mon: [4,5,6,7,8,9], monG: [4,5,6,7,8,9] },
+    { m: 'Wässern', b: '', h: '12×', mat: 'Giesskanne', mon: [4,5,6,7,8,9,10], monG: [4,5,6,7,8,9,10] },
+    { m: 'Gehölzschnitt', b: '', h: '1×', mat: 'Gartenschere', mon: [3], monG: [3] },
+    { m: 'Grüngut abführen', b: '', h: '6×', mat: 'Fahrzeug', mon: [4,5,6,7,8,9], monG: [4,5,6,7,8,9] },
+  ]},
+  18: { code: 'AST', quelle: '§2.10.1', tasks: [
+    { m: 'Mit neuem Holz beschichten', b: 'mind. alle 3 Jahre (aus Gehölzpflege)', h: '0.3×', mat: 'manuell', mon: [2], monG: [2] },
+  ]},
+  19: { code: 'BST', quelle: '§2.10.2', tasks: [
+    { m: 'Schonendes Ausmähen', b: '', h: '1×', mat: 'Sense', mon: [7], monG: [7] },
+  ]},
+  20: { code: 'STH', quelle: '§2.10.3', tasks: [
+    { m: 'Brombeeren / krautigen Bewuchs entfernen', b: '1× im Juni, 1× im Oktober', h: '2×', mat: 'manuell', mon: [6,10], monG: [] },
+    { m: 'Falls nötig Steine wieder anhäufen', b: '', h: 'n. Bedarf', mat: 'manuell', mon: [10], monG: [10] },
+  ]},
+  21: { code: 'WBH', quelle: '§2.10.4', tasks: [
+    { m: 'Kontrolle / Reinigung der Nisthilfen', b: '', h: '1×', mat: 'manuell', mon: [2,3], monG: [2,3] },
+  ]},
+};
+
+// Look up the care-catalog entry for a feature.  AREA/idPPy covers `area` and
+// `tree_canopy`; POINT/idPP covers `tree` and `point`.  Returns null for
+// profiles with no Standard chapter (report.js renders a generic fallback).
+function careProfile(entity_type, code) {
+  if (code == null) return null;
+  const isArea = entity_type === 'area' || entity_type === 'tree_canopy';
+  const map = isArea ? CARE_CATALOG_AREA : CARE_CATALOG_POINT;
+  return map[code] || null;
+}
+
 // ── Entity-type palette ──────────────────────────────────────────────────
 const ENTITY_COLORS = {
   site:          { fill: '#7d8a9c', stroke: '#3d4757' },
