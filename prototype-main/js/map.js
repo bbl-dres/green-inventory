@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // MAP — MapLibre init, layers, legend, basemap switcher, edit mode, selection
 // Depends on: config.js (LEGEND_GROUPS, ENTITY_COLORS, profilColor,
-//              installAreaFillExpr, AREA_FILL_EXPR, GEOJSON_PATH, BASEMAPS)
+//              installAreaFillExpr, AREA_FILL_EXPR, DATA_FILES, BASEMAPS),
+//              data.js (loadInventory)
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── MapLibre paint expression: per-profile fill colour for points ─────────
@@ -249,7 +250,6 @@ function popupHTML(p) {
         ['baumnummer',          'Baum-Nr.'],
         ['profil_label',        'Profil'],
         ['aufwandsfaktor',      'Aufwandsfaktor'],
-        ['pflegedurchfuehrung', 'Pflege durch'],
         ['pflegeklasse',        'Pflegeklasse'],
         ['eigentuemer',         'Eigentümer'],
         ['pflegeverantwortung', 'Pflegeverantw.'],
@@ -277,8 +277,6 @@ function popupHTML(p) {
       title: 'Anderes',
       keys: [
         ['bemerkung',            'Bemerkung'],
-        ['titel_objektblatt',    'Objektblatt'],
-        ['titel_kalkulation',    'Kalkulation'],
         ['letzte_aenderung',     'Letzte Änderung'],
         ['source',               'Quelle'],
       ],
@@ -1113,23 +1111,9 @@ function wgs84ToLv95(lon, lat) {
   return [E, N];
 }
 
-function lv95ToWgs84(E, N) {
-  const yp = (E - 2600000) / 1000000;
-  const xp = (N - 1200000) / 1000000;
-  const lamSec = 2.6779094
-    + 4.728982 * yp
-    + 0.791484 * yp * xp
-    + 0.1306   * yp * xp * xp
-    - 0.0436   * Math.pow(yp, 3);
-  const phiSec = 16.9023892
-    + 3.238272 * xp
-    - 0.270978 * yp * yp
-    - 0.002528 * xp * xp
-    - 0.0447   * yp * yp * xp
-    - 0.0140   * Math.pow(xp, 3);
-  // Convert from base*100/36 → decimal degrees
-  return [lamSec * 100 / 36, phiSec * 100 / 36];
-}
+// lv95ToWgs84() is the inverse of wgs84ToLv95() above; it lives in js/data.js
+// (loaded before this file) so the data layer and the identify call share one
+// definition.  Used here by runIdentify to reproject swisstopo LV95 results.
 
 // Walk a GeoJSON coordinates tree and transform every (x, y) leaf with fn.
 function transformGeomCoords(geom, fn) {
@@ -1344,10 +1328,11 @@ function attachInteractionHandlers() {
 }
 
 map.on('load', async () => {
-  let resp, gj;
+  let gj;
   try {
-    resp = await fetch(GEOJSON_PATH);
-    gj = await resp.json();
+    // Load the normalized per-entity files and join them into one in-memory
+    // FeatureCollection (js/data.js).  data.geojson is no longer fetched.
+    gj = await loadInventory(DATA_FILES);
   } catch (e) {
     console.error(e);
     return;
@@ -2149,6 +2134,9 @@ function showToast(msg, type = '') {
       for (let i = 0; i < geojsonData.features.length; i++) {
         const f = geojsonData.features[i];
         const p = f.properties;
+        // Skip the centroid render-aid: its parent site polygon carries the
+        // same name/Objekt-Nr., so listing both would duplicate the result.
+        if (p.entity_type === 'site_location') continue;
         const hay = [p.name, p.site_name, p.adresse, p.site_adresse,
                      p.objektnummer, p.site_objektnummer, p.baumart,
                      p.feature_type, p.subtype, p.entity_type]

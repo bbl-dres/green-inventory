@@ -464,8 +464,17 @@ function installAreaFillExpr(profileCodes) {
   AREA_FILL_EXPR = ['match', ['get', 'fk_profil'], ...stops, '#bdbdbd'];
 }
 
-// ── GeoJSON source path ──────────────────────────────────────────────────
-const GEOJSON_PATH = 'data/data.geojson';
+// ── Data source: the normalized per-entity files (docs/DATAMODEL.md) ───────
+// Loaded + joined into one in-memory FeatureCollection by loadInventory()
+// (js/data.js).  data.geojson is no longer read by the app.
+const DATA_FILES = {
+  sites:     'data/sites.json',
+  parcels:   'data/land_parcels.geojson',
+  polygons:  'data/maintenance_polygons.geojson',
+  points:    'data/maintenance_points.geojson',
+  profiles:  'data/care_profiles.json',
+  codelists: 'data/codelists.json',
+};
 
 // ── Basemap definitions ──────────────────────────────────────────────────
 const BASEMAPS = [
@@ -507,7 +516,6 @@ const TABLE_COLS = [
   //    still on every feature for power users / API access, just hidden
   //    from the column picker to keep it readable) ──────────────────────
   { key: 'profil_label',          label: 'Profil',           visible: true  },
-  { key: 'pflegedurchfuehrung',   label: 'Pflege durch',     visible: false },
   { key: 'pflegeklasse',          label: 'Pflegeklasse',     visible: false },
   { key: 'eigentuemer',           label: 'Eigentümer',       visible: false },
   { key: 'pflegeverantwortung',   label: 'Pflegeverantw.',   visible: false },
@@ -545,8 +553,6 @@ const TABLE_COLS = [
 
   // ── Free-form / metadata ──────────────────────────────────────────
   { key: 'bemerkung',             label: 'Bemerkung',        visible: false },
-  { key: 'titel_objektblatt',     label: 'Objektblatt',      visible: false },
-  { key: 'titel_kalkulation',     label: 'Kalkulation',      visible: false },
   { key: 'source',                label: 'Quelle',           visible: false },
 ];
 
@@ -591,5 +597,4 @@ const FILTER_COLS_DEFAULT = [
   'site_lose',          // Los (DLZ district)
   'pflegeklasse',       // Pflegeklasse (PK 1/2/3)
   'eigentuemer',        // Eigentümer (Bund/Dritte)
-  'pflegedurchfuehrung', // Pflege durch
 ];

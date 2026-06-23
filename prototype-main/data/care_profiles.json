@@ -1,0 +1,1374 @@
+[
+ {
+  "fid": 1,
+  "code_list": "idPPy",
+  "code": 1,
+  "label": "Gebrauchsrasen kleinflächig",
+  "category": "Rasen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 1,
+    "task": "Mähen",
+    "frequency_per_year": 16,
+    "material": "Rasenmäher"
+   },
+   {
+    "fid": 2,
+    "task": "Rasen ausputzen",
+    "frequency_per_year": 16,
+    "material": "Rechen"
+   },
+   {
+    "fid": 3,
+    "task": "Schnittgut zusammennehmen, Grüngut abführen",
+    "frequency_per_year": 16,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 2,
+  "code_list": "idPPy",
+  "code": 2,
+  "label": "Gebrauchsrasen grossflächig",
+  "category": "Rasen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 3,
+  "code_list": "idPPy",
+  "code": 3,
+  "label": "Strapazierrasen / Sportrasen kleinflächig",
+  "category": "Rasen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 4,
+  "code_list": "idPPy",
+  "code": 4,
+  "label": "Strapazierrasen / Sportrasen grossflächig",
+  "category": "Rasen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 5,
+  "code_list": "idPPy",
+  "code": 5,
+  "label": "Blumenrasen",
+  "category": "Rasen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 4,
+    "task": "Mähen mit hochgestelltem Rasenmäher",
+    "frequency_per_year": 4,
+    "material": "Rasenmäher"
+   },
+   {
+    "fid": 5,
+    "task": "Neophyten kontrollieren / jäten + entsorgen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 6,
+    "task": "Blumenrasen ausputzen",
+    "frequency_per_year": 6,
+    "material": "Rechen"
+   },
+   {
+    "fid": 7,
+    "task": "Schnittgut zusammennehmen, Grüngut abführen",
+    "frequency_per_year": null,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 6,
+  "code_list": "idPPy",
+  "code": 6,
+  "label": "Blumenwiese kleinflächig",
+  "category": "Wiesen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 8,
+    "task": "Mähen (Sense / kleiner Balkenmäher)",
+    "frequency_per_year": 2,
+    "material": "Balkenmäher"
+   },
+   {
+    "fid": 9,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   },
+   {
+    "fid": 10,
+    "task": "Wiese ausputzen",
+    "frequency_per_year": 2,
+    "material": "Rechen"
+   },
+   {
+    "fid": 11,
+    "task": "Schnittgut zusammennehmen, Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 7,
+  "code_list": "idPPy",
+  "code": 7,
+  "label": "Blumenwiese grossflächig",
+  "category": "Wiesen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 12,
+    "task": "Mähen (Motormäher / Traktor)",
+    "frequency_per_year": 2,
+    "material": "Motormäher"
+   },
+   {
+    "fid": 13,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   },
+   {
+    "fid": 14,
+    "task": "Wiese ausputzen",
+    "frequency_per_year": 2,
+    "material": "Rechen"
+   },
+   {
+    "fid": 15,
+    "task": "Schnittgut zusammennehmen, Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 8,
+  "code_list": "idPPy",
+  "code": 8,
+  "label": "Feuchtwiese",
+  "category": "Wiesen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 16,
+    "task": "Mähen und Abführen",
+    "frequency_per_year": 1,
+    "material": "Balkenmäher"
+   },
+   {
+    "fid": 17,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   },
+   {
+    "fid": 18,
+    "task": "Wiese ausputzen",
+    "frequency_per_year": 1,
+    "material": "Rechen"
+   },
+   {
+    "fid": 19,
+    "task": "Schnittgut zusammennehmen, Grüngut abführen",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 9,
+  "code_list": "idPPy",
+  "code": 9,
+  "label": "Wechselflor",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 10,
+  "code_list": "idPPy",
+  "code": 10,
+  "label": "Grab",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 11,
+  "code_list": "idPPy",
+  "code": 11,
+  "label": "Beetrosen",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 20,
+    "task": "Pflanzenschutz",
+    "frequency_per_year": 6,
+    "material": "Spritze"
+   },
+   {
+    "fid": 21,
+    "task": "Ausschneiden / Blütenschnitt",
+    "frequency_per_year": 2,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 22,
+    "task": "Unkraut entfernen",
+    "frequency_per_year": 5,
+    "material": "Hacke"
+   },
+   {
+    "fid": 23,
+    "task": "Winterschnitt, Winterschutz",
+    "frequency_per_year": 2,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 24,
+    "task": "Düngen",
+    "frequency_per_year": 2,
+    "material": "Dünger"
+   },
+   {
+    "fid": 25,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 8,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 12,
+  "code_list": "idPPy",
+  "code": 12,
+  "label": "Moorbeet",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 26,
+    "task": "Unkraut entfernen",
+    "frequency_per_year": 2,
+    "material": "Hacke"
+   },
+   {
+    "fid": 27,
+    "task": "Wässern",
+    "frequency_per_year": 1,
+    "material": "Schlauch"
+   },
+   {
+    "fid": 28,
+    "task": "Vegetationsschicht ergänzen",
+    "frequency_per_year": 1,
+    "material": "Substrat"
+   },
+   {
+    "fid": 29,
+    "task": "Rückschnitt",
+    "frequency_per_year": 0.5,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 30,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 13,
+  "code_list": "idPPy",
+  "code": 13,
+  "label": "Staudenmischpflanzung, extensiv",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 31,
+    "task": "Unkraut entfernen + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 32,
+    "task": "Vegetationsregulierung, Auslichten, Schneiden",
+    "frequency_per_year": 2,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 33,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 3,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 14,
+  "code_list": "idPPy",
+  "code": 14,
+  "label": "Staudenmischpflanzung, intensiv",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 34,
+    "task": "Unkraut entfernen + Neophyten bekämpfen",
+    "frequency_per_year": 5,
+    "material": "Hacke"
+   },
+   {
+    "fid": 35,
+    "task": "Düngen",
+    "frequency_per_year": 1,
+    "material": "Dünger"
+   },
+   {
+    "fid": 36,
+    "task": "Remontier-/Rück-/Vorblütenschnitt",
+    "frequency_per_year": 3,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 37,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 5,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 15,
+  "code_list": "idPPy",
+  "code": 15,
+  "label": "Ruderalfläche",
+  "category": "Rabatten",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 16,
+  "code_list": "idPPy",
+  "code": 16,
+  "label": "Formhecke, Höhe unter 1.5 m",
+  "category": "Hecken",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 38,
+    "task": "Formschnitt",
+    "frequency_per_year": 2,
+    "material": "Heckenschere"
+   },
+   {
+    "fid": 39,
+    "task": "Jäten + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 40,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 17,
+  "code_list": "idPPy",
+  "code": 17,
+  "label": "Formhecke, Höhe über 1.5 m",
+  "category": "Hecken",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 41,
+    "task": "Formschnitt",
+    "frequency_per_year": 2,
+    "material": "Heckenschere"
+   },
+   {
+    "fid": 42,
+    "task": "Jäten + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 43,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 18,
+  "code_list": "idPPy",
+  "code": 18,
+  "label": "Wildhecke",
+  "category": "Hecken",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 44,
+    "task": "Kontrolle / leitender Schnitt, Wege freischneiden",
+    "frequency_per_year": 1,
+    "material": "Gartensäge"
+   },
+   {
+    "fid": 45,
+    "task": "Selektive Pflege / auf Stock setzen",
+    "frequency_per_year": 1,
+    "material": "Motorsäge"
+   },
+   {
+    "fid": 46,
+    "task": "Astmaterial als Asthaufen anlegen",
+    "frequency_per_year": 1,
+    "material": "manuell"
+   }
+  ]
+ },
+ {
+  "fid": 19,
+  "code_list": "idPPy",
+  "code": 19,
+  "label": "Gehölzrabatte",
+  "category": "Gehölzflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 47,
+    "task": "Auslichtungs- / Erhaltungsschnitt",
+    "frequency_per_year": 1,
+    "material": "Gartensäge"
+   },
+   {
+    "fid": 48,
+    "task": "Jäten + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 49,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 2,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 20,
+  "code_list": "idPPy",
+  "code": 20,
+  "label": "Bodendecker",
+  "category": "Gehölzflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 50,
+    "task": "Verjüngungsschnitt",
+    "frequency_per_year": 1,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 51,
+    "task": "Jäten + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 52,
+    "task": "Kanten schneiden",
+    "frequency_per_year": 2,
+    "material": "Kantenstecher"
+   },
+   {
+    "fid": 53,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 21,
+  "code_list": "idPPy",
+  "code": 21,
+  "label": "Gehölzrabatte mit Bodendecker",
+  "category": "Gehölzflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 54,
+    "task": "Auslichtungs-/Erhaltungsschnitt Gehölze",
+    "frequency_per_year": 1,
+    "material": "Gartensäge"
+   },
+   {
+    "fid": 55,
+    "task": "Verjüngungsschnitt Bodendecker",
+    "frequency_per_year": 1,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 56,
+    "task": "Jäten + Neophyten bekämpfen",
+    "frequency_per_year": 4,
+    "material": "Hacke"
+   },
+   {
+    "fid": 57,
+    "task": "Kanten schneiden Bodendecker",
+    "frequency_per_year": 1,
+    "material": "Kantenstecher"
+   },
+   {
+    "fid": 58,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 4,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 22,
+  "code_list": "idPPy",
+  "code": 22,
+  "label": "Parkwald",
+  "category": "Gehölzflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 23,
+  "code_list": "idPPy",
+  "code": 23,
+  "label": "Wald",
+  "category": "Gehölzflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 24,
+  "code_list": "idPPy",
+  "code": 24,
+  "label": "Dachbegrünung, extensive Staudenmischsaat",
+  "category": "Spezielle Bepflanzungsformen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 59,
+    "task": "Kontrolle Problempflanzen / Wassereinläufe",
+    "frequency_per_year": 1,
+    "material": "manuell"
+   },
+   {
+    "fid": 60,
+    "task": "Neophyten kontrollieren / entfernen",
+    "frequency_per_year": 3,
+    "material": "manuell"
+   },
+   {
+    "fid": 61,
+    "task": "Rückschnitt (> 5–7 cm)",
+    "frequency_per_year": 1,
+    "material": "Sense"
+   },
+   {
+    "fid": 62,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 3,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 25,
+  "code_list": "idPPy",
+  "code": 25,
+  "label": "Asphaltbelag",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 26,
+  "code_list": "idPPy",
+  "code": 26,
+  "label": "Betonplatten, Verbund-, Natursteine",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 63,
+    "task": "Unkraut entfernen",
+    "frequency_per_year": 5,
+    "material": "Abflammgerät"
+   },
+   {
+    "fid": 64,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 5,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 27,
+  "code_list": "idPPy",
+  "code": 27,
+  "label": "Chaussierung",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 65,
+    "task": "Spontanbewuchs mähen",
+    "frequency_per_year": 5,
+    "material": "Rasenmäher"
+   },
+   {
+    "fid": 66,
+    "task": "Neophyten kontrollieren / entfernen",
+    "frequency_per_year": 5,
+    "material": "Hacke"
+   },
+   {
+    "fid": 67,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 5,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 28,
+  "code_list": "idPPy",
+  "code": 28,
+  "label": "Sand",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 68,
+    "task": "Sand reinigen",
+    "frequency_per_year": 10,
+    "material": "Rechen"
+   },
+   {
+    "fid": 69,
+    "task": "Sand ergänzen / lockern",
+    "frequency_per_year": 0,
+    "material": "Schaufel"
+   },
+   {
+    "fid": 70,
+    "task": "Sand auswechseln",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 29,
+  "code_list": "idPPy",
+  "code": 29,
+  "label": "Rasengittersteine",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 71,
+    "task": "Mähen",
+    "frequency_per_year": 5,
+    "material": "Rasenmäher"
+   },
+   {
+    "fid": 72,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 5,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 30,
+  "code_list": "idPPy",
+  "code": 30,
+  "label": "Holzhäckselbelag",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 31,
+  "code_list": "idPPy",
+  "code": 31,
+  "label": "Fallschutzplatten / -beläge",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 32,
+  "code_list": "idPPy",
+  "code": 32,
+  "label": "Kunststoff- / Sportbelag",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 33,
+  "code_list": "idPPy",
+  "code": 33,
+  "label": "Kunstrasen",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 34,
+  "code_list": "idPPy",
+  "code": 34,
+  "label": "Gewässer, ruhend, naturnah",
+  "category": "Wasserflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 73,
+    "task": "Kontrolle (Wasserstand, Algen, Fischbestand)",
+    "frequency_per_year": 3,
+    "material": "manuell"
+   },
+   {
+    "fid": 74,
+    "task": "Vegetation regulieren / Schlamm entfernen",
+    "frequency_per_year": 0.3,
+    "material": "Balkenmäher"
+   },
+   {
+    "fid": 75,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   }
+  ]
+ },
+ {
+  "fid": 35,
+  "code_list": "idPPy",
+  "code": 35,
+  "label": "Brunnen",
+  "category": "Wasserflächen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 76,
+    "task": "Wasser- und Brunnenzustand kontrollieren",
+    "frequency_per_year": 2,
+    "material": "manuell"
+   },
+   {
+    "fid": 77,
+    "task": "Brunnen reinigen (Algen usw.)",
+    "frequency_per_year": 12,
+    "material": "Bürste"
+   },
+   {
+    "fid": 78,
+    "task": "Brunnen reinigen (Wasser ablassen, abspritzen)",
+    "frequency_per_year": 1,
+    "material": "Hochdruck"
+   }
+  ]
+ },
+ {
+  "fid": 36,
+  "code_list": "idPPy",
+  "code": 36,
+  "label": "Anderes",
+  "category": "Anderes",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 37,
+  "code_list": "idPPy",
+  "code": 37,
+  "label": "Geröllstreifen und Bollensteine",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 79,
+    "task": "Steine reinigen, Laub & Schmutz entfernen",
+    "frequency_per_year": 2,
+    "material": "Rechen"
+   },
+   {
+    "fid": 80,
+    "task": "Unkraut entfernen + Neophyten bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Hacke"
+   },
+   {
+    "fid": 81,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 3,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 38,
+  "code_list": "idPPy",
+  "code": 38,
+  "label": "Dach, intensiv begrünt",
+  "category": "Spezielle Bepflanzungsformen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 39,
+  "code_list": "idPPy",
+  "code": 39,
+  "label": "Flachdach ohne Bewuchs",
+  "category": "Spezielle Bepflanzungsformen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 40,
+  "code_list": "idPPy",
+  "code": 40,
+  "label": "Steildach",
+  "category": "Spezielle Bepflanzungsformen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 41,
+  "code_list": "idPPy",
+  "code": 41,
+  "label": "Dachterrasse",
+  "category": "Spezielle Bepflanzungsformen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 42,
+  "code_list": "idPPy",
+  "code": 42,
+  "label": "Naturstein-Pflästerung",
+  "category": "Beläge",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 43,
+  "code_list": "idPPy",
+  "code": 43,
+  "label": "Saumvegetation / Säume von Hecken",
+  "category": "Wiesen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 82,
+    "task": "Schnitt (Balkenmäher / Handsense)",
+    "frequency_per_year": 1,
+    "material": "Balkenmäher"
+   },
+   {
+    "fid": 83,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   },
+   {
+    "fid": 84,
+    "task": "Saum ausputzen, Grüngut abführen",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 44,
+  "code_list": "idPPy",
+  "code": 44,
+  "label": "Magerrasen",
+  "category": "Wiesen",
+  "unit": "m²",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 85,
+    "task": "Schnitt (Balkenmäher / Handsense)",
+    "frequency_per_year": 1,
+    "material": "Balkenmäher"
+   },
+   {
+    "fid": 86,
+    "task": "Neophyten kontrollieren / bekämpfen",
+    "frequency_per_year": 3,
+    "material": "Stechgabel"
+   },
+   {
+    "fid": 87,
+    "task": "Magerrasen ausputzen, Grüngut abführen",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 45,
+  "code_list": "idPP",
+  "code": 1,
+  "label": "Laubbaum, natürlicher Wuchs, grosskronig",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 88,
+    "task": "Auslichtungs- / Erhaltungsschnitt",
+    "frequency_per_year": 1,
+    "material": "Baumpflege"
+   }
+  ]
+ },
+ {
+  "fid": 46,
+  "code_list": "idPP",
+  "code": 2,
+  "label": "Laubbaum, natürlicher Wuchs, kleinkronig",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 89,
+    "task": "Auslichtungs- / Erhaltungsschnitt",
+    "frequency_per_year": 1,
+    "material": "Baumpflege"
+   }
+  ]
+ },
+ {
+  "fid": 47,
+  "code_list": "idPP",
+  "code": 3,
+  "label": "Laubbaum, Kopf- / Formschnitt",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 48,
+  "code_list": "idPP",
+  "code": 4,
+  "label": "Strassenbaum, Laub, natürlicher Wuchs, grosskronig",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 49,
+  "code_list": "idPP",
+  "code": 5,
+  "label": "Strassenbaum, Laub, natürlicher Wuchs, kleinkronig",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 50,
+  "code_list": "idPP",
+  "code": 6,
+  "label": "Strassenbaum, Laub, Kopf- / Formschnitt",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 51,
+  "code_list": "idPP",
+  "code": 7,
+  "label": "Nadelbaum, natürlicher Wuchs",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 90,
+    "task": "Auslichtungs- / Erhaltungsschnitt",
+    "frequency_per_year": 1,
+    "material": "Baumpflege"
+   }
+  ]
+ },
+ {
+  "fid": 52,
+  "code_list": "idPP",
+  "code": 8,
+  "label": "Hochstamm-Obstbaum",
+  "category": "Baum",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 53,
+  "code_list": "idPP",
+  "code": 9,
+  "label": "Schling- und Kletterpflanze",
+  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 91,
+    "task": "Kontrolle der Kletterhilfen",
+    "frequency_per_year": 1,
+    "material": "manuell"
+   },
+   {
+    "fid": 92,
+    "task": "Schnitt / Eindämmung",
+    "frequency_per_year": 3,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 93,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 1,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 54,
+  "code_list": "idPP",
+  "code": 10,
+  "label": "Mobiles Pflanzgefäss, Dauerbepflanzung",
+  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 94,
+    "task": "Jäten",
+    "frequency_per_year": 6,
+    "material": "manuell"
+   },
+   {
+    "fid": 95,
+    "task": "Wässern",
+    "frequency_per_year": 12,
+    "material": "Giesskanne"
+   },
+   {
+    "fid": 96,
+    "task": "Gehölzschnitt",
+    "frequency_per_year": 1,
+    "material": "Gartenschere"
+   },
+   {
+    "fid": 97,
+    "task": "Grüngut abführen",
+    "frequency_per_year": 6,
+    "material": "Fahrzeug"
+   }
+  ]
+ },
+ {
+  "fid": 55,
+  "code_list": "idPP",
+  "code": 11,
+  "label": "Mobiles Pflanzgefäss, Wechselflor",
+  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 56,
+  "code_list": "idPP",
+  "code": 12,
+  "label": "Abfalleimer",
+  "category": "Möbel / Ausstattung",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 57,
+  "code_list": "idPP",
+  "code": 13,
+  "label": "Sitzbank",
+  "category": "Möbel / Ausstattung",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 58,
+  "code_list": "idPP",
+  "code": 15,
+  "label": "Spielgerät",
+  "category": "Möbel / Ausstattung",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 59,
+  "code_list": "idPP",
+  "code": 16,
+  "label": "Ausstattung",
+  "category": "Möbel / Ausstattung",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 60,
+  "code_list": "idPP",
+  "code": 17,
+  "label": "Anderes",
+  "category": "Anderes (Punkt)",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 61,
+  "code_list": "idPP",
+  "code": 18,
+  "label": "Asthaufen",
+  "category": "Kleinstrukturen",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 98,
+    "task": "Mit neuem Holz beschichten",
+    "frequency_per_year": 0.3,
+    "material": "manuell"
+   }
+  ]
+ },
+ {
+  "fid": 62,
+  "code_list": "idPP",
+  "code": 19,
+  "label": "Liegende Baumstämme",
+  "category": "Kleinstrukturen",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 99,
+    "task": "Schonendes Ausmähen",
+    "frequency_per_year": 1,
+    "material": "Sense"
+   }
+  ]
+ },
+ {
+  "fid": 63,
+  "code_list": "idPP",
+  "code": 20,
+  "label": "Steinhaufen / Steinlinsen",
+  "category": "Kleinstrukturen",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 100,
+    "task": "Brombeeren / krautigen Bewuchs entfernen",
+    "frequency_per_year": 2,
+    "material": "manuell"
+   },
+   {
+    "fid": 101,
+    "task": "Falls nötig Steine wieder anhäufen",
+    "frequency_per_year": null,
+    "material": "manuell"
+   }
+  ]
+ },
+ {
+  "fid": 64,
+  "code_list": "idPP",
+  "code": 21,
+  "label": "Wildbienenhotel",
+  "category": "Kleinstrukturen",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": [
+   {
+    "fid": 102,
+    "task": "Kontrolle / Reinigung der Nisthilfen",
+    "frequency_per_year": 1,
+    "material": "manuell"
+   }
+  ]
+ },
+ {
+  "fid": 65,
+  "code_list": "idPP",
+  "code": 22,
+  "label": "Nistkasten",
+  "category": "Kleinstrukturen",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ },
+ {
+  "fid": 66,
+  "code_list": "idPP",
+  "code": 23,
+  "label": "Solitärstrauch",
+  "category": "Solitärsträucher",
+  "unit": "count",
+  "description": null,
+  "leaf_clearing_included": null,
+  "tasks": []
+ }
+]

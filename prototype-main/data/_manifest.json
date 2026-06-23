@@ -1,0 +1,13 @@
+{
+ "generated_from": "data/data.geojson",
+ "model": "docs/DATAMODEL.md",
+ "files": {
+  "sites.json": 73,
+  "land_parcels.geojson": 73,
+  "maintenance_polygons.geojson": 3282,
+  "maintenance_points.geojson": 2736,
+  "care_profiles.json": 66
+ },
+ "care_tasks_nested": 102,
+ "codelist_domains": 17
+}

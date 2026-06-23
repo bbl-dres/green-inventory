@@ -19,7 +19,7 @@ The repository root [`/`](https://bbl-dres.github.io/green-inventory/) redirects
 
 ### Map
 - **MapLibre GL JS** map with four basemaps: CARTO Positron / Dark Matter / Voyager + **swisstopo Luftbild** (vector tiles).
-- **2D / 3D toggle** — camera pitches to 60°; OSM building footprints extrude (via [OpenFreeMap](https://openfreemap.org) `render_height`, 8 m default); each tree renders as a 12-gon cylinder coloured by species class.
+- **2D / 3D toggle** — camera pitches to 60°; OSM building footprints extrude (via [OpenFreeMap](https://openfreemap.org) `render_height`, 8 m default); each tree renders as a 12-gon cylinder.
 - **Home button** resets to the data bbox; full-screen zoom range to z22.
 - **Identify on click** for external swisstopo layers via the federal MapServer API; results returned as GeoJSON in LV95 and re-projected client-side.
 
@@ -54,6 +54,14 @@ The map data lives in [`data/data.geojson`](data/data.geojson) (~16 MB, 6 164 fe
 
 The **data model** (conceptual model, output schema, Care-Profile catalogue, terminology) is documented in [`docs/DATAMODEL.md`](docs/DATAMODEL.md); the **source GDB schema, codelists and conversion pipeline** live in [`docs/SOURCE-GDB.md`](docs/SOURCE-GDB.md).
 
+### Per-entity files (what the app loads)
+
+The frontend no longer reads `data.geojson` directly. [`scripts/split_entities.mjs`](scripts/split_entities.mjs) splits it into one file per data-model entity in [`data/`](data/) — `sites.json`, `land_parcels.geojson`, `maintenance_polygons.geojson`, `maintenance_points.geojson`, `care_profiles.json` (Care Tasks nested), plus `codelists.json`. At load time [`js/data.js`](js/data.js) fetches these, joins them (element → parcel → site, element → Care Profile) and decodes the codelists into the in-memory FeatureCollection the map, table and report render from. `data.geojson` stays as the upstream source the split is regenerated from. Actor / Assignment, Cost rate and Image are intentionally not emitted (see [`docs/DATAMODEL.md`](docs/DATAMODEL.md) §4).
+
+```bash
+node scripts/split_entities.mjs   # data.geojson → data/*.json + *.geojson
+```
+
 ## Tech stack
 
 | Technology | Version | Usage |
@@ -81,14 +89,15 @@ npx http-server
 
 Then open <http://localhost:8000/prototype-main/> (or the repo root, which redirects here).
 
-To regenerate `data/data.geojson` from a fresh GDB:
+To regenerate the data from a fresh GDB, run the two stages in order:
 
 ```bash
 pip install pyogrio pyproj shapely pandas
-python scripts/gdb_to_geojson.py
+python scripts/gdb_to_geojson.py    # GDB → data/data.geojson
+node scripts/split_entities.mjs     # data.geojson → per-entity files the app loads
 ```
 
-Edit the `GDB_PATH` constant at the top of the script if your GDB lives elsewhere.
+Edit the `GDB_PATH` constant at the top of the Python script if your GDB lives elsewhere.
 
 ## Layout
 
@@ -97,15 +106,24 @@ prototype-main/
 ├── index.html              # App entry point
 ├── js/
 │   ├── config.js           # Legend groups, profile styles, table columns, basemaps
+│   ├── data.js             # Load + join the per-entity files into one FeatureCollection
 │   ├── map.js              # MapLibre init, layers, controls, popups, search
-│   └── table.js            # Table widget: tabs, scope, filtering, export
+│   ├── table.js            # Table widget: tabs, scope, filtering, export
+│   └── report.js           # Per-Standort Pflegebericht (PDF)
 ├── css/
 │   ├── tokens.css          # Design tokens (colours, spacing, shadows, …)
 │   └── styles.css          # Component styles
-├── data/
-│   └── data.geojson        # Single FeatureCollection (6 164 features)
+├── data/                   # ← what the app loads (per-entity, normalized)
+│   ├── sites.json          # Site reference table
+│   ├── land_parcels.geojson         # Parcel polygons
+│   ├── maintenance_polygons.geojson # Areas + tree canopies
+│   ├── maintenance_points.geojson   # Trees + point features
+│   ├── care_profiles.json  # Care Profiles with nested Care Tasks
+│   ├── codelists.json      # 17 field-domain codelists
+│   └── data.geojson        # Upstream source the split is derived from (6 164 features)
 ├── scripts/
-│   └── gdb_to_geojson.py   # GDB → GeoJSON conversion pipeline
+│   ├── gdb_to_geojson.py   # GDB → data.geojson conversion pipeline
+│   └── split_entities.mjs  # data.geojson → per-entity files
 ├── docs/
 │   ├── DATAMODEL.md        # Data model: conceptual model, output schema, Care Profiles, terminology
 │   └── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline

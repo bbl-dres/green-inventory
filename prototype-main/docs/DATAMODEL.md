@@ -58,8 +58,8 @@ flowchart LR
         Site["Site"]
         Parcel["Land Parcel"]
         ME{{"Maintenance Element"}}
-        Area["Maintenance Area (polygon)"]
-        Point["Point Feature (point)"]
+        Area["Maintenance Polygon"]
+        Point["Maintenance Point"]
         Profile[/"Care Profile"/]
         Task[/"Care Task"/]
         Cost[/"Cost rate (planned)"/]
@@ -108,12 +108,12 @@ held in external Swiss registers.
 | Site | Standort | core | ERP / master data | An operational collection of land the BG manages as one unit. Not a legal boundary, but the set of its Land Parcels. |
 | Land Parcel | Grundstück | core | land registry; geometry from cadastral survey | A legal parcel, keyed by EGRID. Carries ownership and accountability. |
 | Maintenance Element | Pflegeelement | core | BG survey | A cared-for feature inside a parcel. Abstract: every element is either an Area or a Point. |
-| Maintenance Area | Pflegefläche | core | BG survey | Subtype of Maintenance Element. Polygon feature: lawn, bed, hedge, path, surface. |
-| Point Feature | Punktelement | core | BG survey | Subtype of Maintenance Element. Point feature: tree, planter, bench, structure. |
+| Maintenance Polygon | Pflegepolygon | core | BG survey | Subtype of Maintenance Element. Polygon feature: lawn, bed, hedge, path, surface. |
+| Maintenance Point | Pflegepunkt | core | BG survey | Subtype of Maintenance Element. Point feature: tree, planter, bench, structure. |
 | Care Profile | Pflegeprofil | core (reference) | BBL standard | What an element is; groups the maintenance tasks that apply to it. |
 | Care Task | Pflegemassnahme | core (reference) | BBL standard | A single maintenance task of a Care Profile, with its yearly frequency and material. |
-| Actor | Akteur | core (reference) | ERP / directory | A party that performs maintenance. Several actors may work the same element (for example winter versus summer), so the key relation is Actor to Maintenance Element. |
-| Assignment | Pflegeauftrag | core (relationship) | BG / ERP | Links one Actor to one Maintenance Element for a task (shown as the "executes" edge). |
+| Actor | Akteur | reference (planned) | ERP / directory | A party that performs maintenance. Several actors may work the same element (for example winter versus summer), so the key relation is Actor to Maintenance Element. Not part of this MVP — no actor data is held. |
+| Assignment | Pflegeauftrag | relationship (planned) | BG / ERP | Links one Actor to one Maintenance Element for a task (shown as the "executes" edge). Not part of this MVP — no assignment data is held. |
 | Cost rate | Einheitspreis | core (reference, planned) | price catalogue | Planned. Unit price for a Care Task; with element measures it yields tender costs. |
 | Image | Bild | core | app / media store | A picture (URL) attached to a Care Profile (standard illustration) or a Maintenance Element / Site (field photo); several allowed. |
 | Owner | Eigentümer | context | land registry | Legal owner of a Land Parcel. |
@@ -127,8 +127,8 @@ source fuses Site and Land Parcel, and adds a render-only centroid):
 | Conceptual entity | `entity_type` in `data.geojson` |
 |---|---|
 | Site and Land Parcel (fused) | `site`, plus `site_location` (a centroid render aid) |
-| Maintenance Area | `area`, `tree_canopy` (circular polygons) |
-| Point Feature | `tree` (species set), `point` (everything else) |
+| Maintenance Polygon | `area`, `tree_canopy` (circular polygons) |
+| Maintenance Point | `tree` (species set), `point` (everything else) |
 | Care Profile, Care Task | referenced by `fk_profil`; tasks live in `js/config.js` |
 | Actor, Assignment | coded attributes only: responsibility on the parcel, execution on the element |
 | Owner | coarse coded attribute |
@@ -195,7 +195,7 @@ data); the authoritative address is the Building's (GWR).
 ### 3.3 Maintenance Element (Pflegeelement)
 
 A cared-for feature inside a parcel. Abstract: every element is either a
-Maintenance Area (polygon) or a Point Feature (point). The two use different
+Maintenance Polygon or a Maintenance Point. The two use different
 Care-Profile code lists (`idPPy` versus `idPP`); a subtype's `care_profile_fid`
 must point to a Care Profile in the matching code list.
 
@@ -212,7 +212,7 @@ Shared attributes:
 | max_height | | double | — | Max plant or tree height, where measured |
 | remarks | | string | — | Free text |
 
-Maintenance Area (Pflegefläche) adds:
+Maintenance Polygon (Pflegepolygon) adds:
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -223,7 +223,7 @@ Maintenance Area (Pflegefläche) adds:
 | crown_radius | | double | — | Crown radius (circular polygons only) |
 | crown_diameter | | double | — | Crown diameter (circular polygons only) |
 
-Point Feature (Punktelement) adds:
+Maintenance Point (Pflegepunkt) adds:
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -405,10 +405,10 @@ sentinel code lists) are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 7.
 - No linear feature subtype. The source reserves an empty `idPL` code list for
   linear elements (edges, hedgerows as lines). If line geometry comes into
   scope, Maintenance Element needs a third subtype.
-- Tree as its own subtype. Trees are modelled as a Point Feature with species
+- Tree as its own subtype. Trees are modelled as a Maintenance Point with species
   set; given their domain weight (protection, individual inventory), promoting
   Tree to a subtype is an option.
-- Maintenance Area versus Land Cover. Both describe the ground surface (BG
+- Maintenance Polygon versus Land Cover. Both describe the ground surface (BG
   survey versus cadastral survey); whether the inventory should derive from, or
   reconcile with, the official land cover is not modelled.
 - No temporal or condition dimension. The model has no validity period,
@@ -588,7 +588,7 @@ classDiagram
         +leaf_clearing
         +max_height
     }
-    class MaintenanceArea {
+    class MaintenancePolygon {
         +geometry : Polygon
         +area_m2
         +perimeter
@@ -596,7 +596,7 @@ classDiagram
         +crown_radius
         +crown_diameter
     }
-    class PointFeature {
+    class MaintenancePoint {
         +geometry : Point
         +species_text
         +species_code
@@ -666,8 +666,8 @@ classDiagram
 
     Site "1" --> "1..*" LandParcel : contains
     LandParcel "1" --> "0..*" MaintenanceElement : contains
-    MaintenanceElement <|-- MaintenanceArea
-    MaintenanceElement <|-- PointFeature
+    MaintenanceElement <|-- MaintenancePolygon
+    MaintenanceElement <|-- MaintenancePoint
     CareProfile "1" --> "0..*" MaintenanceElement : classifies
     CareProfile "1" --> "1..*" CareTask : has
     CostRate "0..1" --> "1" CareTask : prices
@@ -716,8 +716,8 @@ follows (profile names are in Section 5.1).
 | Site | Standort |
 | Land Parcel | Grundstück |
 | Maintenance Element | Pflegeelement |
-| Maintenance Area | Pflegefläche |
-| Point Feature | Punktelement |
+| Maintenance Polygon | Pflegepolygon |
+| Maintenance Point | Pflegepunkt |
 | Care Profile | Pflegeprofil |
 | Care Task | Pflegemassnahme (Haupttätigkeit) |
 | Actor | Akteur |
