@@ -32,10 +32,11 @@ export for tenders (bills of quantities for green-space maintenance).
   Swiss federal government happens to use SAP). The cadastral masters are fixed
   national authorities: the land registry for EGRID and ownership, the building
   register for EGID, and the official cadastral survey for geometry.
-- English-only model: German appears only in the enumerations (Section 5) and
-  the terminology reference (Section 6.4); the physical German field names are
-  in the source document ([`SOURCE-GDB.md`](SOURCE-GDB.md)). French and Italian
-  are planned.
+- English-first model: entity names carry their German equivalent (EN / DE);
+  attributes stay English, since most are self-explanatory. The full glossary
+  is the terminology reference (Section 6.4), and the physical German field
+  names are in the source document ([`SOURCE-GDB.md`](SOURCE-GDB.md)). French
+  and Italian are planned.
 - Conform to authorities: cadastral facts (parcel, ownership, land cover,
   building) follow the Swiss registers; the app does not redefine them.
 
@@ -63,6 +64,7 @@ flowchart LR
         Task[/"Care Task"/]
         Cost[/"Cost rate (planned)"/]
         Actor(["Actor"])
+        Img["Image"]
         Site -->|"contains 1..n"| Parcel
         Parcel -->|"contains 0..n"| ME
         ME --> Area
@@ -70,8 +72,10 @@ flowchart LR
         Profile -->|classifies| ME
         Profile -->|has| Task
         Cost -.->|prices| Task
-        Actor -->|"executes (per task / season)"| ME
+        Actor -->|"executes (per task)"| ME
         Actor -->|"accountable for"| Parcel
+        Profile -->|"has images"| Img
+        ME -->|"has images"| Img
     end
     subgraph CTX["Context: Swiss cadastre and registers (not in the app)"]
         direction LR
@@ -82,6 +86,7 @@ flowchart LR
     Owner -->|owns| Parcel
     Parcel -->|"covered by"| Cover
     Bldg -->|"footprint is land cover"| Cover
+    Bldg -->|"stands on"| Parcel
     classDef planned stroke-dasharray:4 3;
     class Cost planned;
 ```
@@ -98,21 +103,22 @@ Diagram shapes:
 The two boxed groups separate the app's core entities from contextual entities
 held in external Swiss registers.
 
-| Entity | Scope | Master system | What it is |
-|---|---|---|---|
-| Site | core | ERP / master data | An operational collection of land the BG manages as one unit. Not a legal boundary, but the set of its Land Parcels. |
-| Land Parcel | core | land registry; geometry from cadastral survey | A legal parcel, keyed by EGRID. Carries ownership and accountability. |
-| Maintenance Element | core | BG survey | A cared-for feature inside a parcel. Abstract: every element is either an Area or a Point. |
-| Maintenance Area | core | BG survey | Subtype of Maintenance Element. Polygon feature: lawn, bed, hedge, path, surface. |
-| Point Feature | core | BG survey | Subtype of Maintenance Element. Point feature: tree, planter, bench, structure. |
-| Care Profile | core (reference) | BBL standard | What an element is; groups the maintenance tasks that apply to it. |
-| Care Task | core (reference) | BBL standard | A single maintenance task of a Care Profile, with its yearly frequency, season and material. |
-| Actor | core (reference) | ERP / directory | A party that performs maintenance. Several actors may work the same element (for example winter versus summer), so the key relation is Actor to Maintenance Element. |
-| Assignment | core (relationship) | BG / ERP | Links one Actor to one Maintenance Element for a task or season (shown as the "executes" edge). |
-| Cost rate | core (reference, planned) | price catalogue | Planned. Unit price for a Care Task; with element quantities it yields tender costs. |
-| Owner | context | land registry | Legal owner of a Land Parcel. |
-| Land Cover | context | cadastral survey | Official surface classification: building, paved, vegetation, water, forest, rock, and so on. |
-| Building | context | building register + cadastral survey | A building keyed by EGID; its footprint is a Land-Cover polygon. |
+| Entity (EN) | Entity (DE) | Scope | Master system | What it is |
+|---|---|---|---|---|
+| Site | Standort | core | ERP / master data | An operational collection of land the BG manages as one unit. Not a legal boundary, but the set of its Land Parcels. |
+| Land Parcel | Grundstück | core | land registry; geometry from cadastral survey | A legal parcel, keyed by EGRID. Carries ownership and accountability. |
+| Maintenance Element | Pflegeelement | core | BG survey | A cared-for feature inside a parcel. Abstract: every element is either an Area or a Point. |
+| Maintenance Area | Pflegefläche | core | BG survey | Subtype of Maintenance Element. Polygon feature: lawn, bed, hedge, path, surface. |
+| Point Feature | Punktelement | core | BG survey | Subtype of Maintenance Element. Point feature: tree, planter, bench, structure. |
+| Care Profile | Pflegeprofil | core (reference) | BBL standard | What an element is; groups the maintenance tasks that apply to it. |
+| Care Task | Pflegemassnahme | core (reference) | BBL standard | A single maintenance task of a Care Profile, with its yearly frequency and material. |
+| Actor | Akteur | core (reference) | ERP / directory | A party that performs maintenance. Several actors may work the same element (for example winter versus summer), so the key relation is Actor to Maintenance Element. |
+| Assignment | Pflegeauftrag | core (relationship) | BG / ERP | Links one Actor to one Maintenance Element for a task (shown as the "executes" edge). |
+| Cost rate | Einheitspreis | core (reference, planned) | price catalogue | Planned. Unit price for a Care Task; with element measures it yields tender costs. |
+| Image | Bild | core | app / media store | A picture (URL) attached to a Care Profile (standard illustration) or a Maintenance Element / Site (field photo); several allowed. |
+| Owner | Eigentümer | context | land registry | Legal owner of a Land Parcel. |
+| Land Cover | Bodenbedeckung | context | cadastral survey | Official surface classification: building, paved, vegetation, water, forest, rock, and so on. |
+| Building | Gebäude | context | building register + cadastral survey | A building keyed by EGID; its footprint is a Land-Cover polygon. A parcel may carry several buildings. |
 
 Delivered as `data.geojson`. The app's data arrives as one GeoJSON file with
 six `entity_type` values. The conceptual entities map to them as follows (the
@@ -126,7 +132,7 @@ source fuses Site and Land Parcel, and adds a render-only centroid):
 | Care Profile, Care Task | referenced by `fk_profil`; tasks live in `js/config.js` |
 | Actor, Assignment | coded attributes only: responsibility on the parcel, execution on the element |
 | Owner | coarse coded attribute |
-| Cost rate, Land Cover, Building | not present |
+| Cost rate, Image, Land Cover, Building | not present |
 
 ---
 
@@ -140,7 +146,7 @@ foreign key in the target model but only a coarse code today, the Enum column
 names today's code list. The German source field names and the delivered
 `data.geojson` properties are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 2.
 
-### 3.1 Site
+### 3.1 Site (Standort)
 
 An operational collection of parcels, managed as one unit; mastered in the
 organisation's ERP / master-data system. Today the source fuses Site into the
@@ -155,19 +161,19 @@ parcel feature.
 | district | | string | — | Operational region: DLZ 1 to 5; nationwide catch-all; legacy |
 | inspection | | integer | idJn | Inspection flag (yes / no) |
 | cleaning | | integer | idJn | Cleaning flag (yes / no) |
-| address_street | | string | — | Street (split per tidy-data; authoritative address is the Building / GWR) |
-| address_house_number | | string | — | House number (may be alphanumeric) |
-| address_postal_code | | string | — | Postal code |
-| address_locality | | string | — | Town or city |
 | created_year | | integer | — | Year of construction |
 | surveyed_at | | date | — | Survey date |
 | remarks | | string | — | Free text |
 
-### 3.2 Land Parcel
+A Site has no address of its own; it is labelled by its primary Land Parcel
+(Section 3.2).
+
+### 3.2 Land Parcel (Grundstück)
 
 A legal parcel; geometry from the official cadastral survey, identity and
 ownership from the land registry. Not modelled separately yet, since it is
-fused into the parcel feature.
+fused into the parcel feature. Its address is split into components (tidy
+data); the authoritative address is the Building's (GWR).
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -176,11 +182,17 @@ fused into the parcel feature.
 | site_fid | FK | integer | — | Parent Site (Site.fid) |
 | parcel_number | | string | — | One cadastral number per parcel (the source concatenates several when fused) |
 | municipality_bfs | | integer | — | Municipality (BFS) number; not delivered |
-| owner | | integer | idEg | Coarse owner category today; conceptual ownership is the n:m relation to Owner (co-ownership), Section 3.7 |
+| address_street | | string | — | Street |
+| address_house_number | | string | — | House number (may be alphanumeric) |
+| address_postal_code | | string | — | Postal code |
+| address_locality | | string | — | Town or city |
+| address_region | | string | — | Region or canton (state / province abroad) |
+| address_country | | string | — | Country (ISO 3166-1); the portfolio is worldwide |
+| owner | | integer | idEg | Coarse owner category today; conceptual ownership is the n:m relation to Owner (co-ownership), Section 3.8 |
 | responsible_actor_fid | FK | integer | idPv | Accountable party (Actor.fid); a coarse code today |
-| boundary | | geometry | — | Parcel polygon (MultiPolygon) |
+| geometry | | geometry | — | Parcel polygon (MultiPolygon) |
 
-### 3.3 Maintenance Element
+### 3.3 Maintenance Element (Pflegeelement)
 
 A cared-for feature inside a parcel. Abstract: every element is either a
 Maintenance Area (polygon) or a Point Feature (point). The two use different
@@ -198,21 +210,20 @@ Shared attributes:
 | effort_factor | | double | — | Care-effort multiplier, 0.5 to 5.0 (weights tender cost) |
 | leaf_clearing | | integer | — | Leaf-clearing scope flag (Lauben): 0, 1 or 2 |
 | max_height | | double | — | Max plant or tree height, where measured |
-| quantity | | double | — | Recorded quantity (the tender measure) |
 | remarks | | string | — | Free text |
 
-Maintenance Area (subtype) adds:
+Maintenance Area (Pflegefläche) adds:
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
 | geometry | | geometry | — | Polygon |
-| area_m2 | | double | — | Area in square metres (LV95-projected) |
+| area_m2 | | double | — | Area in square metres (LV95-projected); the tender measure for area profiles |
 | perimeter | | double | — | Perimeter in metres |
 | winter_service | | integer | Winterdienst | Winter-service treatment |
 | crown_radius | | double | — | Crown radius (circular polygons only) |
 | crown_diameter | | double | — | Crown diameter (circular polygons only) |
 
-Point Feature (subtype) adds:
+Point Feature (Punktelement) adds:
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -220,8 +231,9 @@ Point Feature (subtype) adds:
 | species_text | | string | — | Free-text species; its presence classifies the row as a tree |
 | species_code | | integer | idBa | Species code |
 | tree_number | | integer | — | Per-parcel tree number |
+| count | | integer | — | Number of items; the tender measure for point profiles (usually 1) |
 
-### 3.4 Care Profile and Care Task
+### 3.4 Care Profile and Care Task (Pflegeprofil, Pflegemassnahme)
 
 A Care Profile is what a feature is and how it is maintained, from the BBL
 green-space maintenance standard (2020): 33 profiles in 10 categories (the
@@ -248,18 +260,18 @@ the yearly frequency that defines the standard.
 | care_profile_fid | FK | integer | — | Parent Care Profile (CareProfile.fid) |
 | task | | string | — | The activity (for example mowing, pruning, leaf clearing) |
 | frequency_per_year | | double | — | Passes per year (below 1 means a multi-year cycle) |
-| season | | string | — | When it runs (months or season) |
 | material | | string | — | Equipment or material used |
 
 Care Profiles and Tasks are not yet a dataset (Section 4): the schedule lives
-in `js/config.js` (`CARE_CATALOG_*`).
+in `js/config.js` (`CARE_CATALOG_*`). Each profile also carries one or more
+illustrative images from the standard (modelled as Image, Section 3.7).
 
-### 3.5 Actor and Assignment
+### 3.5 Actor and Assignment (Akteur, Pflegeauftrag)
 
 An Actor is a party that performs or is accountable for maintenance: the BG, an
 external contractor, the city, a depot crew. The important relation is Actor to
 Maintenance Element, and it is many-to-many: a single element may involve
-several actors, often split by task or season (for example one party for winter
+several actors, often split by task (for example one party for winter
 service and another for summer care). That relation is the Assignment.
 Parcel-level accountability is a separate, simpler link (one responsible Actor
 per parcel, see Section 3.2).
@@ -273,27 +285,26 @@ Actor:
 | name | | string | — | Organisation, crew or person |
 | kind | | string | — | organisation / crew / individual |
 
-Assignment (one Actor working one element, scoped by task or season):
+Assignment (one Actor working one element, scoped by task):
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
 | fid | PK | integer | — | Feature id maintained by the app |
 | actor_fid | FK | integer | — | The actor (Actor.fid) |
 | element_fid | FK | integer | — | The maintenance element (MaintenanceElement.fid) |
-| season | | string | — | Scope, for example winter or summer |
 | task | | string | — | Specific task scope, where applicable |
 
 Grain: one row per actor, element and scope. Today the source has neither
 Actor nor Assignment: just two coded attributes, responsibility on the parcel
 (idPv) and execution on the element (idPd), a flat simplification of the above.
 
-### 3.6 Cost rate (planned)
+### 3.6 Cost rate (Einheitspreis, planned)
 
 Planned, not yet implemented. The main use-case is data export for tenders: a
 bill of quantities lists, per Maintenance Element, the maintenance tasks to be
 priced. A Cost rate is the unit price for a Care Task. The tender position cost
-is derived: element `quantity` times the task `frequency_per_year` times
-`effort_factor` times `unit_price`.
+is derived: the element's measure (area or count) times the task
+`frequency_per_year` times `effort_factor` times `unit_price`.
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -304,7 +315,25 @@ is derived: element `quantity` times the task `frequency_per_year` times
 | valid_from | | date | — | Start of the price's validity |
 | source | | string | — | Price catalogue or tender reference |
 
-### 3.7 Contextual entities
+### 3.7 Image (Bild)
+
+A picture attached to an entity, stored as a URL (not a blob); an entity may
+have several. Care Profiles carry illustrations from the standard that show
+what a profile is; Maintenance Elements and Sites carry field photos. The link
+is polymorphic: `subject_type` plus `subject_fid` name the entity the image
+belongs to.
+
+| Attribute | Key | Type | Enum | Description |
+|---|---|---|---|---|
+| fid | PK | integer | — | Feature id maintained by the app |
+| subject_type | | string | — | Entity the image belongs to: care_profile, maintenance_element, site, ... |
+| subject_fid | FK | integer | — | The subject's fid (polymorphic, paired with subject_type) |
+| url | | string | — | Image location (URL) |
+| caption | | string | — | Caption or alt text |
+| role | | string | — | photo (field) or illustration (from the standard) |
+| sort_order | | integer | — | Display order when several images apply |
+
+### 3.8 Contextual entities
 
 Swiss cadastre and registers; not stored by the app, but the data
 conceptually depends on them. They are keyed by their master identifier; the
@@ -312,13 +341,19 @@ app assigns no `fid` to them.
 
 | Entity | Key | Master | Geometry | Notes |
 |---|---|---|---|---|
-| Owner | system_id | land registry | — | Ownership is recorded per parcel; a parcel may have several owners (co-ownership). The app keeps only a coarse code. |
-| Land Cover | system_id | cadastral survey | Polygon | `cover_type` from the AV land-cover catalogue: building, paved, vegetation, water, forest, rock. Tiles every parcel. |
-| Building | egid | building register + cadastral survey | footprint | Footprint is a Land-Cover polygon of type building. Relevant for green roofs and facades. |
+| Owner (Eigentümer) | system_id | land registry | — | Ownership is recorded per parcel; a parcel may have several owners (co-ownership). The app keeps only a coarse code. |
+| Land Cover (Bodenbedeckung) | system_id | cadastral survey | Polygon | `cover_type` from the AV land-cover catalogue: building, paved, vegetation, water, forest, rock. Tiles every parcel. |
+| Building (Gebäude) | egid | building register + cadastral survey | Polygon (footprint) | Footprint is a Land-Cover polygon of type building. Relevant for green roofs and facades. |
 
 ---
 
 ## 4. Gaps & open points
+
+The deltas between the reference model (Sections 1-3) and today's data, roughly
+by impact. Source- and conversion-level limitations (WGS84 accuracy, empty or
+sentinel code lists) are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 7.
+
+### 4.1 Gaps to close
 
 - Model is two-level, not three. The source fuses Site and Land Parcel into
   one layer, carries no EGRID, and reduces the parcel(s) to a free-text
@@ -331,42 +366,54 @@ app assigns no `fid` to them.
   stable `fid` (or a stable mapping from the source) is required before foreign
   keys are dependable.
 - Address is delivered concatenated. The source carries one `adresse` string;
-  the model splits it into components (tidy data). Authoritative addresses
-  belong to the Building (GWR), not the parcel.
+  the model splits it into components on the Land Parcel (tidy data). The
+  authoritative address is the Building's (GWR).
+- Portfolio is worldwide. The Swiss cadastral keys (EGRID, EGID) and registers
+  (land registry, cadastral survey, GWR) apply only to domestic sites; sites
+  abroad (for example embassies) have no EGRID/EGID and use the local
+  equivalent or none. `address_country` distinguishes them.
 - Ownership is coarse and not n:m. `eigentuemer` (idEg) is a category code on
   the fused feature; the model treats ownership as the n:m relation to Owner
   (co-ownership) at parcel level. Accountability (`pflegeverantwortung`, idPv)
   is likewise a coarse code, linked to an Actor.
 - No Actor entity or per-task assignment. Execution is a single coded value per
-  element (idPd); the model expects a many-to-many Assignment scoped by task or
-  season, so one element can have several actors.
+  element (idPd); the model expects a many-to-many Assignment scoped by task, so one element can have several actors.
 - No Care-Profile or Care-Task dataset. `fk_profil` resolves only to a code and
   label; the maintenance schedule lives in frontend code. A proposed
   `data/pflegeprofile.json`, keyed by `(code_list, code)`, would hold the
-  profile and its tasks (task, frequency, season, material), sourced from the
+  profile and its tasks (task, frequency, material), sourced from the
   standard; `care_profile_fid` then becomes a foreign key into it.
-- Cost is planned, not implemented (Section 3.6). It is the data the tender
-  export ultimately needs; no pricing exists yet.
+- Images are not delivered. Care-Profile illustrations from the standard and
+  field photos of elements and sites are modelled (Section 3.7) but no image
+  URLs exist in the data yet.
 - Code lists are wider than the standard. The source has 44 `idPPy` and 22
   `idPP` codes, but the standard defines 33 profiles (Section 5.1); the extras
   have no chapter (the report flags them). Categorisation also drifts (for
   example wild hedge sits under hedges in the app but under woody areas in the
   standard). A code-by-code crosswalk from `(code_list, code)` to a standard
   profile is the prerequisite for the dataset above.
+- Cost is planned, not implemented (Section 3.6). It is the data the tender
+  export ultimately needs; no pricing exists yet.
+- `tree_canopy` is a misnomer; most are decorative circles, not crowns.
+  Renaming it (the delivered `entity_type`) is a backlog item.
+
+### 4.2 Open design decisions
+
+- Maintenance class granularity. It is modelled at Site level because the
+  source barely sets it on individual elements; per-element classes would
+  need a real source.
 - No linear feature subtype. The source reserves an empty `idPL` code list for
   linear elements (edges, hedgerows as lines). If line geometry comes into
   scope, Maintenance Element needs a third subtype.
-- Tree is not its own subtype. Trees are modelled as a Point Feature with
-  species set; given their domain weight (protection, individual inventory),
-  promoting Tree to a subtype is an option.
-- No temporal or condition dimension. The model has no validity period, history
-  or plant condition (Zustand); fine for an inventory snapshot, noted here so
-  it is a deliberate omission.
-- Maintenance class is effectively Site-level; it is barely set on elements.
-- `tree_canopy` is a misnomer; most are decorative circles, not crowns.
-
-Source and conversion limitations (WGS84 accuracy, empty or sentinel code
-lists) are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 7.
+- Tree as its own subtype. Trees are modelled as a Point Feature with species
+  set; given their domain weight (protection, individual inventory), promoting
+  Tree to a subtype is an option.
+- Maintenance Area versus Land Cover. Both describe the ground surface (BG
+  survey versus cadastral survey); whether the inventory should derive from, or
+  reconcile with, the official land cover is not modelled.
+- No temporal or condition dimension. The model has no validity period,
+  history or plant condition (Zustand); fine for an inventory snapshot, noted
+  here so it is a deliberate omission.
 
 ---
 
@@ -383,33 +430,33 @@ open item (Section 4).
 
 | Category | Profile (EN) | Profile (DE) | Geometry | Unit | Ref. |
 |---|---|---|---|---|---|
-| Lawn | Utility lawn, small-area | Gebrauchsrasen kleinflächig | area | m² | 2.1.1 |
-| Lawn | Flowering lawn | Blumenrasen | area | m² | 2.1.2 |
-| Meadows | Flowering meadow, small-area | Blumenwiese kleinflächig | area | m² | 2.2.1 |
-| Meadows | Flowering meadow, large-area | Blumenwiese grossflächig | area | m² | 2.2.2 |
-| Meadows | Wet meadow | Feuchtwiese | area | m² | 2.2.3 |
-| Meadows | Margin vegetation / hedge margins | Saumvegetation / Säume von Hecken | area | m² | 2.2.4 |
-| Meadows | Nutrient-poor grassland | Magerrasen | area | m² | 2.2.5 |
-| Beds | Bedding roses | Beetrosen | area | m² | 2.3.1 |
-| Beds | Bog bed | Moorbeet | area | m² | 2.3.2 |
-| Beds | Extensive perennial planting | Extensivstaudenpflanzung | area | m² | 2.3.3 |
-| Beds | Intensive perennial planting | Intensivstaudenpflanzung | area | m² | 2.3.4 |
-| Hedges | Formal hedge, up to 1.5 m | Formhecke, - 1.5 m | area | m² | 2.4.1 |
-| Hedges | Formal hedge, over 1.5 m | Formhecke + 1.5 m | area | m² | 2.4.2 |
-| Woody areas | Shrub bed | Gehölzrabatte | area | m² | 2.5.1 |
-| Woody areas | Ground cover | Bodendecker | area | m² | 2.5.2 |
-| Woody areas | Shrub bed with ground cover | Gehölzrabatte mit Bodendecker | area | m² | 2.5.3 |
-| Woody areas | Wild hedge | Wildhecke | area | m² | 2.5.4 |
+| Lawn | Utility lawn, small-area | Gebrauchsrasen kleinflächig | polygon | m² | 2.1.1 |
+| Lawn | Flowering lawn | Blumenrasen | polygon | m² | 2.1.2 |
+| Meadows | Flowering meadow, small-area | Blumenwiese kleinflächig | polygon | m² | 2.2.1 |
+| Meadows | Flowering meadow, large-area | Blumenwiese grossflächig | polygon | m² | 2.2.2 |
+| Meadows | Wet meadow | Feuchtwiese | polygon | m² | 2.2.3 |
+| Meadows | Margin vegetation / hedge margins | Saumvegetation / Säume von Hecken | polygon | m² | 2.2.4 |
+| Meadows | Nutrient-poor grassland | Magerrasen | polygon | m² | 2.2.5 |
+| Beds | Bedding roses | Beetrosen | polygon | m² | 2.3.1 |
+| Beds | Bog bed | Moorbeet | polygon | m² | 2.3.2 |
+| Beds | Extensive perennial planting | Extensivstaudenpflanzung | polygon | m² | 2.3.3 |
+| Beds | Intensive perennial planting | Intensivstaudenpflanzung | polygon | m² | 2.3.4 |
+| Hedges | Formal hedge, up to 1.5 m | Formhecke, - 1.5 m | polygon | m² | 2.4.1 |
+| Hedges | Formal hedge, over 1.5 m | Formhecke + 1.5 m | polygon | m² | 2.4.2 |
+| Woody areas | Shrub bed | Gehölzrabatte | polygon | m² | 2.5.1 |
+| Woody areas | Ground cover | Bodendecker | polygon | m² | 2.5.2 |
+| Woody areas | Shrub bed with ground cover | Gehölzrabatte mit Bodendecker | polygon | m² | 2.5.3 |
+| Woody areas | Wild hedge | Wildhecke | polygon | m² | 2.5.4 |
 | Special planting forms | Climbing plant | Schling- und Kletterpflanze | point | count | 2.6.1 |
-| Special planting forms | Roof, extensive planting | Dach, extensiv bepflanzt | area | m² | 2.6.2 |
+| Special planting forms | Roof, extensive planting | Dach, extensiv bepflanzt | polygon | m² | 2.6.2 |
 | Special planting forms | Mobile planter, permanent | Mobiles Pflanzgefäss Dauerbepflanzung | point | count | 2.6.3 |
-| Surfaces | Concrete slabs, interlocking, natural stone | Betonplatten, Verbund-, Natursteine | area | m² | 2.7.1 |
-| Surfaces | Gravel surfacing | Chaussierung | area | m² | 2.7.2 |
-| Surfaces | Grass pavers | Rasengittersteine | area | m² | 2.7.3 |
-| Surfaces | Gravel strips and river stones | Geröllstreifen und Bollensteine | area | m² | 2.7.4 |
-| Surfaces | Sand | Sand | area | m² | 2.7.5 |
-| Water | Water body, still, near-natural | Gewässer, ruhend, naturnah | area | m² | 2.8.5 |
-| Water | Fountain | Brunnen | area | m² | 2.8.6 |
+| Surfaces | Concrete slabs, interlocking, natural stone | Betonplatten, Verbund-, Natursteine | polygon | m² | 2.7.1 |
+| Surfaces | Gravel surfacing | Chaussierung | polygon | m² | 2.7.2 |
+| Surfaces | Grass pavers | Rasengittersteine | polygon | m² | 2.7.3 |
+| Surfaces | Gravel strips and river stones | Geröllstreifen und Bollensteine | polygon | m² | 2.7.4 |
+| Surfaces | Sand | Sand | polygon | m² | 2.7.5 |
+| Water | Water body, still, near-natural | Gewässer, ruhend, naturnah | polygon | m² | 2.8.5 |
+| Water | Fountain | Brunnen | polygon | m² | 2.8.6 |
 | Trees | Deciduous tree, small-crowned / large shrub | Laubbaum, kleinkronig, Grossstrauch | point | count | 2.9.5 |
 | Trees | Conifer | Nadelgehölze | point | count | 2.9.6 |
 | Small structures | Brush pile | Asthaufen | point | count | 2.10.1 |
@@ -419,73 +466,73 @@ open item (Section 4).
 
 ### 5.2 Operational and cadastral enumerations
 
-The coded attributes in Section 3 draw on these code lists. Full code-and-label
-tables are embedded in `data.geojson` (`metadata.codelists`); the source detail
-is in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 3.
+The coded attributes in Section 3 draw on these code lists. Full tables are
+embedded in `data.geojson` (`metadata.codelists`); the source detail is in
+[`SOURCE-GDB.md`](SOURCE-GDB.md) Section 3.
 
 Maintenance class (`idPk`) — backs `maintenance_class`:
 
-| Code | Value |
-|---|---|
-| 0 | not recorded |
-| 1 | PK 1 |
-| 2 | PK 2 |
-| 3 | PK 3 |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 0 | not recorded | nicht erfasst |
+| 1 | PK 1 | PK 1 |
+| 2 | PK 2 | PK 2 |
+| 3 | PK 3 | PK 3 |
 
 Responsibility (`idPv`) — backs `responsible_actor_fid` (coarse code today):
 
-| Code | Value |
-|---|---|
-| 0 | not recorded |
-| 1 | internal |
-| 2 | external |
-| 3 | internal / external |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 0 | not recorded | nicht erfasst |
+| 1 | internal | intern |
+| 2 | external | extern |
+| 3 | internal and external | intern / extern |
 
 Execution (`idPd`) — the source's coded execution party; in the model this is
 the Assignment to an Actor (no single attribute):
 
-| Code | Value |
-|---|---|
-| 1 | BG (federal nursery service) |
-| 2 | external |
-| 3 | unknown |
-| 4 | city of Bern |
-| 5 | third party |
-| 6 | tree-care contractor |
-| 7 | DLZ 2 |
-| 8 | depot (Werkhof) |
-| 9 | internal |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 1 | federal nursery service | BG |
+| 2 | external | extern |
+| 3 | unknown | unbekannt |
+| 4 | city of Bern | Stadt Bern |
+| 5 | third party | Dritte |
+| 6 | tree-care contractor | Baumpfleger |
+| 7 | DLZ 2 | DLZ 2 |
+| 8 | depot | Werkhof |
+| 9 | internal | intern |
 
 Irrigation (`idBw`) — backs `irrigation`:
 
-| Code | Value |
-|---|---|
-| 1 | automatic |
-| 2 | by hand |
-| 3 | not needed |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 1 | automatic | automatisch |
+| 2 | by hand | von Hand |
+| 3 | not needed | nicht erforderlich |
 
 Owner (`idEg`) — backs `owner` (coarse code today):
 
-| Code | Value |
-|---|---|
-| 0 | not recorded |
-| 1 | federal (Bund) |
-| 2 | third party (Dritte) |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 0 | not recorded | nicht erfasst |
+| 1 | federal | Bund |
+| 2 | third party | Dritte |
 
 Inspection / Cleaning (`idJn`) — backs `inspection`, `cleaning`:
 
-| Code | Value |
-|---|---|
-| 0 | not recorded |
-| 1 | yes |
-| 2 | no |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 0 | not recorded | nicht erfasst |
+| 1 | yes | ja |
+| 2 | no | nein |
 
 Winter service (`Winterdienst`) — backs `winter_service`:
 
-| Code | Value |
-|---|---|
-| 1 | black clearing (Schwarzräumung) |
-| 2 | walkway, about 2 m wide |
+| Code | Value (EN) | Value (DE) |
+|---|---|---|
+| 1 | black clearing | Schwarzräumung |
+| 2 | walkway, about 2 m wide | Gehweg, ca. 2 m breit |
 
 Tree species (`idBa`) — backs `species_code`: 430 entries (Latin / German);
 not listed here — see `metadata.codelists.idBa`.
@@ -514,10 +561,6 @@ classDiagram
         +district
         +inspection
         +cleaning
-        +address_street
-        +address_house_number
-        +address_postal_code
-        +address_locality
     }
     class LandParcel {
         +fid [PK]
@@ -525,9 +568,15 @@ classDiagram
         +site_fid [FK]
         +parcel_number
         +municipality_bfs
+        +address_street
+        +address_house_number
+        +address_postal_code
+        +address_locality
+        +address_region
+        +address_country
         +owner
         +responsible_actor_fid [FK]
-        Geometry MultiPolygon
+        +geometry : MultiPolygon
     }
     class MaintenanceElement {
         <<abstract>>
@@ -538,10 +587,9 @@ classDiagram
         +effort_factor
         +leaf_clearing
         +max_height
-        +quantity
     }
     class MaintenanceArea {
-        Geometry Polygon
+        +geometry : Polygon
         +area_m2
         +perimeter
         +winter_service
@@ -549,10 +597,11 @@ classDiagram
         +crown_diameter
     }
     class PointFeature {
-        Geometry Point
+        +geometry : Point
         +species_text
         +species_code
         +tree_number
+        +count
     }
     class CareProfile {
         +fid [PK]
@@ -568,7 +617,6 @@ classDiagram
         +care_profile_fid [FK]
         +task
         +frequency_per_year
-        +season
         +material
     }
     class CostRate {
@@ -589,8 +637,16 @@ classDiagram
         +fid [PK]
         +actor_fid [FK]
         +element_fid [FK]
-        +season
         +task
+    }
+    class Image {
+        +fid [PK]
+        +subject_type
+        +subject_fid [FK]
+        +url
+        +caption
+        +role
+        +sort_order
     }
     class Owner {
         <<external>>
@@ -600,12 +656,12 @@ classDiagram
         <<external>>
         +system_id [UK]
         +cover_type
-        Geometry Polygon
+        +geometry : Polygon
     }
     class Building {
         <<external>>
         +egid [UK]
-        Geometry footprint
+        +geometry : Polygon (footprint)
     }
 
     Site "1" --> "1..*" LandParcel : contains
@@ -617,10 +673,14 @@ classDiagram
     CostRate "0..1" --> "1" CareTask : prices
     Actor "1" --> "0..*" Assignment : performs
     MaintenanceElement "1" --> "0..*" Assignment : worked by
-    Actor "1" --> "0..*" LandParcel : accountable for
+    CareProfile "0..1" --> "0..*" Image : illustrated by
+    MaintenanceElement "0..1" --> "0..*" Image : documented by
+    %% Image link is polymorphic (subject_type + subject_fid); also Site, Building
+    Actor "0..1" --> "0..*" LandParcel : accountable for
     Owner "1..*" --> "1..*" LandParcel : owns
     Building "0..1" --> "1" LandCover : footprint
-    LandParcel "0..*" --> "0..*" LandCover : covered by
+    Building "0..*" --> "1..*" LandParcel : stands on
+    LandParcel "1..*" --> "1..*" LandCover : covered by
 ```
 
 ### 6.2 Standards
@@ -663,6 +723,7 @@ follows (profile names are in Section 5.1).
 | Actor | Akteur |
 | Assignment | Pflegeauftrag |
 | Cost rate | Einheitspreis |
+| Image | Bild |
 | Tender | Ausschreibung |
 | Owner | Eigentümer |
 | Land Cover | Bodenbedeckung |
@@ -678,6 +739,7 @@ follows (profile names are in Section 5.1).
 | Cadastral survey | Amtliche Vermessung |
 | Building register | Gebäude- und Wohnungsregister (GWR) |
 | Federal nursery service | Bundesgärtnerei (BG) |
+| Region / canton | Kanton |
 | Depot / yard | Werkhof |
 
 Abbreviations: EGRID (federal parcel id); EGID (federal building id, from the
