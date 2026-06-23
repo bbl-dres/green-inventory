@@ -22,12 +22,16 @@ function fmtNum(v, decimals) {
   return dec != null ? grouped + '.' + dec : grouped;
 }
 
-// ── Profile styling ──────────────────────────────────────────────────────
-// Explicit colour + swatch-pattern for every BBL care profile.  Sourced from
-// the original Grünflächenpflege PDF legend (1602.GR_Mühlestrasse 2-6) so the
-// app matches what surveyors are used to.  Codes: idPPy = polygon profiles,
-// idPP = point profiles.  swatchClass refers to a CSS pattern class
-// (sw-dots, sw-pstripe, sw-xhatch, ...) defined in styles.css.
+// ── Profile styling (seed catalogue) ──────────────────────────────────────
+// The RUNTIME source of truth is the `style` object on each profile in
+// data/care_profiles.json (read via profilStyle → the PROFILE_STYLES index
+// that data.js builds on load).  The two maps below are the seed that
+// scripts/split_entities.mjs bakes into that file, and the fallback profilStyle
+// uses if a code is unstyled there.  To recolour the app, edit
+// care_profiles.json; edit here only to change the regeneration seed.
+// Sourced from the original Grünflächenpflege PDF legend (1602.GR_Mühlestrasse
+// 2-6).  Codes: idPPy = polygon profiles, idPP = point profiles.  swatchClass
+// refers to a CSS pattern class (sw-dots, sw-pstripe, ...) defined in styles.css.
 const AREA_PROFILE_STYLE = {
   // ── Rasen ──
   1:  { fill: '#97e600' },                                // Gebrauchsrasen kleinflächig
@@ -120,11 +124,15 @@ const POINT_PROFILE_STYLE = {
 const _profileColorCache = {};
 
 // Look up the style for a profile code.  Returns {fill, swatchClass} object.
-// entity_type discriminates between the polygon (idPPy) and point (idPP)
-// catalogs since both start at 1.
+// Reads the runtime PROFILE_STYLES index (built by data.js from
+// care_profiles.json) first, then the seed catalogue, then an HSL hash.
+// entity_type picks the domain: area/tree_canopy = idPPy, tree/point = idPP.
 function profilStyle(entity_type, code) {
   if (code == null) return { fill: '#bbbbbb' };
-  const map = entity_type === 'area' ? AREA_PROFILE_STYLE : POINT_PROFILE_STYLE;
+  const domain = (entity_type === 'area' || entity_type === 'tree_canopy') ? 'idPPy' : 'idPP';
+  const idx = (typeof PROFILE_STYLES !== 'undefined' && PROFILE_STYLES) ? PROFILE_STYLES[domain] : null;
+  if (idx && idx[code]) return idx[code];
+  const map = domain === 'idPPy' ? AREA_PROFILE_STYLE : POINT_PROFILE_STYLE;
   if (map[code]) return map[code];
   // Fallback: HSL hash for codes outside the curated catalog.
   if (!_profileColorCache[code]) {

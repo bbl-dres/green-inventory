@@ -5,7 +5,11 @@
   "code": 1,
   "label": "Gebrauchsrasen kleinflächig",
   "category": "Rasen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#97e600"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -35,7 +39,12 @@
   "code": 2,
   "label": "Gebrauchsrasen grossflächig",
   "category": "Rasen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#97e600",
+   "swatchClass": "sw-pstripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -46,7 +55,11 @@
   "code": 3,
   "label": "Strapazierrasen / Sportrasen kleinflächig",
   "category": "Rasen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#97e600"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -57,7 +70,12 @@
   "code": 4,
   "label": "Strapazierrasen / Sportrasen grossflächig",
   "category": "Rasen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#97e600",
+   "swatchClass": "sw-pstripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -68,7 +86,12 @@
   "code": 5,
   "label": "Blumenrasen",
   "category": "Rasen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#97e600",
+   "swatchClass": "sw-dots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -104,7 +127,11 @@
   "code": 6,
   "label": "Blumenwiese kleinflächig",
   "category": "Wiesen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#c6eeab"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -140,7 +167,12 @@
   "code": 7,
   "label": "Blumenwiese grossflächig",
   "category": "Wiesen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#c6eeab",
+   "swatchClass": "sw-pstripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -176,7 +208,11 @@
   "code": 8,
   "label": "Feuchtwiese",
   "category": "Wiesen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#a8e3d9"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -212,7 +248,12 @@
   "code": 9,
   "label": "Wechselflor",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ff73df",
+   "swatchClass": "sw-dots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -223,7 +264,11 @@
   "code": 10,
   "label": "Grab",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ff73df"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -234,7 +279,11 @@
   "code": 11,
   "label": "Beetrosen",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ff5500"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -282,7 +331,11 @@
   "code": 12,
   "label": "Moorbeet",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#5c45a8"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -324,7 +377,11 @@
   "code": 13,
   "label": "Staudenmischpflanzung, extensiv",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#df73ff"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -354,7 +411,12 @@
   "code": 14,
   "label": "Staudenmischpflanzung, intensiv",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#df73ff",
+   "swatchClass": "sw-pstripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -390,7 +452,12 @@
   "code": 15,
   "label": "Ruderalfläche",
   "category": "Rabatten",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ffaa00",
+   "swatchClass": "sw-ostripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -401,7 +468,11 @@
   "code": 16,
   "label": "Formhecke, Höhe unter 1.5 m",
   "category": "Hecken",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#a86f00"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -431,7 +502,12 @@
   "code": 17,
   "label": "Formhecke, Höhe über 1.5 m",
   "category": "Hecken",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#a86f00",
+   "swatchClass": "sw-hstripe"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -461,7 +537,11 @@
   "code": 18,
   "label": "Wildhecke",
   "category": "Hecken",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#d9d89e"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -491,7 +571,12 @@
   "code": 19,
   "label": "Gehölzrabatte",
   "category": "Gehölzflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#718844",
+   "swatchClass": "sw-gdots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -521,7 +606,11 @@
   "code": 20,
   "label": "Bodendecker",
   "category": "Gehölzflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#896e44"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -557,7 +646,12 @@
   "code": 21,
   "label": "Gehölzrabatte mit Bodendecker",
   "category": "Gehölzflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#896e44",
+   "swatchClass": "sw-dots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -599,7 +693,12 @@
   "code": 22,
   "label": "Parkwald",
   "category": "Gehölzflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#267300",
+   "swatchClass": "sw-dots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -610,7 +709,11 @@
   "code": 23,
   "label": "Wald",
   "category": "Gehölzflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#267300"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -621,7 +724,11 @@
   "code": 24,
   "label": "Dachbegrünung, extensive Staudenmischsaat",
   "category": "Spezielle Bepflanzungsformen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ffbdbd"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -657,7 +764,11 @@
   "code": 25,
   "label": "Asphaltbelag",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#686868"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -668,7 +779,11 @@
   "code": 26,
   "label": "Betonplatten, Verbund-, Natursteine",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#9c9c9c"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -692,7 +807,11 @@
   "code": 27,
   "label": "Chaussierung",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#cd8866"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -722,7 +841,11 @@
   "code": 28,
   "label": "Sand",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#e8d4a0"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -752,7 +875,12 @@
   "code": 29,
   "label": "Rasengittersteine",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#6fa800",
+   "swatchClass": "sw-xhatch"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -776,7 +904,12 @@
   "code": 30,
   "label": "Holzhäckselbelag",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#a83800",
+   "swatchClass": "sw-xhatch"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -787,7 +920,11 @@
   "code": 31,
   "label": "Fallschutzplatten / -beläge",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#7a7a7a"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -798,7 +935,11 @@
   "code": 32,
   "label": "Kunststoff- / Sportbelag",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#5a5a5a"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -809,7 +950,11 @@
   "code": 33,
   "label": "Kunstrasen",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#7fc858"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -820,7 +965,11 @@
   "code": 34,
   "label": "Gewässer, ruhend, naturnah",
   "category": "Wasserflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#006fff"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -850,7 +999,11 @@
   "code": 35,
   "label": "Brunnen",
   "category": "Wasserflächen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#00a9e6"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -880,7 +1033,11 @@
   "code": 36,
   "label": "Anderes",
   "category": "Anderes",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ffff00"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -891,7 +1048,12 @@
   "code": 37,
   "label": "Geröllstreifen und Bollensteine",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#4e4e4e",
+   "swatchClass": "sw-gdots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -921,7 +1083,12 @@
   "code": 38,
   "label": "Dach, intensiv begrünt",
   "category": "Spezielle Bepflanzungsformen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#ffbdbd",
+   "swatchClass": "sw-dots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -932,7 +1099,11 @@
   "code": 39,
   "label": "Flachdach ohne Bewuchs",
   "category": "Spezielle Bepflanzungsformen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#cccccc"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -943,7 +1114,11 @@
   "code": 40,
   "label": "Steildach",
   "category": "Spezielle Bepflanzungsformen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#bfbfbf"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -954,7 +1129,11 @@
   "code": 41,
   "label": "Dachterrasse",
   "category": "Spezielle Bepflanzungsformen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#e8d4a0"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -965,7 +1144,11 @@
   "code": 42,
   "label": "Naturstein-Pflästerung",
   "category": "Beläge",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#9c9c9c"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -976,7 +1159,12 @@
   "code": 43,
   "label": "Saumvegetation / Säume von Hecken",
   "category": "Wiesen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#f5f579",
+   "swatchClass": "sw-odots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1006,7 +1194,12 @@
   "code": 44,
   "label": "Magerrasen",
   "category": "Wiesen",
+  "geometry_type": "polygon",
   "unit": "m²",
+  "style": {
+   "fill": "#f5f579",
+   "swatchClass": "sw-vdots"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1036,7 +1229,12 @@
   "code": 1,
   "label": "Laubbaum, natürlicher Wuchs, grosskronig",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#38b000",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1054,7 +1252,12 @@
   "code": 2,
   "label": "Laubbaum, natürlicher Wuchs, kleinkronig",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#60c800",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1072,7 +1275,12 @@
   "code": 3,
   "label": "Laubbaum, Kopf- / Formschnitt",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#b0e000",
+   "swatchClass": "sw-circ-cross"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1083,7 +1291,12 @@
   "code": 4,
   "label": "Strassenbaum, Laub, natürlicher Wuchs, grosskronig",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#006680",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1094,7 +1307,12 @@
   "code": 5,
   "label": "Strassenbaum, Laub, natürlicher Wuchs, kleinkronig",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#008aaa",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1105,7 +1323,12 @@
   "code": 6,
   "label": "Strassenbaum, Laub, Kopf- / Formschnitt",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#007a94",
+   "swatchClass": "sw-circ-cross"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1116,7 +1339,12 @@
   "code": 7,
   "label": "Nadelbaum, natürlicher Wuchs",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#1a7000",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1134,7 +1362,12 @@
   "code": 8,
   "label": "Hochstamm-Obstbaum",
   "category": "Baum",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#60c800",
+   "swatchClass": "sw-circ-cross"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1145,7 +1378,12 @@
   "code": 9,
   "label": "Schling- und Kletterpflanze",
   "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#cc0000",
+   "swatchClass": "sw-triangle"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1175,7 +1413,12 @@
   "code": 10,
   "label": "Mobiles Pflanzgefäss, Dauerbepflanzung",
   "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#1a1a8a",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1211,7 +1454,12 @@
   "code": 11,
   "label": "Mobiles Pflanzgefäss, Wechselflor",
   "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#cc00cc",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1222,7 +1470,12 @@
   "code": 12,
   "label": "Abfalleimer",
   "category": "Möbel / Ausstattung",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#666666",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1233,7 +1486,12 @@
   "code": 13,
   "label": "Sitzbank",
   "category": "Möbel / Ausstattung",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#996633",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1244,7 +1502,12 @@
   "code": 15,
   "label": "Spielgerät",
   "category": "Möbel / Ausstattung",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#cc6600",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1255,7 +1518,12 @@
   "code": 16,
   "label": "Ausstattung",
   "category": "Möbel / Ausstattung",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#888888",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1266,7 +1534,12 @@
   "code": 17,
   "label": "Anderes",
   "category": "Anderes (Punkt)",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#ffff00",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1277,7 +1550,12 @@
   "code": 18,
   "label": "Asthaufen",
   "category": "Kleinstrukturen",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#c09060",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1295,7 +1573,12 @@
   "code": 19,
   "label": "Liegende Baumstämme",
   "category": "Kleinstrukturen",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#604020",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1313,7 +1596,12 @@
   "code": 20,
   "label": "Steinhaufen / Steinlinsen",
   "category": "Kleinstrukturen",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#808080",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1337,7 +1625,12 @@
   "code": 21,
   "label": "Wildbienenhotel",
   "category": "Kleinstrukturen",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#804000",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": [
@@ -1355,7 +1648,12 @@
   "code": 22,
   "label": "Nistkasten",
   "category": "Kleinstrukturen",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#a06030",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []
@@ -1366,7 +1664,12 @@
   "code": 23,
   "label": "Solitärstrauch",
   "category": "Solitärsträucher",
+  "geometry_type": "point",
   "unit": "count",
+  "style": {
+   "fill": "#5fa84a",
+   "swatchClass": "sw-circ"
+  },
   "description": null,
   "leaf_clearing_included": null,
   "tasks": []

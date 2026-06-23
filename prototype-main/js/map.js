@@ -6,13 +6,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── MapLibre paint expression: per-profile fill colour for points ─────────
-// Builds a `match` expression on fk_profil from a list of codes, looking
-// up POINT_PROFILE_STYLE in config.js.  Used by tree-circle and point-
-// circle layers so map colours match the legend exactly.
+// Builds a `match` expression on fk_profil from a list of codes via
+// profilStyle (config.js → care_profiles.json styles), so tree-circle and
+// point-circle layers match the legend, popup and PDF exactly.
 function pointProfileColorExpr(codes, defaultColor) {
   const stops = [];
   for (const c of codes) {
-    const style = POINT_PROFILE_STYLE[c];
+    const style = profilStyle('point', c);
     if (style && style.fill) stops.push(c, style.fill);
   }
   if (stops.length === 0) return defaultColor;

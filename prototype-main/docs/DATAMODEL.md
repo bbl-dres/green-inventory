@@ -247,9 +247,20 @@ because a bare code is unique only within its code list.
 | code | UK | integer | — | Profile code within its code list; part of the business key |
 | label | | string | — | Profile name |
 | category | | string | — | BBL grouping (lawn, meadow, bed, and so on) |
+| geometry_type | | string | — | Capture geometry of the elements it classifies: polygon (idPPy) or point (idPP) |
 | unit | | string | — | Unit of capture: square metres (areas) or count (points) |
 | description | | string | — | What the profile is (from the standard) |
 | leaf_clearing_included | | boolean | — | Whether the profile includes leaf clearing (Lauben) |
+| style | | object | — | Presentation only — rendering style `{ fill, swatchClass? }`; see note below |
+
+`geometry_type` mirrors the Maintenance Element subtype split and matches
+`code_list` (idPPy → polygon, idPP → point). `style` is a **presentation
+attribute**, not part of the conceptual model: `fill` is the feature colour and
+`swatchClass` names an optional CSS pattern class (in `css/styles.css`). It is
+carried in `care_profiles.json`, which the app reads as the single source for
+every feature colour (map fill, point/tree symbols, legend, popup, PDF). The
+values are seeded from the frontend's curated catalogue (`js/config.js`,
+`AREA_PROFILE_STYLE` / `POINT_PROFILE_STYLE`).
 
 A Care Task is one maintenance activity of a profile (its Haupttätigkeit), with
 the yearly frequency that defines the standard.
@@ -262,9 +273,12 @@ the yearly frequency that defines the standard.
 | frequency_per_year | | double | — | Passes per year (below 1 means a multi-year cycle) |
 | material | | string | — | Equipment or material used |
 
-Care Profiles and Tasks are not yet a dataset (Section 4): the schedule lives
-in `js/config.js` (`CARE_CATALOG_*`). Each profile also carries one or more
-illustrative images from the standard (modelled as Image, Section 3.7).
+Care Profiles and Tasks are delivered as `data/care_profiles.json` — one record
+per profile (business key `(code_list, code)`) with its Care Tasks nested, so a
+task's `care_profile_fid` is implicit in the nesting. The maintenance schedule
+itself is still authored in `js/config.js` (`CARE_CATALOG_*`) and seeded into
+that file. Each profile would also carry one or more illustrative images from
+the standard (modelled as Image, Section 3.7), not yet delivered.
 
 ### 3.5 Actor and Assignment (Akteur, Pflegeauftrag)
 

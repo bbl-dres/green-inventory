@@ -9,6 +9,12 @@
 // Cost rate and Image are planned / source-less; Actor and Assignment are
 // intentionally omitted (no data held, for data-compliance reasons).
 //
+// Each Care Profile also gets `geometry_type` (polygon/point) and a `style`
+// ({fill, swatchClass?}) seeded from config.js's AREA/POINT_PROFILE_STYLE.
+// care_profiles.json is the runtime source the app reads for colours — note
+// that re-running this script reseeds `style` from config.js and overwrites
+// any hand edits made to care_profiles.json.
+//
 // The split is a lossless superset of data.geojson's substance: lv95_* coords
 // and site area/perimeter are carried through so consumers need only these files.
 //
@@ -47,6 +53,18 @@ const evalLit = (lit) => (0, eval)('(' + lit + ')');
 const CARE_AREA  = evalLit(literalAfter(cfg, 'CARE_CATALOG_AREA',  '{', '}'));
 const CARE_POINT = evalLit(literalAfter(cfg, 'CARE_CATALOG_POINT', '{', '}'));
 const LEGEND     = evalLit(literalAfter(cfg, 'const LEGEND_GROUPS', '[', ']'));
+const AREA_STYLE  = evalLit(literalAfter(cfg, 'const AREA_PROFILE_STYLE',  '{', '}'));
+const POINT_STYLE = evalLit(literalAfter(cfg, 'const POINT_PROFILE_STYLE', '{', '}'));
+
+// Seed style for a profile code — the curated catalogue entry, else the same
+// HSL hash profilStyle() uses, so every profile gets a concrete style.  This
+// is the seed baked into care_profiles.json; the app reads it back from there.
+function styleFor(domain, code) {
+  const seed = domain === 'idPPy' ? AREA_STYLE : POINT_STYLE;
+  if (seed[code]) return seed[code];
+  const hue = (code * 137) % 360, sat = 55 + (code % 3) * 6, lum = 60 + (code % 2) * 6;
+  return { fill: `hsl(${hue}, ${sat}%, ${lum}%)` };
+}
 
 // profile code -> category label, by domain (area = idPPy, point = idPP)
 const catByCode = { area: {}, point: {} };
@@ -100,7 +118,9 @@ for (const [domain, unit] of [['idPPy', 'm²'], ['idPP', 'count']]) {
     const fid = ++pf;
     profFid[domain][Number(code)] = fid;
     const prof = { fid, code_list: domain, code: Number(code), label,
-      category: catByCode[dom][Number(code)] || null, unit, description: null,
+      category: catByCode[dom][Number(code)] || null,
+      geometry_type: domain === 'idPPy' ? 'polygon' : 'point',
+      unit, style: styleFor(domain, Number(code)), description: null,
       leaf_clearing_included: null, tasks: [] };
     profByFid[fid] = prof;
     profiles.push(prof);

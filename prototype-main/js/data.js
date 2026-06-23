@@ -75,6 +75,15 @@ function assembleInventory(stores) {
   };
   const profById = {};
   for (const pr of profiles) profById[pr.fid] = pr;
+
+  // Publish the per-profile styles as the global PROFILE_STYLES index that
+  // config.js's profilStyle() reads — making care_profiles.json the single
+  // runtime source for map/legend/popup/PDF colours.
+  const styleIndex = { idPPy: {}, idPP: {} };
+  for (const pr of profiles) {
+    if (pr.style && styleIndex[pr.code_list]) styleIndex[pr.code_list][pr.code] = pr.style;
+  }
+  if (typeof globalThis !== 'undefined') globalThis.PROFILE_STYLES = styleIndex;
   const siteById = {};
   for (const s of sites) siteById[s.fid] = s;
   const parcelById = {};

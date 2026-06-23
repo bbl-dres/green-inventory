@@ -11,8 +11,8 @@
 //            and intervals per profile.
 // Vector map is drawn directly from the GeoJSON (no basemap tiles) so it is
 // crisp and fully offline.
-// Depends on: config.js (careProfile, CARE_CATALOG_*, AREA/POINT_PROFILE_STYLE,
-//   fmtNum), map.js (geojsonData, showToast), jsPDF + jspdf-autotable (CDN).
+// Depends on: config.js (careProfile, CARE_CATALOG_*, profilStyle, fmtNum),
+//   map.js (geojsonData, showToast), jsPDF + jspdf-autotable (CDN).
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Month-cell fills: solid = stated in the Standard, light = estimated month.
@@ -48,12 +48,10 @@ function rptTextOn(rgb) {
   return lum > 150 ? [30, 30, 30] : [255, 255, 255];
 }
 
-// Profile fill colour for a group (idPPy for area/canopy, idPP for tree/point).
+// Profile fill colour for a group, via the same source as the map and legend
+// (profilStyle → care_profiles.json styles), so the PDF can't drift from them.
 function rptGroupColor(entity_type, code) {
-  const isArea = entity_type === 'area' || entity_type === 'tree_canopy';
-  const map = isArea ? AREA_PROFILE_STYLE : POINT_PROFILE_STYLE;
-  const style = map[code];
-  return rptHexToRgb(style && style.fill);
+  return rptHexToRgb(profilStyle(entity_type, code).fill);
 }
 
 // Fallback short code from a profile label: first 3 letters, uppercased.
