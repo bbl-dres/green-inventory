@@ -52,7 +52,7 @@ The map data lives in [`data/data.geojson`](data/data.geojson) (~16 MB, 6 164 fe
 4. Validates geometry (`make_valid`), simplifies high-vertex outliers at 5 cm in LV95, enforces RFC 7946 right-hand winding.
 5. Embeds all codelists, accuracy info, attribution, and `bbox` into the output metadata.
 
-The full data-model contract — source GDB schema, codelists, conversion rules, and output contract — is documented in [`docs/DATAMODEL.md`](docs/DATAMODEL.md).
+The **data model** (conceptual model, output schema, Care-Profile catalogue, terminology) is documented in [`docs/DATAMODEL.md`](docs/DATAMODEL.md); the **source GDB schema, codelists and conversion pipeline** live in [`docs/SOURCE-GDB.md`](docs/SOURCE-GDB.md).
 
 ## Tech stack
 
@@ -107,7 +107,8 @@ prototype-main/
 ├── scripts/
 │   └── gdb_to_geojson.py   # GDB → GeoJSON conversion pipeline
 ├── docs/
-│   └── DATAMODEL.md        # Source GDB schema, codelists, output contract
+│   ├── DATAMODEL.md        # Data model: conceptual model, output schema, Care Profiles, terminology
+│   └── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline
 └── assets/
     └── images/             # Preview screenshots (used by this README)
 ```
