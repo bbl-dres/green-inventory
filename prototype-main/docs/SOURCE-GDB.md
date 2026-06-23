@@ -147,7 +147,7 @@ Site-level identifiers and metadata. Joined to children via OBJECTID.
 | `baumart` | str(255) | Free-text species name. Redundant with `fk_baumart` when both are set, but either may be populated alone. Either field being non-empty is what classifies the row as a `tree` (entity type) rather than a `point`. |
 | `Baumnummer` | int32 | Per-site tree number |
 | `bewaesserung` | int32 | → `idBw` codelist |
-| `lauben` | int32 | Pergola/canopy flag (0/1/2) |
+| `lauben` | int32 | Leaf-clearing scope flag (Lauben); 0 / 1 / 2 |
 | `maxHoehe` | float | Max. tree height in m, where measured |
 | `hoehe` | int32 | Always null; legacy field |
 | `aufwandsfaktor` | float32 | Care-effort multiplier (0.5–5.0) |
@@ -173,7 +173,7 @@ Site-level identifiers and metadata. Joined to children via OBJECTID.
 | `fk_kostenstelle` | int32 | → `idKs`. Always 0 |
 | `fk_winterdienst` | int32 | → `Winterdienst` codelist |
 | `bewaesserung` | int32 | → `idBw` codelist |
-| `lauben` | int32 | Pergola/canopy flag |
+| `lauben` | int32 | Leaf-clearing scope flag (Lauben) |
 | `maxHoehe` | float | Max. plant height where applicable |
 | `aufwandsfaktor` | float32 | Care-effort multiplier (0.5–5.0) |
 | `naturobjekt` | int32 | Always 0 |
