@@ -99,7 +99,11 @@ async function buildStandortReport(siteOid) {
     ? String(sp.pflegeklasse).match(/\d+/)[0] : '';
 
   let dateStr;
-  try { dateStr = new Date().toLocaleDateString('de-CH'); } catch (_) { dateStr = ''; }
+  try {
+    const now = new Date();
+    dateStr = now.toLocaleDateString('de-CH') + ' ' +
+      now.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+  } catch (_) { dateStr = ''; }
 
   // ── Document setup ──
   const doc = new ns.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -107,57 +111,58 @@ async function buildStandortReport(siteOid) {
   const H = doc.internal.pageSize.getHeight();
   const M = 12, STRIP_H = 18;
 
-  const statParts = [
-    'Fläche total: ' + fmtNum(totalArea, 1) + ' m²',
-    'Features: ' + children.length,
-    'Bäume: ' + nTree,
-    'Profile: ' + groupList.length,
-  ];
-  const parcelLabel = sp.parzelle ? 'Parz. ' + sp.parzelle : ('Obj. ' + (sp.objektnummer || '–'));
+  // Map label: the site's system_id (objektnummer, e.g. "2001BW").
+  const parcelLabel = sp.objektnummer || sp.parzelle || '–';
 
-  // ═══ PAGE 1 — Situationsplan (light basemap) + attribute table ═══
+  // ═══ PAGE 1 — header row (attributes + Swiss locator) + Situationsplan ═══
   let y = STRIP_H + 9;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30);
   doc.text('Standort: ' + (sp.name || sp.site_name || '–'), M, y);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
   doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, y, { align: 'right' });
 
-  // Clean key/value attribute table.
-  const attrEndY = rptAttrTable(doc, sp, totalArea, children.length, nTree, groupList.length, y + 3, M, W, STRIP_H);
+  // Header row: horizontal attribute table (left) + small Swiss locator (right).
+  const headTop = y + 4;
+  const mapColW = 48;
+  const gridW = (W - 2 * M) - mapColW - 8;
+  const geoUrl = rptGeoAdminUrl(sp);
+  const attrEndY = rptAttrTable(doc, sp, totalArea, nTree, groupList.length, headTop, M, gridW);
+  const locX = M + gridW + 8;
+  const locBottom = await rptSwissLocator(doc, { x: locX, y: headTop, w: mapColW }, sp);
+  const headBottom = Math.max(attrEndY, locBottom);
 
-  // Situation map fills the rest of the page (light Positron basemap).
-  const mapBox1 = { x: M, y: attrEndY + 4, w: W - 2 * M, h: (H - 12) - (attrEndY + 4) };
-  await rptRenderMapPage(doc, site, children, groupList, sp, mapBox1,
+  // Situation map fills the rest of page 1.  Page 2 reuses the exact same width
+  // and (below) the same center+zoom, so both maps render at the identical
+  // scale — the aerial just shows more surrounding context in its taller box.
+  const mapBox1 = { x: M, y: headBottom + 4, w: W - 2 * M, h: (H - 12) - (headBottom + 4) };
+  const view1 = await rptRenderMapPage(doc, site, children, groupList, sp, mapBox1,
     rptBasemapUrl('positron', 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'),
-    { fillOpacity: 1, label: parcelLabel });
+    { fillOpacity: 1, label: parcelLabel, geoUrl, credit: 'Quelle: CARTO · OpenStreetMap' });
 
   // ═══ PAGE 2 — Luftbild (aerial basemap, photo-forward overlay) ═══
   doc.addPage();
   let ya = STRIP_H + 9;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30);
   doc.text('Luftbild — ' + (sp.name || sp.site_name || '–'), M, ya);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(140);
-  doc.text('Quelle: swisstopo (swissimage)', W - M, ya, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, ya, { align: 'right' });
   ya += 4;
   doc.setDrawColor(210); doc.setLineWidth(0.3); doc.line(M, ya, W - M, ya);
 
   const mapBox2 = { x: M, y: ya + 3, w: W - 2 * M, h: (H - 12) - (ya + 3) };
   await rptRenderMapPage(doc, site, children, groupList, sp, mapBox2,
     rptBasemapUrl('swisstopo', 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json'),
-    { fillOpacity: 0.55, label: parcelLabel });
+    { fillOpacity: 0.55, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' });
 
   // ═══ PAGE 3 — Pflegeübersicht (combined table) ═══
   doc.addPage();
   let y2 = STRIP_H + 9;
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
   doc.text('Pflegeübersicht — ' + (sp.name || sp.site_name || '–'), M, y2);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(140);
-  doc.text('Quelle: BBL Standard Grünflächenunterhalt 2020', W - M, y2, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, y2, { align: 'right' });
 
-  y2 += 5;
-  doc.setFontSize(9); doc.setTextColor(70);
-  doc.text(statParts.join('     ·     '), M, y2);
-  y2 += 4;
+  y2 += 6;
 
   // Build body rows + parallel month metadata. Profile (colour + quantities)
   // is the row-spanned left cell; care measures fill the rows to its right.
@@ -245,6 +250,8 @@ async function buildStandortReport(siteOid) {
   let legendY = doc.lastAutoTable.finalY + 6;
   if (legendY > H - 16) { doc.addPage(); legendY = STRIP_H + 10; }
   rptCalLegend(doc, M, legendY);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(140);
+  doc.text('Quelle: BBL Standard Grünflächenunterhalt 2020', W - M, legendY, { align: 'right' });
 
   // ── Per-page branding strip + footer (drawn last so totals are known) ──
   const pages = doc.getNumberOfPages();
@@ -262,20 +269,24 @@ async function buildStandortReport(siteOid) {
 // styleUrl picks the basemap; opts = { fillOpacity, label }. On capture failure
 // we fall back to a flat-grey vector map with our local projection.
 async function rptRenderMapPage(doc, site, children, groupList, sp, box, styleUrl, opts) {
+  opts = opts || {};
   const bbox = rptBBox([site].concat(children));
   let cap = null;
-  try { cap = await rptCaptureBasemap(bbox, box, styleUrl); } catch (_) { cap = null; }
+  try { cap = await rptCaptureBasemap(bbox, box, styleUrl, opts.fixedView); } catch (_) { cap = null; }
   if (cap && cap.dataUrl) {
     try { doc.addImage(cap.dataUrl, 'PNG', box.x, box.y, box.w, box.h); }
     catch (_) { try { cap.dispose(); } catch (__) {} cap = null; }
   }
+  let view = null;
   if (cap && cap.project) {
+    view = { center: cap.center, zoom: cap.zoom };
     rptDrawMapVector(doc, site, children, groupList, sp, box, cap.project, cap.mmPerMeter, true, opts);
     try { cap.dispose(); } catch (_) {}
   } else {
     const p = rptBuildProjection([site].concat(children), box);
     rptDrawMapVector(doc, site, children, groupList, sp, box, p.proj, p.mmPerMeter, false, opts);
   }
+  return view;   // { center, zoom } of the basemap capture, or null on fallback
 }
 
 // ── Vector map overlay ──────────────────────────────────────────────────────
@@ -345,6 +356,11 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
   const scaleBottom = box.y + box.h - 4;
   rptScaleBar(doc, box.x + 5, scaleBottom, mmPerMeter);
   rptMapLegend(doc, box.x + 5, scaleBottom - 13, groupList);
+
+  // 8. North arrow (top-right), geo.admin.ch link (top-left), credit (bottom-right).
+  rptNorthArrow(doc, box);
+  rptMapLink(doc, box, opts.geoUrl);
+  rptMapCredit(doc, box, opts.credit);
 }
 
 // Returns a function that sets fill opacity via jsPDF GState, or a no-op if the
@@ -380,27 +396,121 @@ function rptPositionMarker(doc, x, y, label) {
   }
 }
 
-// Clean key/value attribute table (page 1). Returns the table's finalY.
-function rptAttrTable(doc, sp, totalArea, nFeat, nTree, nProfile, startY, M, W, STRIP_H) {
+// Attribute table (page 1): a horizontal 4-column grid (label|value|label|value).
+// `width` mm wide starting at x. Returns the table's finalY.
+function rptAttrTable(doc, sp, totalArea, nTree, nProfile, startY, x, width) {
   const LBL = { fillColor: [238, 240, 242], textColor: [70, 80, 90], fontStyle: 'bold' };
-  const v = x => (x == null || x === '') ? '–' : String(x);
+  const v = a => (a == null || a === '') ? '–' : String(a);
+  const cell = (k, val) => [{ content: k, styles: LBL }, val];
   const body = [
-    [{ content: 'Adresse', styles: LBL }, { content: v(sp.adresse), colSpan: 3 }],
-    [{ content: 'Parzelle', styles: LBL }, v(sp.parzelle), { content: 'Los', styles: LBL }, v(sp.lose)],
-    [{ content: 'Pflegeklasse', styles: LBL }, v(sp.pflegeklasse), { content: 'Eigentümer', styles: LBL }, v(sp.eigentuemer)],
-    [{ content: 'Pflegeverantwortung', styles: LBL }, v(sp.pflegeverantwortung), { content: 'Kontrolle', styles: LBL }, v(sp.kontrolle)],
-    [{ content: 'Fläche total', styles: LBL }, fmtNum(totalArea, 1) + ' m²', { content: 'Features', styles: LBL }, String(nFeat)],
-    [{ content: 'Bäume', styles: LBL }, String(nTree), { content: 'Profile', styles: LBL }, String(nProfile)],
+    [...cell('Adresse', v(sp.adresse)), ...cell('Parzelle', v(sp.parzelle))],
+    [...cell('Los', v(sp.lose)), ...cell('Pflegeklasse', v(sp.pflegeklasse))],
+    [...cell('Eigentümer', v(sp.eigentuemer)), ...cell('Pflegeverantwortung', v(sp.pflegeverantwortung))],
+    [...cell('Kontrolle', v(sp.kontrolle)), ...cell('Fläche total', fmtNum(totalArea, 1) + ' m²')],
+    [...cell('Bäume', String(nTree)), ...cell('Profile', String(nProfile))],
   ];
+  const labW = 34, valW = (width - 2 * labW) / 2;
   doc.autoTable({
     startY: startY,
-    margin: { top: STRIP_H + 4, left: M, right: M },
+    margin: { top: 22, left: x },
+    tableWidth: width,
     body: body,
     theme: 'grid',
-    styles: { fontSize: 8.5, cellPadding: 1.6, lineColor: [220, 222, 225], lineWidth: 0.1, textColor: [40, 40, 40], valign: 'middle' },
-    columnStyles: { 0: { cellWidth: 38 }, 1: { cellWidth: 99 }, 2: { cellWidth: 42 }, 3: { cellWidth: 94 } },
+    styles: { fontSize: 8.5, cellPadding: 1.6, lineColor: [220, 222, 225], lineWidth: 0.1, textColor: [40, 40, 40], valign: 'middle', overflow: 'linebreak' },
+    columnStyles: { 0: { cellWidth: labW }, 1: { cellWidth: valW }, 2: { cellWidth: labW }, 3: { cellWidth: valW } },
   });
   return doc.lastAutoTable.finalY;
+}
+
+// geo.admin.ch deep link to the parcel on the cadastral-survey layer (amtliche
+// Vermessung), with a marker at the site centroid. center/crosshair are LV95.
+function rptGeoAdminUrl(sp) {
+  const E = sp.lv95_east_centroid, N = sp.lv95_north_centroid;
+  if (E == null || N == null) return null;
+  const c = (Math.round(E * 100) / 100) + ',' + (Math.round(N * 100) / 100);
+  return 'https://map.geo.admin.ch/#/map?lang=de&center=' + c +
+         '&z=13&topic=ech&layers=ch.swisstopo-vd.amtliche-vermessung' +
+         '&bgLayer=void&crosshair=marker,' + c;
+}
+
+// Fetch switzerland.svg, restyle to canton + country OUTLINES ONLY (fills off,
+// inner water bodies hidden), rasterise to a PNG data URL, and return the drawn
+// pixel bbox for georeferencing the dot. Resolves null on any failure.
+async function rptRasterSwissOutline(pxW, pxH) {
+  let txt = null;
+  try { const r = await fetch('assets/switzerland.svg'); if (r.ok) txt = await r.text(); }
+  catch (_) { txt = null; }
+  if (!txt) return null;
+  // fill:none + grey stroke on everything, then hide the water layers so only
+  // the cantons + country border remain: Lacs (#layer3) + Rivières (#layer4),
+  // with the lake fill / river stroke colours as a backstop.
+  const styled = txt.replace(/<\/svg\s*>/i,
+    '<style>' +
+    '*{fill:none!important;stroke:#9aa0a6!important;stroke-width:2.5!important;' +
+    'stroke-linejoin:round;stroke-linecap:round}' +
+    '#layer3,#layer4,[fill="#AFDEE9"],[stroke="#AFDDE9"]{display:none!important}' +
+    '</style></svg>');
+  const url = URL.createObjectURL(new Blob([styled], { type: 'image/svg+xml' }));
+  const out = await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = pxW; c.height = pxH;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, pxW, pxH);
+        ctx.drawImage(img, 0, 0, pxW, pxH);
+        let x0 = pxW, y0 = pxH, x1 = 0, y1 = 0, found = false;
+        const d = ctx.getImageData(0, 0, pxW, pxH).data;
+        for (let py = 0; py < pxH; py += 2) {
+          for (let px = 0; px < pxW; px += 2) {
+            if (d[(py * pxW + px) * 4 + 3] > 16) {
+              found = true;
+              if (px < x0) x0 = px; if (px > x1) x1 = px;
+              if (py < y0) y0 = py; if (py > y1) y1 = py;
+            }
+          }
+        }
+        resolve({ dataUrl: c.toDataURL('image/png'), pxW, pxH,
+                  bbox: found ? { x0, y0, x1, y1 } : null });
+      } catch (_) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  URL.revokeObjectURL(url);
+  return out;
+}
+
+// Switzerland locator: a small outline-only map + a red dot at the site.
+// Returns the bottom Y used.  `box` = the available right column.
+async function rptSwissLocator(doc, box, sp) {
+  const ASPECT = 1052.361 / 744.094;        // svg viewBox w/h
+  let imgW = box.w, imgH = imgW / ASPECT;
+  const MAX_H = 34;
+  if (imgH > MAX_H) { imgH = MAX_H; imgW = imgH * ASPECT; }
+  const imgX = box.x + (box.w - imgW) / 2, imgY = box.y;
+
+  const ras = await rptRasterSwissOutline(Math.round(imgW * 10), Math.round(imgH * 10));
+  if (ras && ras.dataUrl) {
+    try { doc.addImage(ras.dataUrl, 'PNG', imgX, imgY, imgW, imgH); } catch (_) {}
+  }
+
+  const E = sp.lv95_east_centroid, N = sp.lv95_north_centroid;
+  const inCH = E != null && N != null &&
+               E > 2450000 && E < 2900000 && N > 1050000 && N < 1350000;
+  if (inCH && ras && ras.bbox) {
+    // Switzerland LV95 extent → the drawn pixel bbox (y inverted, north up).
+    const Emin = 2485410, Emax = 2833840, Nmin = 1075270, Nmax = 1295830;
+    const fx = (E - Emin) / (Emax - Emin), fy = (Nmax - N) / (Nmax - Nmin);
+    const bx = (ras.bbox.x0 + fx * (ras.bbox.x1 - ras.bbox.x0)) / ras.pxW;
+    const by = (ras.bbox.y0 + fy * (ras.bbox.y1 - ras.bbox.y0)) / ras.pxH;
+    const dx = imgX + bx * imgW, dy = imgY + by * imgH;
+    doc.setFillColor(255, 255, 255); doc.circle(dx, dy, 1.5, 'F');
+    doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.3);
+    doc.setFillColor(204, 31, 31); doc.circle(dx, dy, 1.0, 'FD');
+  }
+  return imgY + imgH;
 }
 
 // Basemap style URL by id from the app's BASEMAPS, with a hardcoded fallback.
@@ -435,7 +545,7 @@ function rptBBox(features) {
 // it as a PNG. Resolves { dataUrl, project(lng,lat)→[mmX,mmY], mmPerMeter,
 // dispose() } or null on any failure (offline, tainted canvas, timeout). The
 // caller MUST call dispose() once it has finished projecting overlay points.
-function rptCaptureBasemap(bbox, box, styleUrl) {
+function rptCaptureBasemap(bbox, box, styleUrl, fixedView) {
   return new Promise((resolve) => {
     if (typeof maplibregl === 'undefined') { resolve(null); return; }
     const cssW = 1400, cssH = Math.max(1, Math.round(cssW * box.h / box.w));
@@ -453,14 +563,15 @@ function rptCaptureBasemap(bbox, box, styleUrl) {
     const timer = setTimeout(fail, 9000);
 
     try {
-      m = new maplibregl.Map({
+      m = new maplibregl.Map(Object.assign({
         container: div,
         style: styleUrl,
         interactive: false, attributionControl: false, fadeDuration: 0,
         preserveDrawingBuffer: true,
-        bounds: [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
-        fitBoundsOptions: { padding: Math.round(cssW * 0.06), animate: false },
-      });
+      }, fixedView
+        ? { center: fixedView.center, zoom: fixedView.zoom }
+        : { bounds: [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+            fitBoundsOptions: { padding: Math.round(cssW * 0.06), animate: false } }));
     } catch (_) { clearTimeout(timer); fail(); return; }
 
     m.on('error', () => {});  // swallow individual tile errors; idle still fires
@@ -483,7 +594,8 @@ function rptCaptureBasemap(bbox, box, styleUrl) {
           try { m.remove(); } catch (_) {}
           try { document.body.removeChild(div); } catch (_) {}
         };
-        resolve({ dataUrl, project, mmPerMeter, dispose });
+        resolve({ dataUrl, project, mmPerMeter, dispose,
+                  center: m.getCenter().toArray(), zoom: m.getZoom() });
       } catch (_) { fail(); }
     });
   });
@@ -654,6 +766,47 @@ function rptScaleBar(doc, x, yBottom, mmPerMeter) {
   doc.text(meters + ' m', x + barMM, barY - 0.8, { align: 'center' });
 }
 
+// North arrow badge, top-right corner of a map box (maps render north-up).
+function rptNorthArrow(doc, box) {
+  const cx = box.x + box.w - 8, topY = box.y + 4;
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(160); doc.setLineWidth(0.2);
+  doc.roundedRect(cx - 4, topY - 0.5, 8, 12.5, 1, 1, 'FD');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(40);
+  doc.text('N', cx, topY + 3, { align: 'center' });
+  doc.setFillColor(40, 40, 40);
+  doc.triangle(cx, topY + 4.5, cx - 1.7, topY + 7, cx + 1.7, topY + 7, 'F');
+  doc.setDrawColor(40, 40, 40); doc.setLineWidth(0.6);
+  doc.line(cx, topY + 6, cx, topY + 11);
+}
+
+// Clickable geo.admin.ch link chip, top-left corner of a map box.
+function rptMapLink(doc, box, url) {
+  if (!url) return;
+  const txt = 'Auf geo.admin.ch Karte ansehen »';
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  const padX = 2, h = 5.6, x = box.x + 4, y = box.y + 4;
+  const w = doc.getTextWidth(txt) + padX * 2;
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(0, 94, 168); doc.setLineWidth(0.2);
+  doc.roundedRect(x, y, w, h, 1, 1, 'FD');
+  doc.setTextColor(0, 94, 168);
+  doc.text(txt, x + padX, y + h - 1.9);
+  doc.link(x, y, w, h, { url });
+  doc.setTextColor(40);
+}
+
+// Basemap credit, bottom-right corner of a map box.
+function rptMapCredit(doc, box, text) {
+  if (!text) return;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5);
+  const padX = 1.6, h = 4, w = doc.getTextWidth(text) + padX * 2;
+  const x = box.x + box.w - w - 3, y = box.y + box.h - h - 3;
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(210); doc.setLineWidth(0.15);
+  doc.roundedRect(x, y, w, h, 0.8, 0.8, 'FD');
+  doc.setTextColor(110);
+  doc.text(text, x + padX, y + h - 1.3);
+  doc.setTextColor(40);
+}
+
 // Colour legend (bottom-left), anchored by its bottom-left corner.
 function rptMapLegend(doc, x, yBottom, groupList) {
   const items = groupList.slice(0, 14);
@@ -683,12 +836,18 @@ function rptMapLegend(doc, x, yBottom, groupList) {
 
 // ── Drawing helpers ────────────────────────────────────────────────────────
 function rptStrip(doc, W, M, STRIP_H, dateStr) {
+  // Left: department line + the app name (links to the repo).
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
-  doc.text('Eidg. Finanzdepartement EFD · BBL · Bundesgärtnerei', M, 8);
+  doc.text('Eidg. Finanzdepartement EFD · BBL · Bundesgärtnerei', M, 7);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60);
+  doc.text('Grünflächen Inventar', M, 11.5);
+  doc.link(M, 8.4, doc.getTextWidth('Grünflächen Inventar'), 3.7,
+    { url: 'https://github.com/bbl-dres/green-inventory' });
+  // Right: report type + export timestamp.
   doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(40);
   doc.text('PFLEGEBERICHT', W - M, 7, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
-  doc.text('Grünflächen Inventar · ' + dateStr, W - M, 12, { align: 'right' });
+  doc.text('Exportiert am ' + dateStr, W - M, 12, { align: 'right' });
   doc.setDrawColor(200); doc.setLineWidth(0.3); doc.line(M, STRIP_H, W - M, STRIP_H);
 }
 

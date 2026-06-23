@@ -12,7 +12,7 @@ let tblFilterAttrs = {};          // { field: Set<string> }
 // ── Tab scope ────────────────────────────────────────────────────────
 // Two tab views over the data:
 //   'sites'  → entity_type === 'site'           (Standorte)
-//   'green'  → entity_type in {area, tree_canopy, tree, point}  (Grünflächen)
+//   'green'  → entity_type in {area, tree_canopy, tree, point}  (Pflegeelemente)
 // site_location features (centroid markers) are hidden from BOTH tabs —
 // they're a map-only affordance, not data.
 let tblScope = 'sites';
@@ -689,7 +689,7 @@ window.addEventListener('resize', () => {
   document.querySelectorAll('.dd-wrap.open').forEach(el => el.classList.remove('open'));
 });
 
-// ── Tab strip (Standorte / Grünflächen) ─────────────────────────────────
+// ── Tab strip (Standorte / Pflegeelemente) ──────────────────────────────
 function setScope(newScope) {
   if (newScope !== 'sites' && newScope !== 'green') return;
   if (newScope === tblScope) return;

@@ -33,7 +33,7 @@ The repository root [`/`](https://bbl-dres.github.io/green-inventory/) redirects
 - Search-within-filters auto-expands matching groups; per-group active-count chip; "Alle zurücksetzen" link.
 
 ### Table panel
-- **Standorte / Grünflächen tabs** — segmented control filters the table to sites only (73) or green features only (~6 000); per-tab column-visibility defaults.
+- **Standorte / Pflegeelemente tabs** — segmented control filters the table to sites only (73) or maintenance elements only (~6 000: polygons + points); per-tab column-visibility defaults.
 - Search, sort, configurable columns, 100/200/500 rows-per-page pagination, CSV / GeoJSON / Excel export (all data or filtered set).
 - Selecting a row pans the map and opens its popup; row hover highlights the feature on the map.
 

@@ -392,11 +392,13 @@ sentinel code lists) are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 7.
   is likewise a coarse code, linked to an Actor.
 - No Actor entity or per-task assignment. Execution is a single coded value per
   element (idPd); the model expects a many-to-many Assignment scoped by task, so one element can have several actors.
-- No Care-Profile or Care-Task dataset. `fk_profil` resolves only to a code and
-  label; the maintenance schedule lives in frontend code. A proposed
-  `data/pflegeprofile.json`, keyed by `(code_list, code)`, would hold the
-  profile and its tasks (task, frequency, material), sourced from the
-  standard; `care_profile_fid` then becomes a foreign key into it.
+- Care-Profile / Care-Task dataset now delivered, schedule still seeded from
+  code. `data/care_profiles.json` (business key `(code_list, code)`) holds one
+  record per profile with its tasks nested, and `care_profile_fid` is a foreign
+  key into it. But the schedule (task, frequency, material) is still authored in
+  frontend code (`CARE_CATALOG_*`) and seeded in, not sourced as data; and a
+  code-by-code crosswalk from the wider source code lists to the 33 standard
+  profiles (the categorisation drift below) is still open.
 - Images are not delivered. Care-Profile illustrations from the standard and
   field photos of elements and sites are modelled (Section 3.7) but no image
   URLs exist in the data yet.
@@ -623,6 +625,7 @@ classDiagram
         +code [UK]
         +label
         +category
+        +geometry_type
         +unit
         +leaf_clearing_included
     }

@@ -523,7 +523,7 @@ html, body {
   border-bottom: 1px solid var(--grey-200); flex-shrink: 0; background: var(--white);
   position: relative; z-index: var(--z-table-bar);
 }
-/* ── Tab strip (Standorte / Grünflächen) ──────────────────────────── */
+/* ── Tab strip (Standorte / Pflegeelemente) ───────────────────────── */
 /* Segmented-control style: inactive tabs blend with the surrounding action
    bar; the active tab gets a white pill with a subtle shadow so it reads
    as "currently selected" without competing with primary buttons.  Counts
