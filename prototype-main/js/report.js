@@ -18,7 +18,7 @@
 // Month-cell fills: solid = stated in the Standard, light = estimated month.
 const RPT_MONTH_SOLID = [0, 94, 168];     // --primary
 const RPT_MONTH_GUESS = [180, 205, 230];  // light primary tint
-const RPT_MONTH_LETTERS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+const RPT_MONTH_LETTERS = ['Ja', 'Fe', 'Mä', 'Ap', 'Ma', 'Jn', 'Jl', 'Au', 'Se', 'Ok', 'No', 'De'];
 
 const RPT_MAP_BG = [228, 228, 228];       // grey "neighbourhood" background
 const RPT_PARCEL_RED = [204, 31, 31];     // parcel boundary
@@ -121,12 +121,17 @@ async function buildStandortReport(siteOid) {
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
   doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, y, { align: 'right' });
 
+  // KPI band — the quantitative summary at a glance.
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(70);
+  doc.text(fmtNum(totalArea, 1) + ' m²   ·   ' + children.length + ' Pflegeelemente   ·   ' +
+           nTree + ' Bäume   ·   ' + groupList.length + ' Profile', M, y + 6);
+
   // Header row: horizontal attribute table (left) + small Swiss locator (right).
-  const headTop = y + 4;
+  const headTop = y + 11;
   const mapColW = 48;
   const gridW = (W - 2 * M) - mapColW - 8;
   const geoUrl = rptGeoAdminUrl(sp);
-  const attrEndY = rptAttrTable(doc, sp, totalArea, nTree, groupList.length, headTop, M, gridW);
+  const attrEndY = rptAttrTable(doc, sp, headTop, M, gridW);
   const locX = M + gridW + 8;
   const locBottom = await rptSwissLocator(doc, { x: locX, y: headTop, w: mapColW }, sp);
   const headBottom = Math.max(attrEndY, locBottom);
@@ -146,33 +151,38 @@ async function buildStandortReport(siteOid) {
   doc.text('Luftbild — ' + (sp.name || sp.site_name || '–'), M, ya);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
   doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, ya, { align: 'right' });
-  ya += 4;
-  doc.setDrawColor(210); doc.setLineWidth(0.3); doc.line(M, ya, W - M, ya);
 
-  const mapBox2 = { x: M, y: ya + 3, w: W - 2 * M, h: (H - 12) - (ya + 3) };
+  const mapBox2 = { x: M, y: ya + 6, w: W - 2 * M, h: (H - 12) - (ya + 6) };
   await rptRenderMapPage(doc, site, children, groupList, sp, mapBox2,
     rptBasemapUrl('swisstopo', 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json'),
-    { fillOpacity: 0.55, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' });
+    { polyOutline: true, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' });
 
   // ═══ PAGE 3 — Pflegeübersicht (combined table) ═══
   doc.addPage();
   let y2 = STRIP_H + 9;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(30);
   doc.text('Pflegeübersicht — ' + (sp.name || sp.site_name || '–'), M, y2);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
   doc.text('Objekt-Nr. ' + (sp.objektnummer || '–'), W - M, y2, { align: 'right' });
 
-  y2 += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120);
+  doc.text('Häufigkeiten gemäss BBL Standard, nicht Pflegeklasse-spezifisch.', M, y2 + 5);
+  y2 += 9;
 
   // Build body rows + parallel month metadata. Profile (colour + quantities)
   // is the row-spanned left cell; care measures fill the rows to its right.
   const cal_body = [];
   const rowMeta = [];
-  if (!groupList.length) {
-    cal_body.push([{ content: 'Keine Grünflächen erfasst', colSpan: 19, styles: { textColor: [140, 140, 140] } }]);
+  // Different measures: rank area profiles by m², point profiles by count.
+  const ordered = [
+    ...groupList.filter(g => g.area > 0).sort((a, b) => b.area - a.area),
+    ...groupList.filter(g => !(g.area > 0)).sort((a, b) => b.count - a.count),
+  ];
+  if (!ordered.length) {
+    cal_body.push([{ content: 'Keine Pflegeelemente erfasst', colSpan: 19, styles: { textColor: [140, 140, 140] } }]);
     rowMeta.push({ months: new Set(), guess: new Set() });
   }
-  for (const g of groupList) {
+  for (const g of ordered) {
     const cat = careProfile(g.entity_type, g.code);
     const tasks = (cat && cat.tasks && cat.tasks.length) ? cat.tasks : [RPT_FALLBACK_TASK];
     const codeText = (cat ? cat.code : rptDeriveCode(g.label)) +
@@ -206,11 +216,22 @@ async function buildStandortReport(siteOid) {
       row.push(t.m || '');
       row.push(t.b || '–');
       row.push(t.h || '');
-      row.push(t.mat ? t.mat + '°' : '–');
+      row.push(t.mat ? t.mat + '~' : '–');
       for (let i = 0; i < 12; i++) row.push('');
       cal_body.push(row);
       rowMeta.push({ months: new Set(t.mon || []), guess: new Set(t.monG || []) });
     });
+  }
+  // Totals row (Anz. = element count, Fläche = total m²).
+  if (ordered.length) {
+    const TF = [238, 240, 242];
+    cal_body.push([
+      { content: 'Total', styles: { fontStyle: 'bold', fillColor: TF } },
+      { content: String(children.length), styles: { fontStyle: 'bold', halign: 'center', fillColor: TF } },
+      { content: fmtNum(totalArea, 1), styles: { fontStyle: 'bold', halign: 'right', fillColor: TF } },
+      { content: '', colSpan: 16, styles: { fillColor: TF } },
+    ]);
+    rowMeta.push({ months: new Set(), guess: new Set() });
   }
 
   // Columns: Profil 34, Anz. 12, Fläche 22, Massnahme 44, Bemerkung 42,
@@ -302,19 +323,25 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
     doc.rect(box.x, box.y, box.w, box.h, 'F');
   }
 
-  // 2. Filled area / canopy polygons (BBL profile colour), optionally
-  //    semi-transparent so an aerial photo shows through.
+  // 2. Profile polygons (BBL profile colour): filled on the plan, or drawn as
+  //    coloured outlines over the aerial so the photo reads through.
+  const outline = !!opts.polyOutline;
   const setOpacity = rptOpacitySetter(doc);
-  if (fillOpacity < 1) setOpacity(fillOpacity);
+  if (!outline && fillOpacity < 1) setOpacity(fillOpacity);
   const polyKids = children.filter(f =>
     f.geometry && (f.geometry.type === 'MultiPolygon' || f.geometry.type === 'Polygon') &&
     (f.properties.entity_type === 'area' || f.properties.entity_type === 'tree_canopy'));
   for (const f of polyKids) {
     const c = rptGroupColor(f.properties.entity_type, f.properties.fk_profil);
-    doc.setFillColor(c[0], c[1], c[2]);
-    rptDrawMultiPoly(doc, f.geometry, proj, 'F');
+    if (outline) {
+      doc.setDrawColor(c[0], c[1], c[2]); doc.setLineWidth(0.4);
+      rptDrawMultiPoly(doc, f.geometry, proj, 'S');
+    } else {
+      doc.setFillColor(c[0], c[1], c[2]);
+      rptDrawMultiPoly(doc, f.geometry, proj, 'F');
+    }
   }
-  if (fillOpacity < 1) setOpacity(1);
+  if (!outline && fillOpacity < 1) setOpacity(1);
 
   // 3. Point features: other points first (small grey), then trees on top.
   doc.setDrawColor(70, 70, 70); doc.setLineWidth(0.12);
@@ -324,7 +351,7 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
     const [mx, my] = proj(f.geometry.coordinates[0], f.geometry.coordinates[1]);
     const c = rptGroupColor('point', f.properties.fk_profil);
     doc.setFillColor(c[0], c[1], c[2]);
-    doc.circle(mx, my, 0.7, 'F');
+    doc.circle(mx, my, 0.85, 'F');
   }
   for (const f of children) {
     if (!f.geometry || f.geometry.type !== 'Point') continue;
@@ -333,7 +360,7 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
     const c = rptGroupColor('tree', f.properties.fk_profil);
     doc.setFillColor(c[0], c[1], c[2]);
     doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.25);
-    doc.circle(mx, my, 1.2, 'FD');
+    doc.circle(mx, my, 1.5, 'FD');
   }
 
   // 4. Parcel boundary in red, on top of the fills.
@@ -396,9 +423,9 @@ function rptPositionMarker(doc, x, y, label) {
   }
 }
 
-// Attribute table (page 1): a horizontal 4-column grid (label|value|label|value).
-// `width` mm wide starting at x. Returns the table's finalY.
-function rptAttrTable(doc, sp, totalArea, nTree, nProfile, startY, x, width) {
+// Attribute table (page 1): identity + classification as a horizontal 4-column
+// grid (quantities live in the KPI band). `width` mm wide starting at x.
+function rptAttrTable(doc, sp, startY, x, width) {
   const LBL = { fillColor: [238, 240, 242], textColor: [70, 80, 90], fontStyle: 'bold' };
   const v = a => (a == null || a === '') ? '–' : String(a);
   const cell = (k, val) => [{ content: k, styles: LBL }, val];
@@ -406,8 +433,7 @@ function rptAttrTable(doc, sp, totalArea, nTree, nProfile, startY, x, width) {
     [...cell('Adresse', v(sp.adresse)), ...cell('Parzelle', v(sp.parzelle))],
     [...cell('Los', v(sp.lose)), ...cell('Pflegeklasse', v(sp.pflegeklasse))],
     [...cell('Eigentümer', v(sp.eigentuemer)), ...cell('Pflegeverantwortung', v(sp.pflegeverantwortung))],
-    [...cell('Kontrolle', v(sp.kontrolle)), ...cell('Fläche total', fmtNum(totalArea, 1) + ' m²')],
-    [...cell('Bäume', String(nTree)), ...cell('Profile', String(nProfile))],
+    [...cell('Kontrolle', v(sp.kontrolle)), ...cell('Reinigung', v(sp.reinigung))],
   ];
   const labW = 34, valW = (width - 2 * labW) / 2;
   doc.autoTable({
@@ -809,26 +835,35 @@ function rptMapCredit(doc, box, text) {
 
 // Colour legend (bottom-left), anchored by its bottom-left corner.
 function rptMapLegend(doc, x, yBottom, groupList) {
-  const items = groupList.slice(0, 14);
-  if (!items.length) return;
-  const rowH = 4.2, sq = 3, pad = 2;
-  const labels = items.map(g => g.label.length > 30 ? g.label.slice(0, 29) + '…' : g.label);
+  if (!groupList.length) return;
+  const MAXN = 14, rowH = 4.2, sq = 3, pad = 2;
+  // When there are more profiles than fit, keep MAXN-1 and add a "+N weitere".
+  const overflow = groupList.length - MAXN;
+  const shown = overflow > 0 ? groupList.slice(0, MAXN - 1) : groupList;
+  const labels = shown.map(g => g.label.length > 30 ? g.label.slice(0, 29) + '…' : g.label);
+  if (overflow > 0) labels.push('+ ' + (overflow + 1) + ' weitere');
+  const n = labels.length;
+
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
   let textW = 0;
   for (const l of labels) textW = Math.max(textW, doc.getTextWidth(l));
   const boxW = pad + sq + 1.5 + textW + pad;
-  const boxH = pad + items.length * rowH + pad - (rowH - sq);
+  const boxH = pad + n * rowH + pad - (rowH - sq);
   const top = yBottom - boxH;
 
   doc.setFillColor(255, 255, 255); doc.setDrawColor(150); doc.setLineWidth(0.2);
   doc.rect(x, top, boxW, boxH, 'FD');
 
   let cy = top + pad + sq;
-  for (let i = 0; i < items.length; i++) {
-    const c = rptGroupColor(items[i].entity_type, items[i].code);
-    doc.setFillColor(c[0], c[1], c[2]); doc.setDrawColor(120); doc.setLineWidth(0.1);
-    doc.rect(x + pad, cy - sq + 0.5, sq, sq, 'FD');
-    doc.setTextColor(60);
+  for (let i = 0; i < n; i++) {
+    if (i < shown.length) {
+      const c = rptGroupColor(shown[i].entity_type, shown[i].code);
+      doc.setFillColor(c[0], c[1], c[2]); doc.setDrawColor(120); doc.setLineWidth(0.1);
+      doc.rect(x + pad, cy - sq + 0.5, sq, sq, 'FD');
+      doc.setTextColor(60);
+    } else {
+      doc.setTextColor(120);   // overflow row: italic-ish grey, no swatch
+    }
     doc.text(labels[i], x + pad + sq + 1.5, cy);
     cy += rowH;
   }
@@ -855,7 +890,7 @@ function rptFooter(doc, W, H, M, page, pages) {
   const fy = H - 8;
   doc.setDrawColor(225); doc.setLineWidth(0.3); doc.line(M, fy - 3, W - M, fy - 3);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(140);
-  doc.text('Prototyp – nur zur Demonstration. Fiktive Daten. · Standard: BBL/Bundesgärtnerei 2020', M, fy);
+  doc.text('Prototyp – nur zur Demonstration. Fiktive Daten.', M, fy);
   doc.text('Seite ' + page + ' / ' + pages, W - M, fy, { align: 'right' });
 }
 
@@ -870,8 +905,8 @@ function rptCalLegend(doc, x, y) {
   doc.setFillColor(RPT_MONTH_GUESS[0], RPT_MONTH_GUESS[1], RPT_MONTH_GUESS[2]);
   doc.rect(cx, y - sq + 0.5, sq, sq, 'F'); cx += sq + 1.5;
   doc.text('Monat geschätzt', cx, y); cx += doc.getTextWidth('Monat geschätzt') + 6;
-  doc.text('°  Material geschätzt (nicht im Standard)', cx, y);
-  cx += doc.getTextWidth('°  Material geschätzt (nicht im Standard)') + 6;
+  doc.text('~  Material geschätzt (nicht im Standard)', cx, y);
+  cx += doc.getTextWidth('~  Material geschätzt (nicht im Standard)') + 6;
   doc.text('*  Profil ohne Standard-Kapitel (Pflege geschätzt)', cx, y);
 }
 
