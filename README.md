@@ -18,12 +18,10 @@ survey of properties managed by the Swiss Federal Office for Buildings and Logis
 
 **Main app:** https://bbl-dres.github.io/green-inventory/
 
-<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
-  <tr>
-    <td width="50%" valign="top"><img src="assets/preview-2.jpg" alt="Green Inventory 2D map with asset legend and inventory table" width="100%"/></td>
-    <td width="50%" valign="top"><img src="prototype-main/assets/images/preview-1.jpg" alt="Green Inventory 3D map of trees, planting areas, and buildings" width="100%"/></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="assets/preview-2.jpg" alt="Green Inventory 2D map with asset legend and inventory table" width="49%"/>
+  <img src="prototype-main/assets/images/preview-1.jpg" alt="Green Inventory 3D map of trees, planting areas, and buildings" width="49%"/>
+</p>
 
 The repository root opens the Green Areas prototype.
 
