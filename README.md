@@ -5,14 +5,14 @@
 [![Demo](https://img.shields.io/badge/demo-GitHub%20Pages-2ea44f?logo=github&logoColor=white)](https://bbl-dres.github.io/green-inventory/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Interactive GIS prototypes for green-space inventory, maintenance planning, and field
-survey of properties managed by the Swiss Federal Office for Buildings and Logistics
-(BBL / Bundesgärtnerei).
-
 > [!CAUTION]
 > **Unofficial prototype for demonstration purposes only.** The applications use a
 > limited public sample and mock content, are not feature-complete, and are not
 > intended for production use.
+
+Interactive GIS prototypes for green-space inventory, maintenance planning, and field
+survey of properties managed by the Swiss Federal Office for Buildings and Logistics
+(BBL / Bundesgärtnerei).
 
 ## Demo
 
