@@ -2,7 +2,7 @@
 
 > **Unofficial mockup.** Fictional data, not for production use. Part of the [`green-inventory`](../README.md) repo.
 
-![Social Media Preview](assets/Preview1.jpg)
+![Social Media Preview](assets/preview-1.jpg)
 
 The earlier, feature-rich prototype: an interactive GIS mockup for urban green-space inventory, maintenance planning, and field survey — built around interactive maps, a care-profile library, and task management against a denormalised data model.
 

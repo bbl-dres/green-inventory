@@ -5,8 +5,8 @@
 GDB-backed inventory of **73 sites (Standorte)** and **~6 000 green-area features** (areas, trees, canopies, small structures) on a MapLibre GL map, with care-profile classification, attribute filtering, a scoped table view, and identify against external swisstopo layers.
 
 <p align="center">
-  <img src="assets/images/preview1.jpg" width="45%" style="vertical-align: top;"/>
-  <img src="assets/images/preview2.jpg" width="45%" style="vertical-align: top;"/>
+  <img src="assets/images/preview-1.jpg" width="45%" style="vertical-align: top;"/>
+  <img src="assets/images/preview-2.jpg" width="45%" style="vertical-align: top;"/>
 </p>
 
 ## Live app

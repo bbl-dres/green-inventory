@@ -1,6 +1,9 @@
 # Green Inventory / Grünflächeninventar
 
-![Green Inventory preview](assets/Preview1.jpg)
+![Green Inventory preview](assets/preview-1.jpg)
+
+[![Demo](https://img.shields.io/badge/demo-GitHub%20Pages-2ea44f?logo=github&logoColor=white)](https://bbl-dres.github.io/green-inventory/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Interactive GIS prototypes for green-space inventory, maintenance planning, and field
 survey of properties managed by the Swiss Federal Office for Buildings and Logistics
@@ -14,6 +17,13 @@ survey of properties managed by the Swiss Federal Office for Buildings and Logis
 ## Demo
 
 **Main app:** https://bbl-dres.github.io/green-inventory/
+
+<table border="0" cellpadding="0" cellspacing="0" role="presentation" width="100%">
+  <tr>
+    <td width="50%" valign="top"><img src="assets/preview-2.jpg" alt="Green Inventory 2D map with asset legend and inventory table" width="100%"/></td>
+    <td width="50%" valign="top"><img src="prototype-main/assets/images/preview-1.jpg" alt="Green Inventory 3D map of trees, planting areas, and buildings" width="100%"/></td>
+  </tr>
+</table>
 
 The repository root opens the Green Areas prototype.
 
