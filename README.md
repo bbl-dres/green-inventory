@@ -1,6 +1,6 @@
 # Green Inventory / Grünflächeninventar
 
-![Green Inventory preview](assets/preview-1.jpg)
+![Green Inventory preview](assets/preview-social2.jpg)
 
 [![Demo](https://img.shields.io/badge/demo-GitHub%20Pages-2ea44f?logo=github&logoColor=white)](https://bbl-dres.github.io/green-inventory/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
