@@ -30,7 +30,7 @@
           <svg id="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="search" id="search-input" placeholder="Ort oder Adresse suchen…" autocomplete="off">
+          <input type="search" id="search-input" placeholder="Ort oder Adresse suchen…" autocomplete="off" aria-label="Ort, Adresse, Objekt oder Karte suchen">
           <div id="search-spinner"></div>
           <button class="input-clear-x" id="search-clear-btn" aria-label="Suche löschen" style="display:none">&times;</button>
         </div>
@@ -53,20 +53,46 @@
           <rect x="6" y="14" width="12" height="8"/>
         </svg>
       </button>
-      <button class="edit-btn" id="filter-toggle" title="Filter">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <!-- Labels live in .btn-label spans so narrow layouts can collapse the
+           buttons to icon + badge; aria-label keeps the accessible name. -->
+      <button class="edit-btn" id="filter-toggle" title="Filter" aria-label="Filter" aria-controls="filter-sidebar" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
         </svg>
-        Filter
+        <span class="btn-label">Filter</span>
         <span class="tbl-badge" id="filter-toggle-badge" style="display:none"></span>
       </button>
-      <button class="edit-btn" id="edit-toggle" title="Position korrigieren">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button class="edit-btn" id="edit-toggle" title="Bearbeiten" aria-label="Bearbeiten">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
         </svg>
-        Bearbeiten
+        <span class="btn-label">Bearbeiten</span>
       </button>
+      <!-- Overflow menu — compact layout only (phones, landscape phones, very
+           short windows).  Hosts Share / Print and the footer links, which
+           have no room in a phone-width header. -->
+      <div class="more-wrap" id="more-wrap">
+        <button class="edit-btn icon-btn" id="more-toggle" title="Weitere Aktionen" aria-label="Weitere Aktionen" aria-expanded="false" aria-controls="more-menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+          </svg>
+        </button>
+        <div class="more-menu" id="more-menu">
+          <button type="button" class="more-item" data-action="share">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Ansicht teilen
+          </button>
+          <button type="button" class="more-item" data-action="print">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Drucken
+          </button>
+          <div class="dd-divider"></div>
+          <a class="more-item" href="https://github.com/bbl-dres/green-inventory" target="_blank" rel="noopener">Quellcode</a>
+          <a class="more-item" href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank" rel="noopener">Rechtliches</a>
+          <a class="more-item" href="https://www.bbl.admin.ch/de/kontakt" target="_blank" rel="noopener">Kontakt</a>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -79,7 +105,7 @@
         <span>Legende</span>
         <button id="sidebar-close" class="sidebar-close-btn" aria-label="Legende schliessen">&times;</button>
       </div>
-      <div id="legend-scroll" id="legend-list"></div>
+      <div id="legend-scroll"></div>
     </aside>
 
     <!-- Map + Table column -->
@@ -89,7 +115,14 @@
       <div id="map">
         <!-- Permanent disclaimer banner — matches the centered footer pill -->
         <div id="map-prototype-banner">Prototyp – nur zur Demonstration</div>
-        <button id="legend-toggle" class="legend-toggle-btn" title="Legende einblenden" style="display:none">
+        <!-- Loading / error state.  The inventory is ~12 MB of GeoJSON; on a
+             mobile connection that is several seconds of an empty map. -->
+        <div id="map-loading" role="status" aria-live="polite">
+          <div class="map-loading-spinner" aria-hidden="true"></div>
+          <span id="map-loading-text">Daten werden geladen…</span>
+          <button type="button" id="map-loading-retry" hidden>Erneut versuchen</button>
+        </div>
+        <button id="legend-toggle" class="legend-toggle-btn" title="Legende einblenden" aria-label="Legende einblenden" aria-controls="sidebar" style="display:none">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
             <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
@@ -166,7 +199,7 @@
       </div>
 
       <!-- Resize handle (outside table-panel to avoid overflow:hidden clipping) -->
-      <div id="tbl-resize-handle"></div>
+      <div id="tbl-resize-handle" role="separator" aria-orientation="horizontal" aria-controls="table-panel" aria-label="Tabellenhöhe ändern (Pfeiltasten)" tabindex="0"></div>
 
       <!-- Table panel -->
       <div id="table-panel">
@@ -177,7 +210,7 @@
             <svg id="tbl-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="text" id="tbl-search" placeholder="Suche…">
+            <input type="text" id="tbl-search" placeholder="Suche…" aria-label="Tabelle durchsuchen">
             <button class="input-clear-x" id="tbl-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
           </div>
 
@@ -194,26 +227,26 @@
 
           <div id="tbl-action-right">
             <div class="dd-wrap" id="col-dd-wrap">
-              <button class="dd-btn" id="col-dd-btn">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button class="dd-btn" id="col-dd-btn" aria-label="Spalten">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
                   <line x1="8" y1="18" x2="21" y2="18"/>
                   <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
                   <line x1="3" y1="18" x2="3.01" y2="18"/>
                 </svg>
-                Spalten
+                <span class="dd-label">Spalten</span>
                 <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="dd-menu" id="tbl-col-dd" style="right:0;left:auto"></div>
             </div>
 
             <div class="dd-wrap" id="export-dd-wrap">
-              <button class="dd-btn" id="export-dd-btn">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <button class="dd-btn" id="export-dd-btn" aria-label="Export">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                Export
+                <span class="dd-label">Export</span>
                 <svg class="dd-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="dd-menu" id="tbl-export-dd" style="right:0;left:auto">
@@ -267,14 +300,16 @@
       <div id="filter-sidebar-header">
         <span>Filter</span>
         <span class="tbl-badge" id="filter-sidebar-badge" style="display:none"></span>
+        <!-- Reset lives in the header (shown only while filters are active)
+             so the search field below can use the full panel width. -->
+        <button class="filter-reset-link" id="filter-sidebar-clear" hidden>Alle zurücksetzen</button>
         <button id="filter-sidebar-close" class="sidebar-close-btn" aria-label="Filter schliessen">&times;</button>
       </div>
       <div id="filter-sidebar-controls">
         <div id="filter-sidebar-search-wrap">
-          <input type="text" id="filter-sidebar-search" placeholder="Filter durchsuchen…">
+          <input type="text" id="filter-sidebar-search" placeholder="Filter durchsuchen…" aria-label="Filterwerte durchsuchen">
           <button class="input-clear-x" id="filter-sidebar-search-x" aria-label="Eingabe löschen" style="display:none">&times;</button>
         </div>
-        <button class="filter-reset-link" id="filter-sidebar-clear">Alle zurücksetzen</button>
       </div>
       <div id="filter-sidebar-body">
         <div id="filter-groups"></div>
@@ -287,9 +322,9 @@
   <footer id="footer">
     <div id="coordinates">WGS 84 | Koordinaten: --</div>
     <div id="footer-links">
-      <a href="https://github.com/bbl-dres/green-inventory" target="_blank">Quellcode</a>
-      <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank">Rechtliches</a>
-      <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank">Kontakt</a>
+      <a href="https://github.com/bbl-dres/green-inventory" target="_blank" rel="noopener">Quellcode</a>
+      <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank" rel="noopener">Rechtliches</a>
+      <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank" rel="noopener">Kontakt</a>
     </div>
   </footer>
 

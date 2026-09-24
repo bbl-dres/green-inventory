@@ -36,8 +36,9 @@
   --scrim-bg:       rgba(0, 0, 0, 0.42);   /* drawer overlays */
   --border-subtle:  rgba(0, 0, 0, 0.12);   /* image / swatch outlines */
 
-  /* Typography */
-  --text-label: 10px;
+  /* Typography — 11px is the floor: 10px uppercase labels were below
+     comfortable legibility at 100% OS scaling. */
+  --text-label: 11px;
   --text-xs:    11px;
   --text-sm:    13px;       /* was 12.5 — round to integer for crisper glyphs */
   --text-base:  14px;
@@ -83,29 +84,57 @@
 
   /* Z-index scale
      Each layer must beat everything below it.
-     Map canvas (MapLibre) sits at ~0-3 internally.
-     Table panel must beat the map; dropdowns must beat everything. */
+     #map is an isolated stacking context (container-type: size), so
+     everything inside it — MapLibre controls, popups, banners, toasts,
+     context menu — stays below the table panel, the drawers and the header.
+     Table panel must beat the map; drawers beat the map chrome; the header
+     (and its search results / overflow menu) beats everything. */
   --z-base:      1;
-  --z-map-ctrl:  5;   /* basemap btn, nav controls */
+  --z-map-ctrl:  5;   /* basemap btn, nav controls (inside #map) */
   --z-toggle:    6;   /* pill straddling map/table */
   --z-table:     7;   /* table panel above map canvas */
   --z-table-bar: 8;   /* action bar — establishes stacking ctx for dropdowns */
-  --z-overlay:  10;   /* header, footer, edit banners */
+  --z-overlay:  10;   /* footer; map-internal edit banners */
+  --z-scrim:    19;   /* drawer backdrop (compact layout) */
+  --z-drawer:   20;   /* legend / filter drawers (compact layout) */
+  --z-header:   30;   /* header + its dropdowns sit above drawers */
   --z-dropdown: 100;  /* dropdowns must beat all map/table layers */
 
   /* Layout */
   --header-height:   56px;
   --footer-height:   32px;
   --panel-width:     280px;
-  --table-height:    300px;
+  /* Default table height scales with the viewport so short laptop screens
+     (1080p at 150% scaling ≈ 585 px tall) keep a usable map, while large
+     monitors get more rows: ≈300 px at 945 px (1080p at 100%). */
+  --table-height:    clamp(160px, 32vh, 440px);
   --map-ctrl-bottom: 10px;  /* MapLibre native control margin — toggle matches this */
   --map-ctrl-right:  20px;  /* basemap sits right: 20px, bottom: 50px (above ctrl-bottom-right) */
 
-  /* Control heights — keeps all interactive elements consistently sized.
-     32 matches the @media (pointer:coarse) touch-target floor, so the
-     desktop size already meets touch ergonomics (no jump on hybrid
-     devices).  --ctrl-h-sm is for compact contexts (pagination, secondary
-     inputs inside dropdowns). */
+  /* Control heights — keeps all interactive elements consistently sized
+     (text buttons, icon buttons and inputs in one row share --ctrl-h).
+     --ctrl-h-sm is for dense contexts (pagination, secondary inputs inside
+     dropdowns).  Both grow on touch input, see the block below. */
   --ctrl-h:    32px;
   --ctrl-h-sm: 26px;
+  --row-h:     24px;   /* list rows (filter / column checkboxes): WCAG 2.5.8 floor */
+}
+
+/* Touch input: controls and list rows grow to finger size — 44 px, the
+   Apple HIG minimum (dense secondary controls such as pagination 40 px).
+   Hybrid laptops with a touchscreen report a fine primary pointer and keep
+   the compact desktop sizing. */
+@media (pointer: coarse) {
+  :root {
+    --ctrl-h:    44px;
+    --ctrl-h-sm: 40px;
+    --row-h:     44px;
+    --text-sm:   14px;   /* arm's-length reading on phones / tablets */
+  }
+}
+
+/* Very large monitors: wider side panels so legend / filter labels stop
+   wrapping onto two lines. */
+@media (min-width: 1800px) {
+  :root { --panel-width: 320px; }
 }
