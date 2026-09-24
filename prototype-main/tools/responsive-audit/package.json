@@ -1,0 +1,16 @@
+{
+  "name": "responsive-audit",
+  "private": true,
+  "description": "Device-matrix screenshots + layout / touch-target / contrast metrics for the Grünflächen Inventar main app",
+  "scripts": {
+    "audit": "node audit.js",
+    "summary": "node summarize.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  },
+  "optionalDependencies": {
+    "maplibre-gl": "4.7.1",
+    "tileserver-gl-styles": "2.0.0"
+  }
+}

@@ -38,9 +38,14 @@ The repository root [`/`](https://bbl-dres.github.io/green-inventory/) redirects
 - Selecting a row pans the map and opens its popup; row hover highlights the feature on the map.
 
 ### Coordinates & header actions
-- Footer shows live **WGS 84** + **LV95** (Swiss-grid) coordinates as the cursor moves; right-click copies both forms.
+- Footer shows live **WGS 84** + **LV95** (Swiss-grid) coordinates as the cursor moves; right-click (long-press on touch screens) opens a menu to copy both forms, measure distances / areas, share the location or report a problem.
 - **Filter** (active-count badge), **Share** (Web Share API + clipboard fallback), **Drucken** (`preserveDrawingBuffer` print pipeline), 2D/3D toggle.
 - All view state — center, zoom, selection, active external layers, tab scope — round-trips through URL parameters (`?center=…&zoom=…&sel=…&ext=…&scope=…`).
+
+### Responsive layout
+- Three layout tiers: **wide** (≥ 1100 px: legend and filter docked side by side), **medium** (700–1099 px: one docked panel at a time) and **compact** (phones in portrait *and* landscape: drawers over the map, a ⋯ menu for Share / Print / links, and the table as a resizable bottom sheet).
+- Touch screens get 44 px targets and 16 px inputs; the notch and home indicator are respected; map controls and popups adapt to the map's own size (container queries).
+- Device review, measurements and before/after screenshots: [`docs/RESPONSIVE-REVIEW.md`](docs/RESPONSIVE-REVIEW.md). Re-run the measurements with [`tools/responsive-audit`](tools/responsive-audit/README.md).
 
 ## Data pipeline
 
@@ -68,7 +73,7 @@ node scripts/split_entities.mjs   # data.geojson → data/*.json + *.geojson
 |---|---|---|
 | Vanilla JavaScript | ES6+ | Application logic |
 | MapLibre GL JS | v4.7 | Map rendering (WebGL) |
-| CSS3 | Modern | Design tokens + flex/grid layouts |
+| CSS3 | Modern | Design tokens + flex/grid layouts, container queries |
 | GeoJSON | RFC 7946 | Geospatial data format |
 | swisstopo MapServer | v3 | External-layer search + identify |
 | OpenFreeMap | planet | 3D OSM building tiles |
@@ -126,7 +131,11 @@ prototype-main/
 │   └── split_entities.mjs  # data.geojson → per-entity files
 ├── docs/
 │   ├── DATAMODEL.md        # Data model: conceptual model, output schema, Care Profiles, terminology
-│   └── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline
+│   ├── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline
+│   ├── RESPONSIVE-REVIEW.md # Responsive / mobile design review (figures in responsive-review/)
+│   └── responsive-review/  # Before / after screenshots for the review
+├── tools/
+│   └── responsive-audit/   # Playwright device-matrix audit behind the review
 └── assets/
     └── images/             # Preview screenshots (used by this README)
 ```

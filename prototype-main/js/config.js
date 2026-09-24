@@ -11,6 +11,20 @@
 //   point           - other points (Kleinstrukturen, lamps, etc.)
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── Layout tiers ─────────────────────────────────────────────────────────
+// Keep in sync with the RESPONSIVE LAYER @media queries in css/styles.css.
+//   compact  phones (portrait + landscape), tiny / zoomed windows:
+//            drawers over the map, table as bottom sheet, no footer
+//   medium   tablet portrait, small windows: docked panels, one at a time
+//   (wide    everything else: legend + filter may both be docked)
+const LAYOUT_MQ = {
+  compact: window.matchMedia('(max-width: 699px), (max-height: 500px)'),
+  medium:  window.matchMedia('(max-width: 1099px)'),
+};
+function isCompactLayout() { return LAYOUT_MQ.compact.matches; }
+// Both side panels docked at once only fits on wide screens.
+function allowsTwoPanels() { return !LAYOUT_MQ.medium.matches && !LAYOUT_MQ.compact.matches; }
+
 // ── Number formatting (Swiss style: 1'000.0) ─────────────────────────────
 function fmtNum(v, decimals) {
   if (v == null || v === '') return '–';
@@ -590,6 +604,15 @@ const TABLE_COL_DEFAULTS = {
     'baumart',
     'area_m2',
   ],
+};
+
+// Compact layout (phones): fewer, name-first columns.  With the desktop
+// defaults only 1 of 10 columns fit on a phone screen.  The first column is
+// pinned while the rest scroll (css: @container tbl).  Applied only until
+// the user picks columns themselves.
+const TABLE_COL_DEFAULTS_COMPACT = {
+  sites: ['site_name', 'site_adresse', 'pflegeklasse', 'area_m2'],
+  green: ['subtype', 'feature_type', 'site_name', 'area_m2'],
 };
 
 // Filter dropdown columns - which columns get a checkbox-list filter,

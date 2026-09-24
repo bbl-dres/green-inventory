@@ -8,3 +8,8 @@ __pycache__/
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# Responsive-audit tool (prototype-main/tools/responsive-audit)
+node_modules/
+prototype-main/tools/responsive-audit/package-lock.json
+prototype-main/tools/responsive-audit/out*/

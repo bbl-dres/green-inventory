@@ -33,7 +33,10 @@ const _scopeColMemory = { sites: null, green: null };
 
 function applyColStateForScope(scope) {
   const saved = _scopeColMemory[scope];
-  const keys = saved || (TABLE_COL_DEFAULTS && TABLE_COL_DEFAULTS[scope]) || [];
+  // Phones get a shorter, name-first default set (see config.js).
+  const defaults = (isCompactLayout() && typeof TABLE_COL_DEFAULTS_COMPACT !== 'undefined')
+    ? TABLE_COL_DEFAULTS_COMPACT : TABLE_COL_DEFAULTS;
+  const keys = saved || (defaults && defaults[scope]) || [];
   const visible = new Set(keys);
   TABLE_COLS.forEach(c => { c.visible = visible.has(c.key); });
 }
@@ -188,7 +191,7 @@ function renderPagination(total, totalPages) {
   for (const p of range) {
     if (p === '…') {
       const sp = document.createElement('span');
-      sp.textContent = '…'; sp.style.padding = '0 4px'; sp.style.color = 'var(--grey-400)';
+      sp.textContent = '…'; sp.style.padding = '0 4px'; sp.style.color = 'var(--grey-500)';
       pagesEl.appendChild(sp);
     } else {
       const btn = document.createElement('button');
@@ -458,7 +461,14 @@ function updateFilterBadge() {
     b.style.display = n > 0 ? 'inline-block' : 'none';
   }
   const el = document.getElementById('filter-toggle');
-  if (el) el.classList.toggle('has-active', n > 0);
+  if (el) {
+    el.classList.toggle('has-active', n > 0);
+    // Icon-only on phones: the accessible name carries the count.
+    el.setAttribute('aria-label', n > 0 ? `Filter (${n} aktiv)` : 'Filter');
+  }
+  // "Alle zurücksetzen" only when there is something to reset.
+  const reset = document.getElementById('filter-sidebar-clear');
+  if (reset) reset.hidden = n === 0;
 }
 
 // ── Filter pills ─────────────────────────────────────────────────────────────
@@ -585,13 +595,22 @@ function downloadBlob(blob, filename) {
 let tableOpen = false;
 function _applyTableState() {
   document.getElementById('table-panel').classList.toggle('collapsed', !tableOpen);
-  document.getElementById('tbl-toggle').classList.toggle('collapsed', !tableOpen);
+  const toggle = document.getElementById('tbl-toggle');
+  toggle.classList.toggle('collapsed', !tableOpen);
+  toggle.setAttribute('aria-expanded', String(tableOpen));
+  // Hides the resize handle while collapsed; lets the compact layout keep
+  // bottom map controls clear of the home indicator (css).
+  document.getElementById('main-content').classList.toggle('tbl-collapsed', !tableOpen);
 }
 _applyTableState();
 document.getElementById('tbl-toggle').addEventListener('click', () => {
   tableOpen = !tableOpen;
   _applyTableState();
-  setTimeout(() => map.resize(), 280);
+  setTimeout(() => {
+    map.resize();
+    // The map just got shorter/taller: keep an open popup in view.
+    if (typeof revealPopup === 'function') revealPopup();
+  }, 280);
 });
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -758,35 +777,42 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
   const sidebar       = document.getElementById('filter-sidebar');
   const headerToggle  = document.getElementById('filter-toggle');
   const closeBtn      = document.getElementById('filter-sidebar-close');
-  const mqPhone       = window.matchMedia('(max-width: 768px)');
   if (!sidebar) return;
 
   function open() {
     sidebar.classList.remove('collapsed');
-    if (headerToggle) headerToggle.classList.add('active');   // mirror "Bearbeiten"
-    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+    if (headerToggle) {
+      headerToggle.classList.add('active');   // mirror "Bearbeiten"
+      headerToggle.setAttribute('aria-expanded', 'true');
+    }
+    // Medium / compact layout: one side panel at a time (see map.js).
+    if (!allowsTwoPanels() && window.legendPanel && window.legendPanel.isOpen()) window.legendPanel.close();
+    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
   }
   function close() {
     sidebar.classList.add('collapsed');
-    if (headerToggle) headerToggle.classList.remove('active');
-    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+    if (headerToggle) {
+      headerToggle.classList.remove('active');
+      headerToggle.setAttribute('aria-expanded', 'false');
+    }
+    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
   }
   function toggle() {
     sidebar.classList.contains('collapsed') ? open() : close();
   }
+  window.filterPanel = { open, close, isOpen: () => !sidebar.classList.contains('collapsed') };
 
   if (headerToggle) headerToggle.addEventListener('click', toggle);
   if (closeBtn)     closeBtn.addEventListener('click',     close);
 
-  // On rotate / resize across the breakpoint, force the drawer-style
-  // panel closed so we don't end up with both legend and filter open and
-  // covering the whole viewport.
-  mqPhone.addEventListener('change', () => close());
+  // Entering the compact layout (rotation / resize): close the drawer so we
+  // don't end up with legend and filter covering the whole viewport.
+  LAYOUT_MQ.compact.addEventListener('change', (e) => { if (e.matches) close(); });
 
-  // Tap outside the panel to close (only in phone mode where the panel
-  // overlays the map).  Capture phase so we beat the map's own click.
+  // Tap outside the panel to close (only in the compact layout, where the
+  // panel overlays the map).  Capture phase so we beat the map's own click.
   document.getElementById('main-content').addEventListener('click', () => {
-    if (mqPhone.matches && !sidebar.classList.contains('collapsed')) close();
+    if (isCompactLayout() && !sidebar.classList.contains('collapsed')) close();
   }, { capture: true });
 })();
 
@@ -820,6 +846,28 @@ function closeExportDd() {
   const MIN_H = 120, MAX_FRAC = 0.75;
   let startY, startH;
 
+  // Drive the resize through the --table-height CSS variable rather than
+  // an inline `height`.  An inline height would beat the stylesheet's
+  // `#table-panel.collapsed { height: 0 }` rule (inline > class), leaving
+  // the toggle unable to collapse the panel after a resize.  Setting the
+  // variable keeps the collapse rule winning by specificity, and the
+  // resized height is remembered across collapse/expand.
+  function setTableHeight(px) {
+    const maxH = window.innerHeight * MAX_FRAC;
+    panel.style.setProperty('--table-height', Math.min(maxH, Math.max(MIN_H, px)) + 'px');
+    map.resize();
+  }
+
+  // Keyboard: the handle is a focusable separator — arrows resize.  Being
+  // focusable also keeps it a tap target for browsers' touch adjustment,
+  // which otherwise snaps a finger on this thin bar to the map canvas.
+  handle.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const h = panel.getBoundingClientRect().height;
+    setTableHeight(h + (e.key === 'ArrowUp' ? 40 : -40));
+  });
+
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
@@ -830,25 +878,18 @@ function closeExportDd() {
 
     const onMove = (ev) => {
       const delta = startY - ev.clientY;          // drag up = grow
-      const maxH  = window.innerHeight * MAX_FRAC;
-      // Drive the resize through the --table-height CSS variable rather than
-      // an inline `height`.  An inline height would beat the stylesheet's
-      // `#table-panel.collapsed { height: 0 }` rule (inline > class), leaving
-      // the toggle unable to collapse the panel after a resize.  Setting the
-      // variable keeps the collapse rule winning by specificity, and the
-      // resized height is remembered across collapse/expand.
-      panel.style.setProperty('--table-height',
-        Math.min(maxH, Math.max(MIN_H, startH + delta)) + 'px');
-      map.resize();
+      setTableHeight(startH + delta);
     };
     const onUp = () => {
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
       panel.classList.remove('resizing');
       handle.classList.remove('dragging');
       map.resize();
     };
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
   });
 })();

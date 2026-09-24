@@ -155,6 +155,29 @@ function applyMapFilters() {
   }
 }
 
+// ── Data fetch starts immediately ──────────────────────────────────────────
+// ~12 MB of GeoJSON: fetch it in parallel with the basemap style instead of
+// after the map's 'load' event (on a phone connection the two waits used to
+// add up).  The no-op catch only silences an early "unhandled rejection";
+// the 'load' handler awaits the same promise and reports the error.
+const inventoryPromise = loadInventory(DATA_FILES);
+inventoryPromise.catch(() => {});
+
+// ── Loading / error overlay ────────────────────────────────────────────────
+function setLoadState(state, message) {
+  const el = document.getElementById('map-loading');
+  if (!el) return;
+  el.dataset.state = state;                       // 'loading' | 'slow' | 'error' | 'ready'
+  if (message) document.getElementById('map-loading-text').textContent = message;
+  document.getElementById('map-loading-retry').hidden = state !== 'error';
+}
+setLoadState('loading');
+const _slowLoadTimer = setTimeout(() => {
+  const el = document.getElementById('map-loading');
+  if (el && el.dataset.state === 'loading') setLoadState('slow', 'Daten werden geladen… (langsame Verbindung)');
+}, 8000);
+document.getElementById('map-loading-retry').addEventListener('click', () => location.reload());
+
 // ── Map init ───────────────────────────────────────────────────────────────
 const map = new maplibregl.Map({
   container: 'map',
@@ -421,7 +444,13 @@ function selectFeature(idx, lngLat) {
   selPopup.setLngLat(lngLat).setHTML(popupHTML(f.properties)).addTo(map);
   _suppressPopupClose = false;
 
-  if (!tableOpen) document.getElementById('tbl-toggle').click();
+  // Desktop: open the table so the selected row shows up.  Compact layout
+  // (phones): keep it closed — the table would take half the screen and
+  // bury the feature the user just tapped; the row is still selected when
+  // they open the table.  Either way the popup is then panned into view
+  // (the tbl-toggle handler reveals it once the map has resized).
+  if (!tableOpen && !isCompactLayout()) document.getElementById('tbl-toggle').click();
+  else revealPopup(selPopup);
 
   // ── 2. Switch to the tab this feature belongs to ─────────────────────
   // `sites` ← entity_type === 'site'; everything else → `green`.
@@ -458,6 +487,38 @@ function selectFeature(idx, lngLat) {
     const tr = document.querySelector('#tbl tbody tr.selected');
     if (scroll && tr) { scroll.scrollTop = 0; tr.scrollIntoView({ block: 'nearest' }); }
   }, 0);
+}
+
+// ── Keep an open popup fully visible ──────────────────────────────────────
+// MapLibre anchors a popup to its feature but never moves the map for it.
+// When the table opens (map shrinks) or the map is short (laptops at 150%
+// scaling, phones, landscape) the popup ended up under the table panel or
+// above the map's top edge — 1–17 % of it visible on most screens below
+// ~900 px height.  Pan just enough to bring it inside the map, preferring
+// the popup's top (title + first rows; the body scrolls).  Waits for any
+// running camera animation (fitBounds / flyTo) to finish first.
+function revealPopup(popup = selPopup) {
+  if (!popup || !popup.isOpen()) return;
+  if (map.isMoving()) { map.once('moveend', () => revealPopup(popup)); return; }
+  requestAnimationFrame(() => {
+    if (!popup.isOpen()) return;
+    // A fitBounds / flyTo may have started right after the selection
+    // (table row click, search result): reveal once it settles.
+    if (map.isMoving()) { map.once('moveend', () => revealPopup(popup)); return; }
+    const el = popup.getElement();
+    if (!el) return;
+    const m = map.getContainer().getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    // Margins clear the prototype pill (top) and the "Tabelle" pill / scale
+    // row (bottom); .pu-body's height cap in styles.css leaves room for both.
+    const PAD = 8, TOP = 40, BOTTOM = 52;
+    let dx = 0, dy = 0;
+    if (r.left < m.left + PAD) dx = r.left - (m.left + PAD);
+    else if (r.right > m.right - PAD) dx = Math.min(r.right - (m.right - PAD), r.left - (m.left + PAD));
+    if (r.top < m.top + TOP) dy = r.top - (m.top + TOP);
+    else if (r.bottom > m.bottom - BOTTOM) dy = Math.min(r.bottom - (m.bottom - BOTTOM), r.top - (m.top + TOP));
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) map.panBy([dx, dy], { duration: 300 });
+  });
 }
 
 function clearSelection() {
@@ -1072,11 +1133,24 @@ async function restoreExternalLayersFromUrl() {
 // layer (not just tooltip:true ones) - "tooltip" in layersConfig is the
 // vendor's UI hint, not a contract.  Some layers without tooltip still
 // return useful identify results.
-const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px' });
+const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px', className: 'identify-popup' });
 let _suppressIdentifyClose = false;
 identifyPopup.on('close', () => {
   if (_suppressIdentifyClose) return;
   clearIdentifyHighlight();
+});
+
+// Whenever the map changes size (table opening / being dragged, a side
+// panel docking, rotation), keep an open popup in view once it settles.
+// Timers alone can't know when: the table's height transition runs late
+// while the table re-renders.
+let _revealAfterResize = null;
+map.on('resize', () => {
+  clearTimeout(_revealAfterResize);
+  _revealAfterResize = setTimeout(() => {
+    if (selPopup.isOpen()) revealPopup(selPopup);
+    else if (identifyPopup.isOpen()) revealPopup(identifyPopup);
+  }, 200);
 });
 
 let _identifyAbort = null;
@@ -1214,6 +1288,7 @@ async function runIdentify(lngLat) {
     `<div class="ext-popup">${blocks.join('')}</div>`
   ).addTo(map);
   _suppressIdentifyClose = false;
+  revealPopup(identifyPopup);
 
   // Response geometry is in LV95 because we queried in sr=2056.  Convert
   // back to WGS84 before feeding the highlight source - MapLibre's GeoJSON
@@ -1332,9 +1407,11 @@ map.on('load', async () => {
   try {
     // Load the normalized per-entity files and join them into one in-memory
     // FeatureCollection (js/data.js).  data.geojson is no longer fetched.
-    gj = await loadInventory(DATA_FILES);
+    gj = await inventoryPromise;
   } catch (e) {
     console.error(e);
+    clearTimeout(_slowLoadTimer);
+    setLoadState('error', 'Die Inventardaten konnten nicht geladen werden.');
     return;
   }
   // Normalise feature ids to array index.
@@ -1418,6 +1495,8 @@ map.on('load', async () => {
   map.on('moveend', syncViewUrl);
 
   buildLegend(gj.features);
+  clearTimeout(_slowLoadTimer);
+  setLoadState('ready');
 
   // Restore selection from URL (?sel=<idx>)
   const urlSel = parseInt(new URLSearchParams(location.search).get('sel'));
@@ -1436,47 +1515,97 @@ map.on('load', async () => {
   const sidebar     = document.getElementById('sidebar');
   const closeBtn    = document.getElementById('sidebar-close');
   const legendBtn   = document.getElementById('legend-toggle');
-  // matchMedia is more reliable than a one-shot innerWidth check (handles
-  // device rotation, browser zoom, DevTools-driven viewport changes).
-  const mqPhone = window.matchMedia('(max-width: 768px)');
+  // Layout tiers come from LAYOUT_MQ (config.js).  matchMedia is more
+  // reliable than a one-shot innerWidth check (handles device rotation,
+  // browser zoom, DevTools-driven viewport changes).
 
   function openSidebar() {
     sidebar.classList.remove('collapsed');
     legendBtn.style.display = 'none';
-    // On mobile the sidebar is fixed-position over the map, so we don't
-    // need map.resize() — the canvas size doesn't change.
-    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+    // Medium / compact: one side panel at a time — two docked 280 px panels
+    // left a 260 px map on a tablet in portrait; two drawers would stack.
+    if (!allowsTwoPanels() && window.filterPanel && window.filterPanel.isOpen()) window.filterPanel.close();
+    // In the compact layout the sidebar is a drawer over the map, so the
+    // canvas size doesn't change and no map.resize() is needed.
+    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
   }
   function closeSidebar() {
     sidebar.classList.add('collapsed');
     legendBtn.style.display = 'flex';
-    if (!mqPhone.matches) setTimeout(() => map.resize(), 280);
+    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
   }
+  window.legendPanel = {
+    open: openSidebar, close: closeSidebar,
+    isOpen: () => !sidebar.classList.contains('collapsed'),
+  };
 
   closeBtn.addEventListener('click', closeSidebar);
   legendBtn.addEventListener('click', openSidebar);
 
-  // On phones, start with the sidebar collapsed so the map gets the full
-  // viewport.  Done synchronously before first paint to avoid a flash of
-  // open drawer on load.
-  if (mqPhone.matches) closeSidebar();
+  // Map first below the wide tier: phones and tablets in portrait start with
+  // the legend closed so the map gets the full width.  Done synchronously
+  // before first paint to avoid a flash of an open drawer on load.
+  if (!allowsTwoPanels()) closeSidebar();
 
-  // If the user rotates from portrait→landscape (or resizes desktop window
-  // below the breakpoint), re-evaluate the default state.
-  mqPhone.addEventListener('change', (e) => {
-    if (e.matches) closeSidebar(); else openSidebar();
-  });
+  // Re-evaluate on rotation / window resize across a tier boundary.
+  function onTierChange() {
+    if (isCompactLayout()) closeSidebar();
+    else if (allowsTwoPanels()) openSidebar();
+    else if (window.filterPanel && window.filterPanel.isOpen()) closeSidebar();
+  }
+  LAYOUT_MQ.compact.addEventListener('change', onTierChange);
+  LAYOUT_MQ.medium.addEventListener('change', onTierChange);
 
   // Tap the scrim to close.  The scrim is a CSS ::before pseudo-element on
-  // #body, so it's not addressable from JS.  Instead: when a phone-mode
+  // #body, so it's not addressable from JS.  Instead: when a compact-layout
   // drawer is open, any click on the map canvas should close it.  We
   // listen on #main-content so the click on the table area closes it too.
   document.getElementById('main-content').addEventListener('click', () => {
-    if (mqPhone.matches && !sidebar.classList.contains('collapsed')) {
+    if (isCompactLayout() && !sidebar.classList.contains('collapsed')) {
       closeSidebar();
     }
   }, { capture: true });
+  // A tap on the scrim itself targets #body (pseudo-elements aren't event
+  // targets), so the #main-content listener above never sees it.
+  document.getElementById('body').addEventListener('click', (e) => {
+    if (e.target !== e.currentTarget || !isCompactLayout()) return;
+    closeSidebar();
+    if (window.filterPanel) window.filterPanel.close();
+  });
 })();
+
+// ── Header overflow menu (compact layout) ──────────────────────────────────
+(function initMoreMenu() {
+  const wrap = document.getElementById('more-wrap');
+  const btn  = document.getElementById('more-toggle');
+  const menu = document.getElementById('more-menu');
+  if (!wrap || !btn || !menu) return;
+  function setOpen(open) {
+    wrap.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  }
+  btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!wrap.classList.contains('open')); });
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('.more-item');
+    if (!item) return;
+    setOpen(false);
+    // Reuse the (hidden) header buttons so there is one implementation.
+    if (item.dataset.action === 'share') document.getElementById('share-toggle').click();
+    else if (item.dataset.action === 'print') document.getElementById('print-toggle').click();
+  });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) setOpen(false); });
+  window.moreMenu = { close: () => setOpen(false), isOpen: () => wrap.classList.contains('open') };
+})();
+
+// ── Escape closes the topmost transient UI ────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (window.moreMenu && window.moreMenu.isOpen()) { window.moreMenu.close(); return; }
+  if (isCompactLayout()) {
+    if (window.filterPanel && window.filterPanel.isOpen()) { window.filterPanel.close(); return; }
+    if (window.legendPanel && window.legendPanel.isOpen()) { window.legendPanel.close(); return; }
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BASEMAP SWITCHER
@@ -1699,7 +1828,7 @@ function buildLegend(features) {
   extTitle.className = 'lg-group-title';
   extTitle.textContent = 'Externe Ebenen';
   const cnt = document.createElement('span');
-  cnt.style.cssText = 'font-size:10px;color:var(--grey-400);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
+  cnt.style.cssText = 'font-size:var(--text-xs);color:var(--grey-500);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
   cnt.textContent = extIds.length;
   extTitle.appendChild(cnt);
   extHead.append(extTitle);
@@ -1855,9 +1984,10 @@ function showToast(msg, type = '') {
 
   function hideMenu() { menu.classList.remove('show'); }
 
-  map.on('contextmenu', (e) => {
-    e.preventDefault();
-    ctxLngLat = e.lngLat;
+  const mapEl = document.getElementById('map');
+
+  function openContextMenu(point, lngLat) {
+    ctxLngLat = lngLat;
     const [E, N] = wgs84ToLv95(ctxLngLat.lng, ctxLngLat.lat);
     coordsText.textContent =
       ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5) +
@@ -1866,15 +1996,65 @@ function showToast(msg, type = '') {
     measureText.textContent = ms.active ? 'Messung löschen' : 'Distanz messen';
     measureBtn.classList.toggle('measure-active', ms.active);
 
-    const mapEl = document.getElementById('map');
-    const rect = mapEl.getBoundingClientRect();
-    const x = e.point.x, y = e.point.y;
-    menu.style.left = x + 'px';
-    menu.style.top = y + 'px';
-    menu.classList.toggle('flip-h', x + 200 > rect.width);
-    menu.classList.toggle('flip-v', y + 180 > rect.height);
+    // Measure the real menu (its width depends on the coordinate text and
+    // the touch-sized rows) and keep it inside the map on every side.
+    menu.style.left = '0px'; menu.style.top = '0px';
     menu.classList.add('show');
+    const M = 8, W = mapEl.clientWidth, H = mapEl.clientHeight;
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let x = point.x, y = point.y;
+    if (x + mw > W - M) x -= mw;                      // open to the left
+    if (y + mh > H - M) y -= mh;                      // open upwards
+    menu.style.left = Math.max(M, Math.min(x, W - mw - M)) + 'px';
+    menu.style.top  = Math.max(M, Math.min(y, H - mh - M)) + 'px';
+  }
+
+  map.on('contextmenu', (e) => {
+    e.preventDefault();
+    openContextMenu(e.point, e.lngLat);
   });
+
+  // Touch: long-press opens the same menu.  iOS Safari never fires
+  // `contextmenu` for a long-press, so measuring, copying coordinates,
+  // sharing a location and "Problem melden" were unreachable on phones.
+  // (Android Chrome does fire it — opening twice at the same spot is
+  // harmless.)
+  (function initLongPress() {
+    const target = map.getCanvasContainer();
+    const HOLD_MS = 550, SLOP_PX = 10, GHOST_MS = 250;
+    let timer = null, start = null, fired = false, ghostUntil = 0;
+    const cancel = () => { clearTimeout(timer); timer = null; };
+    target.addEventListener('touchstart', (ev) => {
+      cancel();
+      fired = false;
+      if (ev.touches.length !== 1) return;
+      start = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+      timer = setTimeout(() => {
+        timer = null;
+        fired = true;
+        const r = mapEl.getBoundingClientRect();
+        const point = new maplibregl.Point(start.x - r.left, start.y - r.top);
+        openContextMenu(point, map.unproject(point));
+      }, HOLD_MS);
+    }, { passive: true });
+    target.addEventListener('touchmove', (ev) => {
+      if (!timer || !start || !ev.touches.length) return;
+      const t = ev.touches[0];
+      if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > SLOP_PX) cancel();
+    }, { passive: true });
+    target.addEventListener('touchend', () => {
+      cancel();
+      if (fired) { fired = false; ghostUntil = Date.now() + GHOST_MS; }
+    }, { passive: true });
+    target.addEventListener('touchcancel', cancel, { passive: true });
+    // Some browsers follow a long-press with a synthetic click as the finger
+    // lifts (it would land on the menu's first item, or select the feature
+    // underneath).  Swallow only that one click — a deliberate tap on a menu
+    // item comes later.
+    mapEl.addEventListener('click', (ev) => {
+      if (Date.now() < ghostUntil) { ghostUntil = 0; ev.stopPropagation(); ev.preventDefault(); }
+    }, { capture: true });
+  })();
 
   document.addEventListener('click', hideMenu);
   document.addEventListener('keydown', (e) => {
