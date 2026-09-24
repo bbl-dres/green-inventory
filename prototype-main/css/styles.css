@@ -1385,7 +1385,10 @@ html, body {
   /* Header: app name only, search takes the free width, Filter becomes an
      icon with its badge, Share / Print / links move into the ⋯ menu. */
   .header-agency { display: none; }
-  .header-app { font-size: var(--text-sm); line-height: 1.2; }
+  /* Name on two lines ("Grünflächen / Inventar") so the search keeps its
+     room; while the search has focus the name steps aside entirely. */
+  .header-app { font-size: var(--text-sm); line-height: 1.2; width: min-content; }
+  #header:has(#search-input:focus) .header-title { display: none; }
   #header {
     gap: var(--sp2);
     padding-left: max(var(--sp3), env(safe-area-inset-left, 0px));
