@@ -30,8 +30,10 @@ function escapeHtml(v) {
 }
 
 // ── Group visibility state ─────────────────────────────────────────────────
+// Groups flagged defaultHidden in config.js start switched off; the legend
+// eye turns them on.  (None at present.)
 const vis = {};
-for (const g of LEGEND_GROUPS) vis[g.id] = true;
+for (const g of LEGEND_GROUPS) vis[g.id] = !g.defaultHidden;
 
 // Entity types where ALL legend groups are hidden (no profileCodes-aware
 // groups that are still visible).  Used as the "fully hide this layer"
@@ -68,12 +70,13 @@ let selectedId   = null; // currently selected feature index (null = none)
 
 // All map layers we add - kept in one place so filters/visibility/cleanup are simple.
 const MAP_LAYERS = {
-  polygons: ['site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill'],
+  polygons: ['parcel-fill', 'parcel-line', 'site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill'],
   points:   ['tree-circle', 'point-circle', 'site-location-circle', 'site-location-label'],
+  labels:   ['parcel-label'],   // separate point source: label anchors precomputed in the pipeline
   selection:['selection-fill', 'selection-line', 'selection-circle'],
   hover:    ['hover-line', 'hover-circle'],
 };
-const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points];
+const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points, ...MAP_LAYERS.labels];
 
 // Source / layer ID enumeration used by transformStyle when a basemap
 // swap happens — every ID returned here is preserved across the swap,
@@ -81,6 +84,7 @@ const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points];
 function collectOurSourceIds() {
   const ids = new Set([
     'features',         // local GeoJSON (sites / areas / trees / …)
+    'parcel-labels',    // parcel label anchors (pole of inaccessibility)
     'osm-buildings-3d', // OpenFreeMap tiles for 3D extrusions
     'tree-3d',          // generated cylinders for trees in 3D mode
     'ext-highlight',    // identify-highlight feature
@@ -97,6 +101,7 @@ function collectOurLayerIds() {
   const ids = new Set([
     ...MAP_LAYERS.polygons,
     ...MAP_LAYERS.points,
+    ...MAP_LAYERS.labels,
     ...MAP_LAYERS.selection,
     ...MAP_LAYERS.hover,
     'osm-buildings-3d',
@@ -126,6 +131,8 @@ function applyMapFilters() {
   // restricts to a single entity_type so we only need to AND in the
   // additional constraints here.
   const baseEntityFilters = {
+    'parcel-fill':          ['==', ['get', 'entity_type'], 'parcel'],
+    'parcel-line':          ['==', ['get', 'entity_type'], 'parcel'],
     'site-fill':            ['==', ['get', 'entity_type'], 'site'],
     'site-line':            ['==', ['get', 'entity_type'], 'site'],
     'area-fill':            ['==', ['get', 'entity_type'], 'area'],
@@ -135,6 +142,7 @@ function applyMapFilters() {
     'point-circle':         ['==', ['get', 'entity_type'], 'point'],
     'site-location-circle': ['==', ['get', 'entity_type'], 'site_location'],
     'site-location-label':  ['==', ['get', 'entity_type'], 'site_location'],
+    'parcel-label':         ['==', ['get', 'entity_type'], 'parcel'],
   };
 
   for (const id of ALL_LAYERS) {
@@ -210,7 +218,12 @@ let originalCenter = null;
 let geojsonData = null;
 
 // ── Popup instance ─────────────────────────────────────────────────────────
-const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '320px' });
+// Popups are DOCKED: the `docked` class pins the card to the map's top-right
+// corner (css/styles.css) instead of hanging it off the clicked point, so the
+// selected geometry stays visible.  The lngLat is still set (MapLibre needs
+// one) but no longer determines where the card is drawn.
+const DOCKED_POPUPS = true;
+const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '320px', className: 'docked' });
 let _suppressPopupClose = false;
 selPopup.on('close', () => {
   if (_suppressPopupClose || selectedId === null) return;
@@ -227,6 +240,7 @@ function popupHTML(p) {
   switch (p.entity_type) {
     case 'site':          swatch = ENTITY_COLORS.site.fill; break;
     case 'site_location': swatch = ENTITY_COLORS.site_location.fill; break;
+    case 'parcel':        swatch = ENTITY_COLORS.parcel.stroke; break;
     case 'tree':          swatch = ENTITY_COLORS.tree.fill; break;
     case 'tree_canopy':   swatch = ENTITY_COLORS.tree_canopy.fill; break;
     case 'point':         swatch = ENTITY_COLORS.point.fill; break;
@@ -258,9 +272,27 @@ function popupHTML(p) {
         ['objektnummer',      'Objekt-Nr.'],
         ['adresse',           'Adresse'],
         ['lose',              'Los'],
-        ['parzelle',          'Parzelle'],
+        ['parzelle',          'Parzelle (erfasst)'],
         ['erstellungsjahr',   'Baujahr'],
         ['erfassungsdatum',   'Erfasst'],
+      ],
+    },
+    {
+      // Cadastral parcel (Amtliche Vermessung): the parcel itself, or the
+      // located parcel of an element.  Standort perimeters have none.
+      title: 'Grundstück',
+      keys: [
+        ['egrid',             'EGRID'],
+        ['parcel_number',     'Parzelle'],
+        ['municipality_name', 'Gemeinde'],
+        ['canton',            'Kanton'],
+        ['numbering_area',    'Nummerierungsbereich'],
+        ['erp_id',            'ERP-Nr.'],
+        ['erp_name',          'ERP-Bezeichnung'],
+        ['erp_alternatives',  'ERP weitere Objekte'],
+        ['erp_historic_garden', 'Hist. Garten (ERP)'],
+        ['site_names',        'Standorte'],
+        ['element_count',     'Pflegeelemente'],
       ],
     },
     {
@@ -317,14 +349,22 @@ function popupHTML(p) {
 
   let body = '';
   for (const grp of FIELD_GROUPS) {
+    // Standort features carry every value twice (name / site_name, …) so
+    // one column serves all entity types in the table; show each
+    // label + value once here.
+    const seen = new Set();
     const rows = grp.keys
       .filter(([k]) => !isEmpty(d[k]))
       .map(([k, lbl, fmt]) => {
         // Formatters may return numeric/string already-formatted; escape
         // the result either way since the Bemerkung field is free text.
         const v = fmt ? fmt(d[k]) : d[k];
+        const dedupe = lbl + '\u0000' + v;
+        if (seen.has(dedupe)) return '';
+        seen.add(dedupe);
         return `<div class="pu-row"><span>${escapeHtml(lbl)}</span><strong>${escapeHtml(v)}</strong></div>`;
-      });
+      })
+      .filter(Boolean);
     if (rows.length === 0) continue;
     body += `<div class="pu-section">${escapeHtml(grp.title)}</div>` + rows.join('');
   }
@@ -456,7 +496,8 @@ function selectFeature(idx, lngLat) {
   // `sites` ← entity_type === 'site'; everything else → `green`.
   // setScope() is a no-op when target === current; otherwise it rebuilds
   // the filter sidebar / col dropdown / pagination state and renders once.
-  const targetScope = f.properties.entity_type === 'site' ? 'sites' : 'green';
+  const _et = f.properties.entity_type;
+  const targetScope = _et === 'site' ? 'sites' : _et === 'parcel' ? 'parcels' : 'green';
   if (typeof setScope === 'function' && targetScope !== tblScope) {
     setScope(targetScope);
   }
@@ -498,6 +539,7 @@ function selectFeature(idx, lngLat) {
 // the popup's top (title + first rows; the body scrolls).  Waits for any
 // running camera animation (fitBounds / flyTo) to finish first.
 function revealPopup(popup = selPopup) {
+  if (DOCKED_POPUPS) return;          // a docked card is always inside the map
   if (!popup || !popup.isOpen()) return;
   if (map.isMoving()) { map.once('moveend', () => revealPopup(popup)); return; }
   requestAnimationFrame(() => {
@@ -548,9 +590,20 @@ function addLayers() {
     data: geojsonData,
     tolerance: 0,
     maxzoom: 22,
+    attribution: (geojsonData.metadata && geojsonData.metadata.attribution_html) || undefined,
   });
 
-  // Site boundaries — bottom of stack, very subtle fill, visible stroke.
+  // Cadastral parcels (Amtliche Vermessung) — the legal unit of ground and
+  // the bottom of the stack: a faint fill so empty parcel ground is clickable,
+  // the dashed outline is added above the area fills further down.
+  map.addLayer({
+    id: 'parcel-fill', type: 'fill', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'parcel'],
+    paint: { 'fill-color': ENTITY_COLORS.parcel.fill, 'fill-opacity': 0.06 },
+  });
+
+  // Standort perimeters (Pflegeperimeter) — subtle fill, visible stroke;
+  // the legend eye hides them.
   map.addLayer({
     id: 'site-fill', type: 'fill', source: 'features',
     filter: ['==', ['get', 'entity_type'], 'site'],
@@ -576,6 +629,19 @@ function addLayers() {
     id: 'area-line', type: 'line', source: 'features',
     filter: ['==', ['get', 'entity_type'], 'area'],
     paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': 0.5 },
+  });
+
+  // Parcel boundaries above the area fills so they stay legible where
+  // maintained polygons cover the parcel; dashed, the cadastral convention.
+  map.addLayer({
+    id: 'parcel-line', type: 'line', source: 'features',
+    filter: ['==', ['get', 'entity_type'], 'parcel'],
+    paint: {
+      'line-color': ENTITY_COLORS.parcel.stroke,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 1.2, 20, 2],
+      'line-opacity': 0.85,
+      'line-dasharray': [3, 1.5],
+    },
   });
 
   // Tree-canopy circles.  No outline stroke - the outline made small
@@ -650,6 +716,45 @@ function addLayers() {
     minzoom: 13,
   });
 
+  // Parcel labels: EGRID, and the ERP key on a second line where one is
+  // matched.  Anchored at the pole of inaccessibility stored on each parcel
+  // (label_lon / label_lat) instead of MapLibre's per-tile placement, which
+  // shifts and duplicates labels on parcels that span tile boundaries.  The
+  // label points carry the parcel's feature id and entity_type so the legend
+  // eye and the table filter (applyMapFilters) apply to them unchanged.
+  if (!map.getSource('parcel-labels')) {
+    const labelFeatures = [];
+    geojsonData.features.forEach((f, i) => {
+      const p = f.properties;
+      if (p.entity_type !== 'parcel' || p.label_lon == null || p.label_lat == null) return;
+      const props = { entity_type: 'parcel', egrid: p.egrid || '',
+                      label: p.erp_id ? p.egrid + '\n' + p.erp_id : (p.egrid || '') };
+      labelFeatures.push({ type: 'Feature', id: f.id != null ? f.id : i,
+        geometry: { type: 'Point', coordinates: [p.label_lon, p.label_lat] }, properties: props });
+    });
+    map.addSource('parcel-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
+  }
+  map.addLayer({
+    id: 'parcel-label', type: 'symbol', source: 'parcel-labels',
+    filter: ['==', ['get', 'entity_type'], 'parcel'],
+    minzoom: 16,
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 16, 10, 19, 12],
+      'text-line-height': 1.15,
+      'text-justify': 'center',
+      'text-anchor': 'center',
+      'text-allow-overlap': false,
+      'text-optional': true,
+    },
+    paint: {
+      'text-color': ENTITY_COLORS.parcel.stroke,
+      'text-halo-color': 'rgba(255,255,255,0.9)',
+      'text-halo-width': 1.2,
+    },
+  });
+
   // ── Selection overlays ───────────────────────────────────────────────
   map.addLayer({
     id: 'selection-fill', type: 'fill', source: 'features',
@@ -693,8 +798,11 @@ function addLayers() {
   applyMapFilters();
 }
 
-// All map layers that should be hit-tested for click / hover.
-const INTERACTIVE_LAYERS = ['site-fill', 'area-fill', 'canopy-fill',
+// All map layers that should be hit-tested for click / hover.  Order matters:
+// MapLibre fires the per-layer click handlers in registration order and the
+// last selectFeature() wins, so later entries take priority (a tree over the
+// area under it, an area over the parcel under it).
+const INTERACTIVE_LAYERS = ['parcel-fill', 'site-fill', 'area-fill', 'canopy-fill',
                              'tree-circle', 'point-circle', 'site-location-circle'];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1133,7 +1241,7 @@ async function restoreExternalLayersFromUrl() {
 // layer (not just tooltip:true ones) - "tooltip" in layersConfig is the
 // vendor's UI hint, not a contract.  Some layers without tooltip still
 // return useful identify results.
-const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px', className: 'identify-popup' });
+const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px', className: 'identify-popup docked' });
 let _suppressIdentifyClose = false;
 identifyPopup.on('close', () => {
   if (_suppressIdentifyClose) return;
@@ -1765,6 +1873,7 @@ function buildLegend(features) {
     const groupEl = document.createElement('div');
     groupEl.className = 'lg-group';
     groupEl.dataset.gid = grp.id;
+    if (!vis[grp.id]) groupEl.classList.add('group-hidden');
 
     const head = document.createElement('div');
     head.className = 'lg-group-head';
@@ -1772,7 +1881,8 @@ function buildLegend(features) {
     const eyeBtn = document.createElement('button');
     eyeBtn.className = 'eye-btn';
     eyeBtn.title = 'Ebene ein-/ausblenden';
-    eyeBtn.innerHTML = EYE_OPEN;
+    eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
+    eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
     eyeBtn.addEventListener('click', () => {
       if (!grp.entity_type) return;
       vis[grp.id] = !vis[grp.id];
@@ -2319,6 +2429,7 @@ function showToast(msg, type = '') {
         if (p.entity_type === 'site_location') continue;
         const hay = [p.name, p.site_name, p.adresse, p.site_adresse,
                      p.objektnummer, p.site_objektnummer, p.baumart,
+                     p.egrid, p.parcel_number, p.municipality_name,
                      p.feature_type, p.subtype, p.entity_type]
           .filter(Boolean).join(' ').toLowerCase();
         if (hay.includes(q)) localMatches.push({ idx: i, feat: f });

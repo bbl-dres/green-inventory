@@ -10,26 +10,29 @@ let tblSearch = '';
 let tblFilterAttrs = {};          // { field: Set<string> }
 
 // ── Tab scope ────────────────────────────────────────────────────────
-// Two tab views over the data:
-//   'sites'  → entity_type === 'site'           (Standorte)
-//   'green'  → entity_type in {area, tree_canopy, tree, point}  (Pflegeelemente)
-// site_location features (centroid markers) are hidden from BOTH tabs —
+// Three tab views over the data:
+//   'sites'   → entity_type === 'site'           (Standorte)
+//   'parcels' → entity_type === 'parcel'         (Grundstücke, Amtliche Vermessung)
+//   'green'   → entity_type in {area, tree_canopy, tree, point}  (Pflegeelemente)
+// site_location features (centroid markers) are hidden from ALL tabs —
 // they're a map-only affordance, not data.
 let tblScope = 'sites';
 const SCOPE_HIDDEN_FROM_TABLE = new Set(['site_location']);
+const TABLE_SCOPES = ['sites', 'parcels', 'green'];
 
 function inScope(row, scope) {
   const e = row.entity_type;
   if (SCOPE_HIDDEN_FROM_TABLE.has(e)) return false;
   if (scope === 'sites') return e === 'site';
-  return e !== 'site';            // 'green' = everything else
+  if (scope === 'parcels') return e === 'parcel';
+  return e !== 'site' && e !== 'parcel';   // 'green' = the maintenance elements
 }
 
 // Per-scope column visibility memory.  null = use TABLE_COL_DEFAULTS.
 // Populated lazily: the first time a scope's visibility is touched (column
 // toggle or scope-leave), the current state is snapshotted into here so
 // subsequent re-entries restore the user's preferences for that tab.
-const _scopeColMemory = { sites: null, green: null };
+const _scopeColMemory = { sites: null, parcels: null, green: null };
 
 function applyColStateForScope(scope) {
   const saved = _scopeColMemory[scope];
@@ -49,6 +52,7 @@ function rememberColStateForScope(scope) {
 const FILTER_URL_KEYS = {
   entity_type: 'ent', site_lose: 'lo', pflegeklasse: 'pk',
   eigentuemer: 'eg', fk_profil: 'pr', baumart: 'ba', site_name: 'sn',
+  municipality_name: 'gm',
 };
 const FILTER_URL_KEYS_REV = Object.fromEntries(Object.entries(FILTER_URL_KEYS).map(([k, v]) => [v, k]));
 let tblPage = 0, tblPageSize = 100;
@@ -710,7 +714,7 @@ window.addEventListener('resize', () => {
 
 // ── Tab strip (Standorte / Pflegeelemente) ──────────────────────────────
 function setScope(newScope) {
-  if (newScope !== 'sites' && newScope !== 'green') return;
+  if (!TABLE_SCOPES.includes(newScope)) return;
   if (newScope === tblScope) return;
   // Snapshot the leaving scope's column visibility so the user's edits
   // come back when they return to this tab.
@@ -738,15 +742,18 @@ function updateTabCounts() {
   // Counts reflect the filtered row set so the tab number matches what's
   // actually rendered in the table body for that scope.
   const filtered = getFilteredRows(tableRows);
-  let nSites = 0, nGreen = 0;
+  let nSites = 0, nParcels = 0, nGreen = 0;
   for (const r of filtered) {
     if (SCOPE_HIDDEN_FROM_TABLE.has(r.entity_type)) continue;
     if (r.entity_type === 'site') nSites++;
+    else if (r.entity_type === 'parcel') nParcels++;
     else nGreen++;
   }
   const a = document.getElementById('tbl-tab-count-sites');
+  const p = document.getElementById('tbl-tab-count-parcels');
   const b = document.getElementById('tbl-tab-count-green');
   if (a) a.textContent = nSites;
+  if (p) p.textContent = nParcels;
   if (b) b.textContent = nGreen;
 }
 
@@ -762,7 +769,7 @@ function syncScopeUrl() {
 function restoreScopeFromUrl() {
   try {
     const v = new URLSearchParams(location.search).get('scope');
-    if (v === 'green' || v === 'sites') tblScope = v;
+    if (TABLE_SCOPES.includes(v)) tblScope = v;
   } catch (_) { /* ignore */ }
 }
 

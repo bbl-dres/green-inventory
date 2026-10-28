@@ -22,16 +22,24 @@ export for tenders (bills of quantities for green-space maintenance).
   rows, not comma-separated lists.
 - Identity: every entity has a `fid` (feature id) — the surrogate primary key
   the app maintains and the target of all foreign keys. It must be stable
-  across data refreshes. A `system_id` is a separate unique key holding the
-  identifier from the authoritative master system (for example SAP for a Site);
-  the national keys EGRID and EGID play the same role for parcels and buildings.
-  A `system_id` lets us join to that master system, but it is never used as the
-  app's own join key.
+  across data refreshes. External identifiers are named after the register
+  that issues them, never after their role: `egrid` (land registry), `egid`
+  (building register), `municipality_bfs` (Federal Statistical Office),
+  `erp_id` (the organisation's ERP). An entity may carry several of them; none
+  is ever the app's own join key. A generic `system_id` is not used, because it
+  hides which system issued the value and breaks as soon as an entity carries
+  keys from two systems — which the Land Parcel does.
 - Solution-neutral: a master system names who owns the data, not a product.
   The operational ERP / master-data system is the organisation's choice (the
-  Swiss federal government happens to use SAP). The cadastral masters are fixed
-  national authorities: the land registry for EGRID and ownership, the building
-  register for EGID, and the official cadastral survey for geometry.
+  Swiss federal government happens to use SAP, whose real-estate module keys a
+  land object by company code, business entity and object number). The
+  cadastral masters are fixed national authorities: the land registry for
+  EGRID and ownership, the building register for EGID, and the official
+  cadastral survey for geometry.
+- Assignment is not location: a Maintenance Element records which Standort
+  cares for it (an assignment made by people when the inventory was surveyed)
+  and which Land Parcel it stands on (a location computed from the cadastre).
+  These are two different facts; neither is derived from the other.
 - English-first model: entity names carry their German equivalent (EN / DE);
   attributes stay English, since most are self-explanatory. The full glossary
   is the terminology reference (Section 6.4), and the physical German field
@@ -46,16 +54,20 @@ export for tenders (bills of quantities for green-space maintenance).
 
 The app maintains the green spaces of Swiss federal real estate, run by the
 federal nursery service (BG) within the Federal Office for Buildings and
-Logistics (BBL). The model is a three-level core (Site to Land Parcel to
-Maintenance Element) plus reference data (Care Profile, Care Task, Actor, and
-the planned Cost rate) and contextual entities from the Swiss cadastre and
-registers that the app does not store but the data depends on.
+Logistics (BBL). The core has three entities: the **Standort** (the unit of a
+maintenance tender, defined by the BG), the **Land Parcel** (the legal unit of
+ground, defined by the cadastre) and the **Maintenance Element** (what is
+cared for). An element is *assigned* to one Standort and *located* on one
+parcel; Standort and parcel are related only through their elements. Around
+the core sit reference data (Care Profile, Care Task, Actor, and the planned
+Cost rate) and contextual entities from the Swiss cadastre, the registers and
+the ERP that the app does not store but the data depends on.
 
 ```mermaid
 flowchart LR
     subgraph CORE["App core"]
         direction LR
-        Site["Site"]
+        Site["Standort"]
         Parcel["Land Parcel"]
         ME{{"Maintenance Element"}}
         Area["Maintenance Polygon"]
@@ -65,8 +77,9 @@ flowchart LR
         Cost[/"Cost rate (planned)"/]
         Actor(["Actor"])
         Img["Image"]
-        Site -->|"contains 1..n"| Parcel
-        Parcel -->|"contains 0..n"| ME
+        Site -->|"assigned 0..n"| ME
+        Parcel -->|"locates 0..n"| ME
+        Site -.->|"spans (derived)"| Parcel
         ME --> Area
         ME --> Point
         Profile -->|classifies| ME
@@ -77,13 +90,15 @@ flowchart LR
         Profile -->|"has images"| Img
         ME -->|"has images"| Img
     end
-    subgraph CTX["Context: Swiss cadastre and registers (not in the app)"]
+    subgraph CTX["Context: cadastre, registers and ERP (not in the app)"]
         direction LR
         Owner(["Owner"])
         Cover["Land Cover"]
         Bldg["Building (EGID)"]
+        ERP["ERP land object"]
     end
     Owner -->|owns| Parcel
+    ERP -->|"1 : 1, carries EGRID"| Parcel
     Parcel -->|"covered by"| Cover
     Bldg -->|"footprint is land cover"| Cover
     Bldg -->|"stands on"| Parcel
@@ -98,16 +113,17 @@ Diagram shapes:
 - Parallelogram: reference data, a controlled vocabulary (Care Profile, Care
   Task, Cost rate).
 - Rounded box: a party or actor (Actor, Owner).
-- Dashed: planned, not yet implemented (Cost rate).
+- Dashed: planned, not yet implemented (Cost rate), or derived rather than
+  stored (Standort spans parcels).
 
 The two boxed groups separate the app's core entities from contextual entities
-held in external Swiss registers.
+held in external systems.
 
 | Entity (EN) | Entity (DE) | Scope | Master system | What it is |
 |---|---|---|---|---|
-| Site | Standort | core | ERP / master data | An operational collection of land the BG manages as one unit. Not a legal boundary, but the set of its Land Parcels. |
-| Land Parcel | Grundstück | core | land registry; geometry from cadastral survey | A legal parcel, keyed by EGRID. Carries ownership and accountability. |
-| Maintenance Element | Pflegeelement | core | BG survey | A cared-for feature inside a parcel. Abstract: every element is either an Area or a Point. |
+| Standort | Standort | core | BG (this app) | The unit of a green-space maintenance tender: the set of elements one party is responsible for, named and delimited by the BG. Not a legal boundary and not an ERP object. May span several parcels, parts of parcels and third-party ground. Carries the Pflegeperimeter drawn for the tender plans as a display outline. |
+| Land Parcel | Grundstück | core | land registry (identity, EGRID); cadastral survey (geometry); ERP (one land object per parcel) | One cadastral parcel. Includes third-party parcels on which elements are maintained (street trees, leased ground). |
+| Maintenance Element | Pflegeelement | core | BG survey | A cared-for feature, assigned to one Standort and located on one parcel. Abstract: every element is either a Polygon or a Point. |
 | Maintenance Polygon | Pflegepolygon | core | BG survey | Subtype of Maintenance Element. Polygon feature: lawn, bed, hedge, path, surface. |
 | Maintenance Point | Pflegepunkt | core | BG survey | Subtype of Maintenance Element. Point feature: tree, planter, bench, structure. |
 | Care Profile | Pflegeprofil | core (reference) | BBL standard | What an element is; groups the maintenance tasks that apply to it. |
@@ -115,24 +131,27 @@ held in external Swiss registers.
 | Actor | Akteur | reference (planned) | ERP / directory | A party that performs maintenance. Several actors may work the same element (for example winter versus summer), so the key relation is Actor to Maintenance Element. Not part of this MVP — no actor data is held. |
 | Assignment | Pflegeauftrag | relationship (planned) | BG / ERP | Links one Actor to one Maintenance Element for a task (shown as the "executes" edge). Not part of this MVP — no assignment data is held. |
 | Cost rate | Einheitspreis | core (reference, planned) | price catalogue | Planned. Unit price for a Care Task; with element measures it yields tender costs. |
-| Image | Bild | core | app / media store | A picture (URL) attached to a Care Profile (standard illustration) or a Maintenance Element / Site (field photo); several allowed. |
+| Image | Bild | core | app / media store | A picture (URL) attached to a Care Profile (standard illustration) or a Maintenance Element / Standort (field photo); several allowed. |
+| ERP land object | Grundstück (ERP) | context | ERP | The ERP's record of a parcel, exactly one per cadastral parcel, keyed by company code / business entity / object number and carrying the EGRID. Business entity (Wirtschaftseinheit) and company code (Buchungskreis) are components of that key, used for finance; they are not entities and are not georeferenced. |
 | Owner | Eigentümer | context | land registry | Legal owner of a Land Parcel. |
 | Land Cover | Bodenbedeckung | context | cadastral survey | Official surface classification: building, paved, vegetation, water, forest, rock, and so on. |
 | Building | Gebäude | context | building register + cadastral survey | A building keyed by EGID; its footprint is a Land-Cover polygon. A parcel may carry several buildings. |
 
-Delivered as `data.geojson`. The app's data arrives as one GeoJSON file with
-six `entity_type` values. The conceptual entities map to them as follows (the
-source fuses Site and Land Parcel, and adds a render-only centroid):
+**Delivered files.** The app loads one file per core entity from `data/`
+(Section 6.3). They are produced from two sources: the survey GDB, converted
+to `data.geojson`, and the official cadastral survey, fetched by EGRID or by
+location from the federal OpenData-AV service. The conceptual entities map to
+the sources as follows:
 
-| Conceptual entity | `entity_type` in `data.geojson` |
-|---|---|
-| Site and Land Parcel (fused) | `site`, plus `site_location` (a centroid render aid) |
-| Maintenance Polygon | `area`, `tree_canopy` (circular polygons) |
-| Maintenance Point | `tree` (species set), `point` (everything else) |
-| Care Profile, Care Task | referenced by `fk_profil`; tasks live in `js/config.js` |
-| Actor, Assignment | coded attributes only: responsibility on the parcel, execution on the element |
-| Owner | coarse coded attribute |
-| Cost rate, Image, Land Cover, Building | not present |
+| Conceptual entity | Source | Delivered as |
+|---|---|---|
+| Standort | GDB layer `Objekt`: attributes plus the drawn Pflegeperimeter | `sites.geojson` |
+| Land Parcel | OpenData-AV (`ch.swisstopo-vd.amtliche-vermessung`), parcels that host at least one element; ERP keys and further federal parcels from the RE-FX export (pending) | `land_parcels.geojson` |
+| Maintenance Polygon | GDB `Pflegeelement_polygon`; `site_fid` from the survey's object link, `parcel_fid` computed | `maintenance_polygons.geojson` |
+| Maintenance Point | GDB `Pflegeelement_point`; likewise | `maintenance_points.geojson` |
+| Care Profile, Care Task | GDB code lists plus the BBL standard | `care_profiles.json` |
+| Code lists | GDB field domains | `codelists.json` |
+| Actor, Assignment, Cost rate, Image, Land Cover, Building | not delivered | — |
 
 ---
 
@@ -143,68 +162,132 @@ primary key `fid`, UK = unique key, FK = foreign key); Type (basic format);
 Enum (enumeration constraining the value, see Section 5); and a short
 description. Foreign keys reference the parent's `fid`. Where an attribute is a
 foreign key in the target model but only a coarse code today, the Enum column
-names today's code list. The German source field names and the delivered
-`data.geojson` properties are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 2.
+names today's code list. The German source field names are in
+[`SOURCE-GDB.md`](SOURCE-GDB.md) Section 2.
 
-### 3.1 Site (Standort)
+### 3.1 Standort
 
-An operational collection of parcels, managed as one unit; mastered in the
-organisation's ERP / master-data system. Today the source fuses Site into the
-parcel feature.
+The unit of a maintenance tender: a named set of maintenance elements for
+which one party is responsible, as the BG defines it for its Ausschreibungen.
+The BG — and therefore this app — is its master. A Standort has no legal
+boundary: it may span several parcels, parts of parcels and ground the Bund
+does not own. It is not an ERP object either; its relation to business
+entities (Wirtschaftseinheiten) is derived through the parcels its elements
+stand on and is many-to-many.
 
-| Attribute | Key | Type | Enum | Description |
-|---|---|---|---|---|
-| fid | PK | integer | — | Feature id maintained by the app |
-| system_id | UK | string | — | Key in the master system (ERP / SAP); the object number, often alphanumeric (e.g. 2001) |
-| name | | string | — | Site name |
-| maintenance_class | | integer | idPk | Intensity tier, PK 1 to 3 |
-| district | | string | — | Operational region: DLZ 1 to 5; nationwide catch-all; legacy |
-| inspection | | integer | idJn | Inspection flag (yes / no) |
-| cleaning | | integer | idJn | Cleaning flag (yes / no) |
-| created_year | | integer | — | Year of construction |
-| surveyed_at | | date | — | Survey date |
-| remarks | | string | — | Free text |
-
-A Site has no address of its own; it is labelled by its primary Land Parcel
-(Section 3.2).
-
-### 3.2 Land Parcel (Grundstück)
-
-A legal parcel; geometry from the official cadastral survey, identity and
-ownership from the land registry. Not modelled separately yet, since it is
-fused into the parcel feature. Its address is split into components (tidy
-data); the authoritative address is the Building's (GWR).
+Its geometry is the **Pflegeperimeter** the surveyors drew for the tender
+plans. That outline is a plan frame, not a boundary: across the 73 Standorte
+the maintained polygons cover a median 39 % of it, it reaches onto streets and
+neighbouring parcels, and in three cases the maintained area exceeds it. It is
+kept for display (shown by default, switchable in the legend) and never used
+for area or cost figures. A representative point inside it is derived for
+markers and labels.
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
-| fid | PK | integer | — | Feature id maintained by the app |
-| egrid | UK | string | — | EGRID, the parcel's key in the land registry (master); absent today |
-| site_fid | FK | integer | — | Parent Site (Site.fid) |
-| parcel_number | | string | — | One cadastral number per parcel (the source concatenates several when fused) |
-| municipality_bfs | | integer | — | Municipality (BFS) number; not delivered |
-| address_street | | string | — | Street |
+| fid | PK | integer | — | Feature id maintained by the app (today the survey's object id) |
+| legacy_id | | string | — | The surveyors' object number (Objektnummer). Traceability only: not unique (one value appears twice), mixed formats (`2001BW`, `7282GR`, `TN 1086/5177`); often coincides with a business-entity number but is not an ERP key |
+| legacy_parcel_numbers | | string | — | The parcel number(s) the surveyors noted, verbatim. Superseded by the located parcels (Section 3.2); kept because 3 of 62 no longer match the cadastre |
+| name | | string | — | Standort name |
+| address_street | | string | — | Display address, street. The authoritative address is the Building's (GWR) |
 | address_house_number | | string | — | House number (may be alphanumeric) |
 | address_postal_code | | string | — | Postal code |
 | address_locality | | string | — | Town or city |
 | address_region | | string | — | Region or canton (state / province abroad) |
 | address_country | | string | — | Country (ISO 3166-1); the portfolio is worldwide |
-| owner | | integer | idEg | Coarse owner category today; conceptual ownership is the n:m relation to Owner (co-ownership), Section 3.8 |
-| responsible_actor_fid | FK | integer | idPv | Accountable party (Actor.fid); a coarse code today |
-| geometry | | geometry | — | Parcel polygon (MultiPolygon) |
+| maintenance_class | | integer | idPk | Intensity tier, PK 1 to 3 |
+| district | | string | — | Operational region: DLZ 1 to 5; nationwide catch-all; legacy |
+| inspection | | integer | idJn | Inspection flag (yes / no) |
+| cleaning | | integer | idJn | Cleaning flag (yes / no) |
+| owner | | integer | idEg | Owner category as surveyed per Standort (Bund / Dritte). Transitional: ownership is a parcel fact (Section 3.2) and will come from the ERP export and the land registry |
+| responsible_actor_fid | FK | integer | idPv | Accountable party as surveyed per Standort (Actor.fid); a coarse code today. Transitional, see Section 3.2 |
+| created_year | | integer | — | Year of construction. Strictly a building fact; kept for display |
+| surveyed_at | | date | — | Survey date |
+| remarks | | string | — | Free text |
+| geometry | | geometry | — | The Pflegeperimeter (MultiPolygon). Display only |
+| lv95_east, lv95_north | | double | — | Derived representative point inside the perimeter (LV95), for markers and labels |
+| perimeter_area_m2, perimeter_length_m | | double | — | Derived from the perimeter. Shown as "Standort m²"; not a maintained area |
+
+### 3.2 Land Parcel (Grundstück)
+
+One cadastral parcel (a Liegenschaft or a selbständiges und dauerndes Recht)
+as the land registry identifies it, with geometry from the official cadastral
+survey. The EGRID is its identity. The ERP keeps one land object per
+cadastral parcel and stores the EGRID on it, so the ERP key is a second unique
+key and the two systems join without any name or number matching. In
+practice the export is not perfectly 1:1: in the October 2026 list 13 of
+1 558 EGRIDs carry several objects — rights of use recorded beside the owned
+parcel (parking rental, ramps, light wells, pavement use), partial areas of
+one parcel, or plain duplicates. The join prefers the owned object (ownership
+type 1) and keeps the other keys in `erp_alternatives`, so `erp_id` stays one
+value per parcel. Rows that describe parking spaces are excluded, and rows
+without an EGRID — the whole portfolio abroad and some domestic rights — never
+join.
+
+The parcel list has two sources. The ERP export yields every parcel in the
+federal portfolio, owned or rented. The elements yield the parcels the BG
+maintains on without holding them — third-party ground such as street verges
+with Strassenbäume. A parcel is delivered when at least one element is located
+on it or the ERP lists it. Geometry is retrieved from the federal OpenData-AV
+service by EGRID (refresh, ERP parcels) or by location (first load); cantons
+that do not publish their survey as open data have no geometry in the app
+until a cantonal source is added (today: Vaud).
+
+| Attribute | Key | Type | Enum | Description |
+|---|---|---|---|---|
+| fid | PK | integer | — | Feature id maintained by the app; the numeric part of the EGRID, so it is stable across refreshes |
+| egrid | UK | string | — | EGRID, the parcel's key in the land registry (`CH` + 12 digits) |
+| erp_id | UK | string | — | The ERP land-object key, derived as `company_code/business_entity/object` (for example `1086/2000/01`). Unique because the ERP keeps one object per parcel. Null until the ERP export is joined |
+| erp_company_code | | string | — | ERP company code (Buchungskreis); component of `erp_id` |
+| erp_business_entity | | string | — | ERP business entity (Wirtschaftseinheit); component of `erp_id`; the finance grouping |
+| erp_object | | string | — | ERP object number within the business entity; component of `erp_id` |
+| erp_name | | string | — | The ERP object's designation (Bez. Grundstück), for display |
+| erp_ownership_type | | string | — | ERP ownership type code (Eigent.art): 1 observed on owned parcels, 3 on rented ground and rights of use, 5 on other rights; meaning to be confirmed with the ERP owners |
+| erp_historic_garden | | string | — | ERP historic-garden rating (Hist.Gart.), where set |
+| erp_alternatives | | string[] | — | Further ERP object keys recorded on the same EGRID (see above); null when the parcel has one object |
+| erp_match_method | | string | — | How the ERP key was found: `egrid` (key join), or `designation+address` for an ERP row without EGRID whose designation names this parcel number in this municipality and whose street matches a Standort on the parcel (applied only when unique) |
+| parcel_number | | string | — | Cadastral parcel number; unique only within its numbering area |
+| numbering_area | | string | — | Numbering area (Nummerierungsbereich, `identnd`); a municipality may have several |
+| municipality_bfs | | integer | — | Municipality (BFS) number |
+| municipality_name | | string | — | Municipality name, for display |
+| canton | | string | — | Canton abbreviation |
+| geoportal_url | | string | — | Link to the cantonal geoportal entry, where delivered |
+| owner | | integer | idEg | Coarse owner category; null until the ERP export (presence and object type) or the land registry supply it. Today's surveyed value sits on the Standort. Conceptual ownership is the n:m relation to Owner (co-ownership), Section 3.8 |
+| responsible_actor_fid | FK | integer | idPv | Accountable party (Actor.fid); null today, see Standort |
+| area_m2 | | double | — | Parcel area, computed in LV95 from the survey geometry |
+| perimeter_m | | double | — | Parcel perimeter, computed in LV95 |
+| geometry_source | | string | — | `av` (official survey, OpenData-AV) — the only value delivered |
+| fetched_at | | date | — | When the geometry was retrieved |
+| label_lon, label_lat | | double | — | Presentation only: label anchor, the pole of inaccessibility of the parcel, computed once in the pipeline (the map labels parcels with EGRID and `erp_id` there) |
+| geometry | | geometry | — | Parcel polygon (MultiPolygon), as surveyed |
+
+A parcel carries no address (addresses belong to buildings) and no Standort
+foreign key: the Standorte a parcel serves follow from the elements located on
+it, and a parcel can serve more than one.
 
 ### 3.3 Maintenance Element (Pflegeelement)
 
-A cared-for feature inside a parcel. Abstract: every element is either a
-Maintenance Polygon or a Maintenance Point. The two use different
-Care-Profile code lists (`idPPy` versus `idPP`); a subtype's `care_profile_fid`
-must point to a Care Profile in the matching code list.
+A cared-for feature. Abstract: every element is either a Maintenance Polygon
+or a Maintenance Point. The two use different Care-Profile code lists (`idPPy`
+versus `idPP`); a subtype's `care_profile_fid` must point to a Care Profile in
+the matching code list.
+
+Every element carries two independent links. `site_fid` is the **assigned**
+Standort: the tender unit whose party cares for the element, recorded by the
+surveyors. `parcel_fid` is the **located** parcel: the cadastral parcel the
+element stands on, computed by point-in-polygon against the survey geometry
+(a point by its coordinate, a polygon by an interior point) and recomputed
+whenever the cadastre changes. The first is an operational decision, the
+second a legal fact; one is never derived from the other.
 
 Shared attributes:
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
 | fid | PK | integer | — | Feature id maintained by the app |
-| parcel_fid | FK | integer | — | Parent Land Parcel (LandParcel.fid); today the fused Site |
+| site_fid | FK | integer | — | Assigned Standort (Standort.fid); null for elements the survey left unassigned |
+| parcel_fid | FK | integer | — | Located Land Parcel (LandParcel.fid); null where no survey geometry is available |
+| straddles_parcels | | boolean | — | Polygon only: its vertices fall into more than one parcel. Relevant once costs are split by owner |
 | care_profile_fid | FK | integer | — | Care Profile (CareProfile.fid) |
 | irrigation | | integer | idBw | Irrigation regime |
 | effort_factor | | double | — | Care-effort multiplier, 0.5 to 5.0 (weights tender cost) |
@@ -230,7 +313,7 @@ Maintenance Point (Pflegepunkt) adds:
 | geometry | | geometry | — | Point (Swiss-grid, centimetre precision) |
 | species_text | | string | — | Free-text species; its presence classifies the row as a tree |
 | species_code | | integer | idBa | Species code |
-| tree_number | | integer | — | Per-parcel tree number |
+| tree_number | | integer | — | Per-Standort tree number |
 | count | | integer | — | Number of items; the tender measure for point profiles (usually 1) |
 
 ### 3.4 Care Profile and Care Task (Pflegeprofil, Pflegemassnahme)
@@ -295,7 +378,7 @@ Actor:
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
 | fid | PK | integer | — | Feature id maintained by the app |
-| system_id | UK | string | — | Key in the ERP / directory (master), where available |
+| erp_id | UK | string | — | Business-partner key in the ERP or directory that masters the actor, where available |
 | name | | string | — | Organisation, crew or person |
 | kind | | string | — | organisation / crew / individual |
 
@@ -309,8 +392,10 @@ Assignment (one Actor working one element, scoped by task):
 | task | | string | — | Specific task scope, where applicable |
 
 Grain: one row per actor, element and scope. Today the source has neither
-Actor nor Assignment: just two coded attributes, responsibility on the parcel
+Actor nor Assignment: just two coded attributes, responsibility on the Standort
 (idPv) and execution on the element (idPd), a flat simplification of the above.
+The Standort itself already encodes one level of responsibility — the tender
+party — which is why the BG delimited its Standorte the way it did.
 
 ### 3.6 Cost rate (Einheitspreis, planned)
 
@@ -318,7 +403,9 @@ Planned, not yet implemented. The main use-case is data export for tenders: a
 bill of quantities lists, per Maintenance Element, the maintenance tasks to be
 priced. A Cost rate is the unit price for a Care Task. The tender position cost
 is derived: the element's measure (area or count) times the task
-`frequency_per_year` times `effort_factor` times `unit_price`.
+`frequency_per_year` times `effort_factor` times `unit_price`. Through the
+located parcel and its `erp_id`, every position also resolves to a business
+entity and company code for cost allocation.
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -333,9 +420,9 @@ is derived: the element's measure (area or count) times the task
 
 A picture attached to an entity, stored as a URL (not a blob); an entity may
 have several. Care Profiles carry illustrations from the standard that show
-what a profile is; Maintenance Elements and Sites carry field photos. The link
-is polymorphic: `subject_type` plus `subject_fid` name the entity the image
-belongs to.
+what a profile is; Maintenance Elements and Standorte carry field photos. The
+link is polymorphic: `subject_type` plus `subject_fid` name the entity the
+image belongs to.
 
 | Attribute | Key | Type | Enum | Description |
 |---|---|---|---|---|
@@ -349,15 +436,16 @@ belongs to.
 
 ### 3.8 Contextual entities
 
-Swiss cadastre and registers; not stored by the app, but the data
+Swiss cadastre, registers and the ERP; not stored by the app, but the data
 conceptually depends on them. They are keyed by their master identifier; the
 app assigns no `fid` to them.
 
 | Entity | Key | Master | Geometry | Notes |
 |---|---|---|---|---|
-| Owner (Eigentümer) | system_id | land registry | — | Ownership is recorded per parcel; a parcel may have several owners (co-ownership). The app keeps only a coarse code. |
-| Land Cover (Bodenbedeckung) | system_id | cadastral survey | Polygon | `cover_type` from the AV land-cover catalogue: building, paved, vegetation, water, forest, rock. Tiles every parcel. |
-| Building (Gebäude) | egid | building register + cadastral survey | Polygon (footprint) | Footprint is a Land-Cover polygon of type building. Relevant for green roofs and facades. |
+| ERP land object | erp_id (company code / business entity / object) | ERP | — | One per cadastral parcel; carries the EGRID. Its key components give the finance grouping (business entity) and legal entity (company code) of every parcel, and through the located parcel of every element. Not georeferenced. |
+| Owner (Eigentümer) | land-registry owner id | land registry | — | Ownership is recorded per parcel; a parcel may have several owners (co-ownership). The app keeps only a coarse code. |
+| Land Cover (Bodenbedeckung) | AV object id | cadastral survey | Polygon | `cover_type` from the AV land-cover catalogue: building, paved, vegetation, water, forest, rock. Tiles every parcel. |
+| Building (Gebäude) | egid | building register + cadastral survey | Polygon (footprint) | Footprint is a Land-Cover polygon of type building. Relevant for green roofs and facades, and the authority for addresses. |
 
 ---
 
@@ -369,53 +457,72 @@ sentinel code lists) are in [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 7.
 
 ### 4.1 Gaps to close
 
-- Model is two-level, not three. The source fuses Site and Land Parcel into
-  one layer, carries no EGRID, and reduces the parcel(s) to a free-text
-  `parzelle` (sometimes comma-separated). Closing it needs an EGRID-keyed Land
-  Parcel (from the land registry and cadastral survey) and an ERP-keyed Site
-  above it. Example: site 2001 (the collection "Bundeshäuser") versus 2001BG,
-  2001BH, 2001BW, 2001BN, 2001IG (its five parcels), all stored identically.
-- `fid` is positional today. The conversion assigns `id = array index`
-  ([`SOURCE-GDB.md`](SOURCE-GDB.md) Section 4), which changes on every run. A
-  stable `fid` (or a stable mapping from the source) is required before foreign
-  keys are dependable.
-- Address is delivered concatenated. The source carries one `adresse` string;
-  the model splits it into components on the Land Parcel (tidy data). The
-  authoritative address is the Building's (GWR).
-- Portfolio is worldwide. The Swiss cadastral keys (EGRID, EGID) and registers
-  (land registry, cadastral survey, GWR) apply only to domestic sites; sites
-  abroad (for example embassies) have no EGRID/EGID and use the local
-  equivalent or none. `address_country` distinguishes them.
-- Ownership is coarse and not n:m. `eigentuemer` (idEg) is a category code on
-  the fused feature; the model treats ownership as the n:m relation to Owner
-  (co-ownership) at parcel level. Accountability (`pflegeverantwortung`, idPv)
-  is likewise a coarse code, linked to an Actor.
+- ERP keys are loaded for the parcels the ERP knows. The October 2026
+  export joins by EGRID onto 83 inventory parcels and by designation and
+  address onto one more. The 52 parcels left without an `erp_id` appear in
+  the export under no key at all — no EGRID, no coordinate inside them, no
+  current or surveyed parcel number — so they are either federal parcels
+  missing from the ERP land-object list or ground the Bund does not hold;
+  which it is per parcel is being checked with the ERP data management.
+  Three of them belong to Standorte the surveyors flagged as third-party.
+  Owned federal parcels at the inventoried sites that host no element are
+  added from the export; the rest of the nationwide portfolio is out of scope
+  for this app. The export is internal data and stays outside the repository
+  (Section 6.3). The ownership-type codes still need confirmation before
+  `owner` is derived from them.
+- No parcel geometry for canton Vaud. The federal OpenData-AV service has no
+  coverage there, so the three Standorte in Nyon, Penthaz and Payerne have no
+  located parcels; their elements carry `parcel_fid = null` and the
+  Pflegeperimeter is their only outline. A cantonal source is required.
+- `fid` is positional for elements. The conversion assigns ids by array
+  position ([`SOURCE-GDB.md`](SOURCE-GDB.md) Section 4), which changes on every
+  run. Standorte use the survey's object id and parcels the EGRID, so those two
+  are stable; carrying the GDB object id onto elements would close the gap.
+- 32 elements have no assigned Standort. They could be assigned to the
+  Standort whose perimeter contains them, pending BG confirmation that the
+  perimeter reflects responsibility there.
+- The surveyors' parcel numbers are stale. Of the 62 Standorte with a value,
+  59 agree with the cadastre at the representative point and 3 do not
+  (renumbering since the survey). The located parcels replace them; the text is
+  kept on the Standort for traceability only.
+- Elements that straddle a parcel boundary. A hedge along a boundary is one
+  element on two parcels; today it is located on the parcel containing its
+  interior point and flagged. Costs split by owner will need either a majority
+  rule or an area split.
+- Ownership is coarse, surveyed per Standort, and not n:m. The model treats
+  ownership as a parcel fact and the n:m relation to Owner (co-ownership).
+  Accountability (`responsible_actor_fid`, idPv) is likewise a coarse code per
+  Standort.
 - No Actor entity or per-task assignment. Execution is a single coded value per
-  element (idPd); the model expects a many-to-many Assignment scoped by task, so one element can have several actors.
-- Care-Profile / Care-Task dataset now delivered, schedule still seeded from
-  code. `data/care_profiles.json` (business key `(code_list, code)`) holds one
-  record per profile with its tasks nested, and `care_profile_fid` is a foreign
-  key into it. But the schedule (task, frequency, material) is still authored in
-  frontend code (`CARE_CATALOG_*`) and seeded in, not sourced as data; and a
-  code-by-code crosswalk from the wider source code lists to the 33 standard
-  profiles (the categorisation drift below) is still open.
-- Images are not delivered. Care-Profile illustrations from the standard and
-  field photos of elements and sites are modelled (Section 3.7) but no image
-  URLs exist in the data yet.
-- Code lists are wider than the standard. The source has 44 `idPPy` and 22
-  `idPP` codes, but the standard defines 33 profiles (Section 5.1); the extras
-  have no chapter (the report flags them). Categorisation also drifts (for
-  example wild hedge sits under hedges in the app but under woody areas in the
-  standard). A code-by-code crosswalk from `(code_list, code)` to a standard
-  profile is the prerequisite for the dataset above.
-- Cost is planned, not implemented (Section 3.6). It is the data the tender
-  export ultimately needs; no pricing exists yet.
+  element (idPd); the model expects a many-to-many Assignment scoped by task.
+- Care-Profile / Care-Task dataset delivered, schedule still seeded from code.
+  `data/care_profiles.json` holds one record per profile with its tasks nested,
+  but the schedule (task, frequency, material) is authored in frontend code
+  (`CARE_CATALOG_*`) and seeded in; and the crosswalk from the wider source
+  code lists (44 `idPPy`, 22 `idPP`) to the 33 standard profiles is open.
+  Categorisation also drifts (for example wild hedge sits under hedges in the
+  app but under woody areas in the standard).
+- Images are not delivered. Illustrations and field photos are modelled
+  (Section 3.7) but no image URLs exist in the data yet.
+- Cost is planned, not implemented (Section 3.6).
+- Addresses are display values on the Standort. The authoritative address is
+  the Building's; the link to the GWR by EGID is not made.
+- The portfolio is worldwide. EGRID, EGID and the Swiss registers apply only
+  to domestic sites; sites abroad use the ERP key alone. `address_country`
+  distinguishes them. All 73 Standorte delivered today are in Switzerland.
 - `tree_canopy` is a misnomer; most are decorative circles, not crowns.
-  Renaming it (the delivered `entity_type`) is a backlog item.
+  Renaming the delivered `entity_type` is a backlog item.
 
 ### 4.2 Open design decisions
 
-- Maintenance class granularity. It is modelled at Site level because the
+- Does one tender equal one Standort on the ground? The surveyors defined the
+  Standorte as tender units, and the BG doubts that this mirrors who actually
+  maintains what. Revising Standort boundaries is a BG decision; the model
+  does not depend on it, because elements, not perimeters, define scope.
+- Parcels serving several Standorte. Such a parcel is one row with several
+  derived memberships; the table shows the Standort with most elements on it.
+  Whether tender positions should instead be grouped by parcel owner is open.
+- Maintenance class granularity. It is modelled at Standort level because the
   source barely sets it on individual elements; per-element classes would
   need a real source.
 - No linear feature subtype. The source reserves an empty `idPL` code list for
@@ -483,7 +590,7 @@ open item (Section 4).
 ### 5.2 Operational and cadastral enumerations
 
 The coded attributes in Section 3 draw on these code lists. Full tables are
-embedded in `data.geojson` (`metadata.codelists`); the source detail is in
+delivered in `data/codelists.json`; the source detail is in
 [`SOURCE-GDB.md`](SOURCE-GDB.md) Section 3.
 
 Maintenance class (`idPk`) — backs `maintenance_class`:
@@ -551,7 +658,7 @@ Winter service (`Winterdienst`) — backs `winter_service`:
 | 2 | walkway, about 2 m wide | Gehweg, ca. 2 m breit |
 
 Tree species (`idBa`) — backs `species_code`: 430 entries (Latin / German);
-not listed here — see `metadata.codelists.idBa`.
+not listed here — see `codelists.json`, domain `idBa`.
 
 Land cover (`cover_type`) — backs Land Cover: the AV land-cover catalogue
 (building, paved, vegetation, water, forest, rock, and so on).
@@ -569,35 +676,44 @@ Section 2 flowchart is the readable summary of this):
 classDiagram
     direction LR
 
-    class Site {
+    class Standort {
         +fid [PK]
-        +system_id [UK]
+        +legacy_id
         +name
-        +maintenance_class
-        +district
-        +inspection
-        +cleaning
-    }
-    class LandParcel {
-        +fid [PK]
-        +egrid [UK]
-        +site_fid [FK]
-        +parcel_number
-        +municipality_bfs
         +address_street
         +address_house_number
         +address_postal_code
         +address_locality
         +address_region
         +address_country
+        +maintenance_class
+        +district
+        +inspection
+        +cleaning
         +owner
         +responsible_actor_fid [FK]
+        +geometry : MultiPolygon (Pflegeperimeter)
+    }
+    class LandParcel {
+        +fid [PK]
+        +egrid [UK]
+        +erp_id [UK]
+        +erp_company_code
+        +erp_business_entity
+        +erp_object
+        +parcel_number
+        +numbering_area
+        +municipality_bfs
+        +canton
+        +owner
+        +area_m2
         +geometry : MultiPolygon
     }
     class MaintenanceElement {
         <<abstract>>
         +fid [PK]
-        +parcel_fid [FK]
+        +site_fid [FK] assigned
+        +parcel_fid [FK] located
         +care_profile_fid [FK]
         +irrigation
         +effort_factor
@@ -611,6 +727,7 @@ classDiagram
         +winter_service
         +crown_radius
         +crown_diameter
+        +straddles_parcels
     }
     class MaintenancePoint {
         +geometry : Point
@@ -646,7 +763,7 @@ classDiagram
     }
     class Actor {
         +fid [PK]
-        +system_id [UK]
+        +erp_id [UK]
         +name
         +kind
     }
@@ -665,13 +782,18 @@ classDiagram
         +role
         +sort_order
     }
+    class ERPLandObject {
+        <<external>>
+        +erp_id [UK]
+        +egrid
+    }
     class Owner {
         <<external>>
-        +system_id [UK]
+        +owner_id [UK]
     }
     class LandCover {
         <<external>>
-        +system_id [UK]
+        +av_id [UK]
         +cover_type
         +geometry : Polygon
     }
@@ -681,8 +803,9 @@ classDiagram
         +geometry : Polygon (footprint)
     }
 
-    Site "1" --> "1..*" LandParcel : contains
-    LandParcel "1" --> "0..*" MaintenanceElement : contains
+    Standort "1" --> "0..*" MaintenanceElement : assigned
+    LandParcel "0..1" --> "0..*" MaintenanceElement : locates
+    Standort "0..*" .. "0..*" LandParcel : spans (derived)
     MaintenanceElement <|-- MaintenancePolygon
     MaintenanceElement <|-- MaintenancePoint
     CareProfile "1" --> "0..*" MaintenanceElement : classifies
@@ -692,36 +815,56 @@ classDiagram
     MaintenanceElement "1" --> "0..*" Assignment : worked by
     CareProfile "0..1" --> "0..*" Image : illustrated by
     MaintenanceElement "0..1" --> "0..*" Image : documented by
-    %% Image link is polymorphic (subject_type + subject_fid); also Site, Building
+    %% Image link is polymorphic (subject_type + subject_fid); also Standort, Building
     Actor "0..1" --> "0..*" LandParcel : accountable for
+    ERPLandObject "1" --> "1" LandParcel : records
     Owner "1..*" --> "1..*" LandParcel : owns
     Building "0..1" --> "1" LandCover : footprint
     Building "0..*" --> "1..*" LandParcel : stands on
     LandParcel "1..*" --> "1..*" LandCover : covered by
 ```
 
-### 6.2 Standards
+### 6.2 Standards and sources
 
 - BBL green-space maintenance standard (Standard Grünflächenunterhalt, 2020),
   by EFD / BBL / Bundesgärtnerei. The Care-Profile authority (Section 5.1);
   profiles are based on the VSSG catalogue (Association of Swiss Municipal
   Parks Departments), adapted by nateco, with 2020 biodiversity revisions.
 - Official cadastral survey (Amtliche Vermessung, AV): source of Land Parcel
-  boundaries and Land Cover.
+  boundaries and Land Cover. Delivered to the app through the federal
+  OpenData-AV service on api3.geo.admin.ch (layer
+  `ch.swisstopo-vd.amtliche-vermessung`, attribution "AV", cadastre.ch),
+  which covers the cantons that publish their survey as open data.
 - Land registry (Grundbuch): EGRID and ownership. Building and dwelling
   register (GWR): EGID and authoritative addresses.
+- ERP real-estate module (SAP RE-FX at the federal administration): the land
+  object per parcel, keyed by company code / business entity / object number,
+  carrying the EGRID.
 - RFC 7946: GeoJSON (output format).
 - Coordinate systems: LV95 (`EPSG:2056`), LV03 (`EPSG:21781`),
   WGS84 (`EPSG:4326`).
 
-### 6.3 Output file structure
+### 6.3 Delivered file structure
 
-Single file [`data/data.geojson`](../data/data.geojson): an RFC 7946
-`FeatureCollection` (WGS84, right-hand winding, no `crs` member). Key
-`metadata` members: `attribution`, `extracted_at`, `src_crs` / `out_crs`,
-`transform_accuracy_m`, `codelists`, `counts`, `fk_profil_values`. Every
-feature carries `entity_type`, `feature_type`, `subtype`, `source`, `area_m2`,
-the `site_*` context block, and Swiss-grid `lv95_*` coordinates.
+The app loads the per-entity files in [`data/`](../data/) and joins them in
+the browser (`js/data.js`). All GeoJSON is RFC 7946 (WGS84, right-hand
+winding, no `crs` member).
+
+| File | Entity | Produced by |
+|---|---|---|
+| `sites.geojson` | Standort (attributes, Pflegeperimeter, representative point) | `scripts/split_entities.mjs` from `data.geojson` |
+| `land_parcels.geojson` | Land Parcel (survey geometry, EGRID; ERP keys when the export is present) | `scripts/fetch_parcels.mjs` from OpenData-AV, located by the elements in `data.geojson` |
+| `maintenance_polygons.geojson` | Maintenance Polygon (`site_fid` assigned, `parcel_fid` located) | `scripts/split_entities.mjs` |
+| `maintenance_points.geojson` | Maintenance Point (likewise) | `scripts/split_entities.mjs` |
+| `care_profiles.json` | Care Profile with nested Care Tasks | `scripts/split_entities.mjs` |
+| `codelists.json` | the 17 GDB field domains | `scripts/split_entities.mjs` |
+| `_manifest.json` | counts and provenance of the above | `scripts/split_entities.mjs` |
+| ERP export (outside the repository) | optional input: the ERP real-estate list of land objects, either the RE-FX list print (BuKr, WE, Grundstk, Bez. Grundstück, L/R, Rg, E-GRID, Eigent.art, Hist.Gart.) or a delimited file (`egrid`, `company_code`, `business_entity`, `object`, …); passed as `--erp <path>`, never committed | provided by BBL; read by `fetch_parcels.mjs` |
+| `data.geojson` | upstream: the converted survey GDB (Section 4 of [`SOURCE-GDB.md`](SOURCE-GDB.md)) | `scripts/gdb_to_geojson.py` |
+
+Pipeline order: `gdb_to_geojson.py` → `fetch_parcels.mjs` → `split_entities.mjs`.
+The fetch step is the only one that needs the network; its output is committed
+so the app and the split stay reproducible offline.
 
 ### 6.4 Terminology (EN to DE)
 
@@ -730,8 +873,9 @@ follows (profile names are in Section 5.1).
 
 | EN | DE |
 |---|---|
-| Site | Standort |
+| Standort (site) | Standort |
 | Land Parcel | Grundstück |
+| Maintenance perimeter | Pflegeperimeter |
 | Maintenance Element | Pflegeelement |
 | Maintenance Polygon | Pflegepolygon |
 | Maintenance Point | Pflegepunkt |
@@ -745,6 +889,10 @@ follows (profile names are in Section 5.1).
 | Owner | Eigentümer |
 | Land Cover | Bodenbedeckung |
 | Building | Gebäude |
+| ERP land object | Grundstück (ERP) |
+| Business entity | Wirtschaftseinheit |
+| Company code | Buchungskreis |
+| Numbering area | Nummerierungsbereich |
 | Maintenance class | Pflegeklasse |
 | Responsibility | Pflegeverantwortung |
 | Execution | Pflegedurchführung |
@@ -761,12 +909,14 @@ follows (profile names are in Section 5.1).
 
 Abbreviations: EGRID (federal parcel id); EGID (federal building id, from the
 GWR); AV (cadastral survey); BBL (Federal Office for Buildings and Logistics);
-DLZ (regional service centre); PK (maintenance class).
+DLZ (regional service centre); PK (maintenance class); BFS (Federal
+Statistical Office, issuer of municipality numbers).
 
 ### 6.5 Links & literature
 
 - Swiss geodata portal: <https://geo.admin.ch> (cadastral survey, imagery,
-  cadastre).
+  cadastre). OpenData-AV service: <https://api3.geo.admin.ch> (REST, layer
+  `ch.swisstopo-vd.amtliche-vermessung`); cadastre: <https://www.cadastre.ch>.
 - GeoJSON, RFC 7946: <https://www.rfc-editor.org/rfc/rfc7946>.
 - Source GDB and conversion pipeline: [`SOURCE-GDB.md`](SOURCE-GDB.md).
 - VSSG (Association of Swiss Municipal Parks Departments): basis of the

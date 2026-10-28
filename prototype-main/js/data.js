@@ -3,16 +3,18 @@
 // assemble the in-memory FeatureCollection the app renders from.
 //
 // The normalized files are the single source of truth:
-//   data/sites.json                  Site            (reference)
-//   data/land_parcels.geojson        Land Parcel     (polygon, FK → site)
-//   data/maintenance_polygons.geojson Maintenance Polygon (FK → parcel, profile)
-//   data/maintenance_points.geojson  Maintenance Point   (FK → parcel, profile)
+//   data/sites.geojson               Standort        (attributes + Pflegeperimeter)
+//   data/land_parcels.geojson        Land Parcel     (cadastral polygon, EGRID)
+//   data/maintenance_polygons.geojson Maintenance Polygon (site assigned, parcel located, profile)
+//   data/maintenance_points.geojson  Maintenance Point   (site assigned, parcel located, profile)
 //   data/care_profiles.json          Care Profile + nested Care Tasks
 //   data/codelists.json              17 field-domain codelists (decode codes)
 //
 // assembleInventory() does every join + codelist decode ONCE, here, producing
-// the six entity_type features (site, area, tree_canopy, tree, point,
-// site_location) the map/table/report consume.  No denormalized data is read
+// the seven entity_type features (site, parcel, area, tree_canopy, tree, point,
+// site_location) the map/table/report consume.  Elements carry their assigned
+// Standort (site_fid) and their located cadastral parcel (parcel_fid); the
+// Standort–parcel relation is derived from the elements, never stored.  No denormalized data is read
 // from disk — it is all derived from the normalized records.
 //
 // Actor / Assignment and the execution party (Pflege durch) are intentionally
@@ -38,25 +40,26 @@ function lv95ToWgs84(E, N) {
   return [lamSec * 100 / 36, phiSec * 100 / 36];
 }
 
-// Display address for a parcel.  Prefer the verbatim source string carried by
-// the split (address_full); fall back to rejoining the tidy components.  The
-// parsed components are best-effort for concatenated multi-parcel addresses,
+// Display address for a Standort.  Prefer the verbatim source string carried
+// by the split (address_full); fall back to rejoining the tidy components.  The
+// parsed components are best-effort for concatenated multi-building addresses,
 // so the verbatim string is the faithful display value.
-function _parcelAddress(pa) {
-  if (pa.address_full != null && pa.address_full !== '') return pa.address_full;
-  const line1 = [pa.address_street, pa.address_house_number].filter(Boolean).join(' ');
-  const line2 = [pa.address_postal_code, pa.address_locality].filter(Boolean).join(' ');
+function _siteAddress(sa) {
+  if (sa.address_full != null && sa.address_full !== '') return sa.address_full;
+  const line1 = [sa.address_street, sa.address_house_number].filter(Boolean).join(' ');
+  const line2 = [sa.address_postal_code, sa.address_locality].filter(Boolean).join(' ');
   const out = [line1, line2].filter(Boolean).join(', ');
   return out || null;
 }
 
 // Per-entity-type display constants (mirror the old conversion's derived fields).
 const _FEATURE_TYPE = {
-  site: 'Standort', site_location: 'Standort', area: 'Pflegefläche',
+  site: 'Standort', site_location: 'Standort', parcel: 'Grundstück', area: 'Pflegefläche',
   tree_canopy: 'Baumkrone', tree: 'Baum', point: 'Punktelement',
 };
 const _SOURCE_TAG = {
-  site: 'GDB:Objekt', site_location: 'GDB:Objekt (centroid)',
+  site: 'GDB:Objekt (Pflegeperimeter)', site_location: 'GDB:Objekt (centroid)',
+  parcel: 'AV: Amtliche Vermessung (OpenData-AV, cadastre.ch)',
   area: 'GDB:Pflegeelement_polygon', tree_canopy: 'GDB:Pflegeelement_polygon (circle)',
   tree: 'GDB:Pflegeelement_point', point: 'GDB:Pflegeelement_point',
 };
@@ -84,84 +87,114 @@ function assembleInventory(stores) {
     if (pr.style && styleIndex[pr.code_list]) styleIndex[pr.code_list][pr.code] = pr.style;
   }
   if (typeof globalThis !== 'undefined') globalThis.PROFILE_STYLES = styleIndex;
-  const siteById = {};
-  for (const s of sites) siteById[s.fid] = s;
-  const parcelById = {};
-  const addrByParcelFid = {};           // computed once per parcel, reused below
-  for (const pf of parcels.features) {
-    parcelById[pf.properties.fid] = pf;
-    addrByParcelFid[pf.properties.fid] = _parcelAddress(pf.properties);
-  }
 
-  // Site context resolved through element → parcel → site.
-  const siteCtxOfParcel = (parcelFid) => {
-    const pf = parcelFid == null ? null : parcelById[parcelFid];
-    if (!pf) return { site_oid: null, site_name: null, site_objektnummer: null,
-                      site_adresse: null, site_lose: null };
-    const s = siteById[pf.properties.site_fid] || {};
+  // Standorte: a FeatureCollection (sites.geojson) — attributes + perimeter.
+  const siteFeats = (sites && sites.features) ? sites.features : [];
+  const siteById = {};
+  const addrBySite = {};                  // computed once per Standort, reused below
+  for (const sf of siteFeats) {
+    siteById[sf.properties.fid] = sf.properties;
+    addrBySite[sf.properties.fid] = _siteAddress(sf.properties);
+  }
+  // Cadastral parcels (land_parcels.geojson) — may be empty when not fetched.
+  const parcelFeats = (parcels && parcels.features) ? parcels.features : [];
+  const parcelById = {};
+  for (const pf of parcelFeats) parcelById[pf.properties.fid] = pf.properties;
+
+  // Standort context of an element, through its ASSIGNED site_fid.
+  const siteCtx = (siteFid) => {
+    const s = siteFid == null ? null : siteById[siteFid];
+    if (!s) return { site_oid: null, site_name: null, site_objektnummer: null,
+                     site_adresse: null, site_lose: null };
     return {
-      site_oid: pf.properties.site_fid ?? null,
+      site_oid: s.fid,
       site_name: s.name ?? null,
-      site_objektnummer: s.system_id ?? null,
-      site_adresse: addrByParcelFid[parcelFid] ?? null,
+      site_objektnummer: s.legacy_id ?? null,
+      site_adresse: addrBySite[s.fid] ?? null,
       site_lose: s.district ?? null,
+    };
+  };
+  // Cadastral context of an element, through its LOCATED parcel_fid.
+  const parcelCtx = (parcelFid) => {
+    const pa = parcelFid == null ? null : parcelById[parcelFid];
+    if (!pa) return { parcel_fid: null, egrid: null, parcel_number: null,
+                      municipality_name: null, canton: null, erp_id: null };
+    return {
+      parcel_fid: pa.fid,
+      egrid: pa.egrid ?? null,
+      parcel_number: pa.parcel_number ?? null,
+      municipality_name: pa.municipality_name ?? null,
+      canton: pa.canton ?? null,
+      erp_id: pa.erp_id ?? null,
     };
   };
 
   const features = [];
 
-  // ── Sites (parcel polygon carries the geometry) ────────────────────────────
+  // ── Standorte (perimeter polygon) + centroid render-aid ───────────────────
   const siteLocations = [];
-  for (const pf of parcels.features) {
-    const pa = pf.properties;
-    const s = siteById[pa.site_fid] || {};
-    const addr = addrByParcelFid[pa.fid];
+  for (const sf of siteFeats) {
+    const s = sf.properties;
+    const addr = addrBySite[s.fid];
     const base = {
-      objectid: s.fid ?? null, site_oid: s.fid ?? null,
-      objektnummer: s.system_id ?? null, site_objektnummer: s.system_id ?? null,
+      objectid: s.fid, site_oid: s.fid,
+      objektnummer: s.legacy_id ?? null, site_objektnummer: s.legacy_id ?? null,
       name: s.name ?? null, site_name: s.name ?? null,
       adresse: addr, site_adresse: addr,
-      parzelle: pa.parcel_number ?? null,
+      parzelle: s.legacy_parcel_numbers ?? null,
       lose: s.district ?? null, site_lose: s.district ?? null,
       erstellungsjahr: s.created_year ?? null,
       erfassungsdatum: s.surveyed_at ?? null,
       bemerkung: s.remarks ?? null,
-      shape_length_m: pa.perimeter ?? null, shape_area_m2: pa.area_m2 ?? null,
+      shape_length_m: s.perimeter_length_m ?? null, shape_area_m2: s.perimeter_area_m2 ?? null,
       pflegeklasse: decode('idPk', s.maintenance_class),
-      eigentuemer: decode('idEg', pa.owner),
-      pflegeverantwortung: decode('idPv', pa.responsible_actor_fid),
+      eigentuemer: decode('idEg', s.owner),
+      pflegeverantwortung: decode('idPv', s.responsible_actor_fid),
       kontrolle: decode('idJn', s.inspection),
       reinigung: decode('idJn', s.cleaning),
       fk_pflegeklasse_raw: s.maintenance_class ?? null,
-      fk_eigentuemer_raw: pa.owner ?? null,
-      fk_pflegeverantwortung_raw: pa.responsible_actor_fid ?? null,
+      fk_eigentuemer_raw: s.owner ?? null,
+      fk_pflegeverantwortung_raw: s.responsible_actor_fid ?? null,
       kontrolle_raw: s.inspection ?? null, reinigung_raw: s.cleaning ?? null,
-      lv95_east_centroid: pa.lv95_east ?? null, lv95_north_centroid: pa.lv95_north ?? null,
-      area_m2: pa.area_m2 ?? null,
+      lv95_east_centroid: s.lv95_east ?? null, lv95_north_centroid: s.lv95_north ?? null,
+      area_m2: s.perimeter_area_m2 ?? null,
     };
-    features.push({ type: 'Feature', geometry: pf.geometry, properties: {
+    features.push({ type: 'Feature', geometry: sf.geometry, properties: {
       ...base, entity_type: 'site', category: 'site_boundary',
-      feature_type: _FEATURE_TYPE.site, subtype: 'Standortfläche', source: _SOURCE_TAG.site } });
+      feature_type: _FEATURE_TYPE.site, subtype: 'Pflegeperimeter', source: _SOURCE_TAG.site } });
 
     // Centroid render-aid (red site marker); reprojected from stored LV95.
-    if (pa.lv95_east != null && pa.lv95_north != null) {
-      const [lng, lat] = lv95ToWgs84(pa.lv95_east, pa.lv95_north);
+    if (s.lv95_east != null && s.lv95_north != null) {
+      const [lng, lat] = lv95ToWgs84(s.lv95_east, s.lv95_north);
       siteLocations.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] },
         properties: { ...base, entity_type: 'site_location', category: 'site_location',
-          feature_type: _FEATURE_TYPE.site_location, subtype: 'Standortfläche',
+          feature_type: _FEATURE_TYPE.site_location, subtype: 'Standort',
           source: _SOURCE_TAG.site_location } });
     }
   }
 
+  // Elements per parcel (for the parcel rows below): total and per Standort.
+  const perParcel = {};                   // parcel_fid -> { n, bySite: { site_fid: n } }
+  const noteParcel = (parcelFid, siteFid) => {
+    if (parcelFid == null) return;
+    const agg = perParcel[parcelFid] || (perParcel[parcelFid] = { n: 0, bySite: {} });
+    agg.n += 1;
+    if (siteFid != null) agg.bySite[siteFid] = (agg.bySite[siteFid] || 0) + 1;
+  };
+
   // ── Maintenance polygons → area | tree_canopy ──────────────────────────────
   const areaProfileCodes = new Set();
+  const elementFeatures = [];
   for (const f of polygons.features) {
     const g = f.properties;
     const et = g.crown_radius != null ? 'tree_canopy' : 'area';
     const pr = g.care_profile_fid != null ? profById[g.care_profile_fid] : null;
     if (pr) areaProfileCodes.add(pr.code);
+    noteParcel(g.parcel_fid, g.site_fid);
     const props = {
-      ...siteCtxOfParcel(g.parcel_fid),
+      ...siteCtx(g.site_fid),
+      ...parcelCtx(g.parcel_fid),
+      straddles_parcels: g.straddles_parcels ?? null,
       fk_profil: pr ? pr.code : null, profil_label: pr ? pr.label : null,
       aufwandsfaktor: g.effort_factor ?? null,
       bewaesserung: g.irrigation ?? null, bewaesserung_label: decode('idBw', g.irrigation),
@@ -178,7 +211,7 @@ function assembleInventory(stores) {
       source: _SOURCE_TAG[et],
     };
     if (g._link_status) props._link_status = g._link_status;
-    features.push({ type: 'Feature', geometry: f.geometry, properties: props });
+    elementFeatures.push({ type: 'Feature', geometry: f.geometry, properties: props });
   }
 
   // ── Maintenance points → tree | point ──────────────────────────────────────
@@ -187,8 +220,10 @@ function assembleInventory(stores) {
     const isTree = (g.species_text != null && g.species_text !== '') || g.species_code != null;
     const et = isTree ? 'tree' : 'point';
     const pr = g.care_profile_fid != null ? profById[g.care_profile_fid] : null;
+    noteParcel(g.parcel_fid, g.site_fid);
     const props = {
-      ...siteCtxOfParcel(g.parcel_fid),
+      ...siteCtx(g.site_fid),
+      ...parcelCtx(g.parcel_fid),
       fk_profil: pr ? pr.code : null, profil_label: pr ? pr.label : null,
       aufwandsfaktor: g.effort_factor ?? null,
       bewaesserung: g.irrigation ?? null, bewaesserung_label: decode('idBw', g.irrigation),
@@ -204,9 +239,51 @@ function assembleInventory(stores) {
       source: _SOURCE_TAG[et],
     };
     if (g._link_status) props._link_status = g._link_status;
-    features.push({ type: 'Feature', geometry: f.geometry, properties: props });
+    elementFeatures.push({ type: 'Feature', geometry: f.geometry, properties: props });
   }
 
+  // ── Cadastral parcels (Grundstücke) ────────────────────────────────────────
+  // Standort context = the Standort with most elements on the parcel (for the
+  // filter and the table); every Standort it serves is listed in site_names.
+  for (const pf of parcelFeats) {
+    const pa = pf.properties;
+    const agg = perParcel[pa.fid] || { n: 0, bySite: {} };
+    const ranked = Object.entries(agg.bySite).sort((a, b) => b[1] - a[1]);
+    const primary = ranked.length ? Number(ranked[0][0]) : null;
+    const names = ranked.map(([sid]) => (siteById[sid] || {}).name).filter(Boolean);
+    const muni = pa.municipality_name || (pa.municipality_bfs != null ? 'BFS ' + pa.municipality_bfs : null);
+    features.push({ type: 'Feature', geometry: pf.geometry, properties: {
+      ...siteCtx(primary),
+      site_names: names.length ? names.join(' · ') : null,
+      parcel_fid: pa.fid,
+      egrid: pa.egrid ?? null,
+      parcel_number: pa.parcel_number ?? null,
+      numbering_area: pa.numbering_area ?? null,
+      municipality_bfs: pa.municipality_bfs ?? null,
+      municipality_name: pa.municipality_name ?? null,
+      canton: pa.canton ?? null,
+      geoportal_url: pa.geoportal_url ?? null,
+      erp_id: pa.erp_id ?? null,
+      erp_company_code: pa.erp_company_code ?? null,
+      erp_business_entity: pa.erp_business_entity ?? null,
+      erp_object: pa.erp_object ?? null,
+      erp_name: pa.erp_name ?? null,
+      erp_ownership_type: pa.erp_ownership_type ?? null,
+      erp_historic_garden: pa.erp_historic_garden ?? null,
+      erp_alternatives: Array.isArray(pa.erp_alternatives) && pa.erp_alternatives.length ? pa.erp_alternatives.join(', ') : null,
+      eigentuemer: decode('idEg', pa.owner), fk_eigentuemer_raw: pa.owner ?? null,
+      area_m2: pa.area_m2 ?? null, shape_length_m: pa.perimeter_m ?? null,
+      element_count: agg.n,
+      geometry_source: pa.geometry_source ?? null, fetched_at: pa.fetched_at ?? null,
+      label_lon: pa.label_lon ?? null, label_lat: pa.label_lat ?? null,
+      entity_type: 'parcel', category: 'parcel',
+      feature_type: _FEATURE_TYPE.parcel,
+      subtype: [muni, pa.parcel_number ? 'Nr. ' + pa.parcel_number : null].filter(Boolean).join(' ') || null,
+      source: _SOURCE_TAG.parcel,
+    } });
+  }
+
+  for (const ef of elementFeatures) features.push(ef);
   // Centroid markers go last (matches the old site → … → site_location order).
   for (const sl of siteLocations) features.push(sl);
 
@@ -220,16 +297,25 @@ function assembleInventory(stores) {
   };
   for (const f of features) if (f.geometry) scan(f.geometry.coordinates);
 
+  const parcelMeta = (parcels && parcels.metadata) || {};
   return {
     type: 'FeatureCollection',
     bbox: isFinite(minLon) ? [minLon, minLat, maxLon, maxLat] : undefined,
     metadata: {
-      source: 'normalized entity files (data/*.json, *.geojson)',
+      source: 'normalized entity files (data/*.geojson, *.json)',
       attribution: DATA_ATTRIBUTION,
       license: DATA_LICENSE,
       out_crs: 'EPSG:4326 (WGS84, RFC 7946)',
       codelists,
       fk_profil_values: [...areaProfileCodes].sort((a, b) => a - b),
+      parcels: { count: parcelFeats.length, source: parcelMeta.source || null,
+                 attribution: parcelMeta.attribution || null, fetched_at: parcelMeta.fetched_at || null,
+                 uncovered_sites: parcelMeta.uncovered_sites || [] },
+      // Shown by MapLibre's attribution control (basemap licence terms require
+      // the cadastral-survey credit whenever parcels are drawn).
+      attribution_html: parcelFeats.length
+        ? '© BBL – Bundesgärtnerei · Grundstücke: <a href="https://www.cadastre.ch/de" target="_blank" rel="noopener">AV, cadastre.ch</a>'
+        : '© BBL – Bundesgärtnerei',
     },
     features,
   };
@@ -257,5 +343,5 @@ async function loadInventory(files) {
 
 // Node test hook (ignored in the browser).
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { assembleInventory, loadInventory, _parcelAddress, lv95ToWgs84 };
+  module.exports = { assembleInventory, loadInventory, _siteAddress, lv95ToWgs84 };
 }
