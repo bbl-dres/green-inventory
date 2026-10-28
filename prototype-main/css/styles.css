@@ -386,6 +386,26 @@ html, body {
 /* Width: never wider than the map minus a margin (cqw = #map width). */
 .maplibregl-popup { max-width: min(320px, calc(100cqw - 24px)) !important; }
 .maplibregl-popup.identify-popup { max-width: min(380px, calc(100cqw - 24px)) !important; }
+/* Docked popups: the feature card and the identify card sit in the map's
+   top-right corner — left of the control stack, below the prototype pill —
+   instead of hanging off the clicked point, so the selected geometry stays
+   visible.  MapLibre positions popups with an inline transform; !important
+   wins over it.  The tip makes no sense without an anchor. */
+.maplibregl-popup.docked {
+  top: 44px !important; bottom: auto !important;
+  left: auto !important; right: calc(var(--ctrl-h) + 24px) !important;
+  transform: none !important;
+}
+.maplibregl-popup.docked .maplibregl-popup-tip { display: none; }
+/* Short maps (table open): the card must end above the basemap button in the
+   bottom-right corner, so the body cap is tighter than for anchored popups. */
+.maplibregl-popup.docked .pu-body,
+.maplibregl-popup.docked .ext-popup { max-height: clamp(96px, calc(100cqh - 250px), 380px); }
+/* Narrow map: the zoom group is hidden (see the container queries below) and
+   only the Home / 3D pair remains top-right — dock the card beneath it. */
+@container map (max-width: 480px) {
+  .maplibregl-popup.docked { right: 12px !important; top: calc(2 * var(--ctrl-h) + 28px) !important; }
+}
 .maplibregl-popup-content {
   padding: 0; border-radius: var(--radius); overflow: hidden;
   box-shadow: 0 4px 20px rgba(0,0,0,.16); font-size: var(--text-sm);

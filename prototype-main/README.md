@@ -22,6 +22,7 @@ The repository root [`/`](https://bbl-dres.github.io/green-inventory/) redirects
 - **2D / 3D toggle** — camera pitches to 60°; OSM building footprints extrude (via [OpenFreeMap](https://openfreemap.org) `render_height`, 8 m default); each tree renders as a 12-gon cylinder.
 - **Home button** resets to the data bbox; full-screen zoom range to z22.
 - **Identify on click** for external swisstopo layers via the federal MapServer API; results returned as GeoJSON in LV95 and re-projected client-side.
+- **Grundstücke** (cadastral parcels) from the official cadastral survey — Amtliche Vermessung via the federal OpenData-AV service, keyed by EGRID — as a dashed layer, labelled from zoom 16 with the EGRID and, where matched, the ERP key at each parcel's pole of inaccessibility; the surveyors' Standort perimeters (Pflegeperimeter) are drawn as well and can be hidden in the legend.
 
 ### Legend (left drawer)
 - **BBL Standard Grünflächenunterhalt profile grouping** — Rasen / Wiesen / Rabatten / Hecken / Gehölzflächen / Spezielle Bepflanzungsformen / Beläge / Wasserflächen / Anderes, plus Baum / Spezielle Bepflanzungsformen (Punkt) / Kleinstrukturen.
@@ -33,7 +34,7 @@ The repository root [`/`](https://bbl-dres.github.io/green-inventory/) redirects
 - Search-within-filters auto-expands matching groups; per-group active-count chip; "Alle zurücksetzen" link.
 
 ### Table panel
-- **Standorte / Pflegeelemente tabs** — segmented control filters the table to sites only (73) or maintenance elements only (~6 000: polygons + points); per-tab column-visibility defaults.
+- **Standorte / Grundstücke / Pflegeelemente tabs** — segmented control filters the table to sites (73), cadastral parcels (153) or maintenance elements (~6 000: polygons + points); per-tab column-visibility defaults.
 - Search, sort, configurable columns, 100/200/500 rows-per-page pagination, CSV / GeoJSON / Excel export (all data or filtered set).
 - Selecting a row pans the map and opens its popup; row hover highlights the feature on the map.
 
@@ -61,10 +62,16 @@ The **data model** (conceptual model, output schema, Care-Profile catalogue, ter
 
 ### Per-entity files (what the app loads)
 
-The frontend no longer reads `data.geojson` directly. [`scripts/split_entities.mjs`](scripts/split_entities.mjs) splits it into one file per data-model entity in [`data/`](data/) — `sites.json`, `land_parcels.geojson`, `maintenance_polygons.geojson`, `maintenance_points.geojson`, `care_profiles.json` (Care Tasks nested), plus `codelists.json`. At load time [`js/data.js`](js/data.js) fetches these, joins them (element → parcel → site, element → Care Profile) and decodes the codelists into the in-memory FeatureCollection the map, table and report render from. `data.geojson` stays as the upstream source the split is regenerated from. Actor / Assignment, Cost rate and Image are intentionally not emitted (see [`docs/DATAMODEL.md`](docs/DATAMODEL.md) §4).
+The frontend no longer reads `data.geojson` directly. Two scripts derive the per-entity files in [`data/`](data/) (model: [`docs/DATAMODEL.md`](docs/DATAMODEL.md)):
+
+1. [`scripts/fetch_parcels.mjs`](scripts/fetch_parcels.mjs) fetches the **cadastral parcels** (Grundstücke, keyed by EGRID) that the maintenance elements stand on from the federal OpenData-AV service (`api3.geo.admin.ch`, layer `ch.swisstopo-vd.amtliche-vermessung`) and writes `land_parcels.geojson`. It also joins the ERP real-estate export by EGRID when one is passed with `--erp <path>` (the export is internal and stays outside the repository; parking-space rows and rows without an EGRID, i.e. the portfolio abroad, are skipped). Cantons without open survey data (today Vaud) yield no parcels; the affected Standorte are listed in the file's metadata.
+2. [`scripts/split_entities.mjs`](scripts/split_entities.mjs) splits `data.geojson` into `sites.geojson` (Standorte with their drawn Pflegeperimeter), `maintenance_polygons.geojson` and `maintenance_points.geojson` (every element with its *assigned* `site_fid` from the survey and its *located* `parcel_fid`, computed by point-in-polygon against the parcels), `care_profiles.json` (Care Tasks nested) and `codelists.json`.
+
+At load time [`js/data.js`](js/data.js) fetches these, joins them (element → Standort, element → parcel, element → Care Profile) and decodes the codelists into the in-memory FeatureCollection the map, table and report render from. `data.geojson` stays as the upstream source. Actor / Assignment, Cost rate and Image are intentionally not emitted (see [`docs/DATAMODEL.md`](docs/DATAMODEL.md) §4).
 
 ```bash
-node scripts/split_entities.mjs   # data.geojson → data/*.json + *.geojson
+node scripts/fetch_parcels.mjs    # OpenData-AV → data/land_parcels.geojson (needs the network)
+node scripts/split_entities.mjs   # data.geojson → data/sites.geojson, maintenance_*.geojson, *.json
 ```
 
 ## Tech stack
@@ -99,6 +106,7 @@ To regenerate the data from a fresh GDB, run the two stages in order:
 ```bash
 pip install pyogrio pyproj shapely pandas
 python scripts/gdb_to_geojson.py    # GDB → data/data.geojson
+node scripts/fetch_parcels.mjs      # cadastral parcels for the elements → data/land_parcels.geojson
 node scripts/split_entities.mjs     # data.geojson → per-entity files the app loads
 ```
 
@@ -119,16 +127,18 @@ prototype-main/
 │   ├── tokens.css          # Design tokens (colours, spacing, shadows, …)
 │   └── styles.css          # Component styles
 ├── data/                   # ← what the app loads (per-entity, normalized)
-│   ├── sites.json          # Site reference table
-│   ├── land_parcels.geojson         # Parcel polygons
-│   ├── maintenance_polygons.geojson # Areas + tree canopies
-│   ├── maintenance_points.geojson   # Trees + point features
+│   ├── sites.geojson       # Standorte: attributes + drawn Pflegeperimeter
+│   ├── land_parcels.geojson         # Cadastral parcels (Amtliche Vermessung, EGRID)
+│   ├── maintenance_polygons.geojson # Areas + tree canopies (site_fid assigned, parcel_fid located)
+│   ├── maintenance_points.geojson   # Trees + point features (likewise)
 │   ├── care_profiles.json  # Care Profiles with nested Care Tasks
 │   ├── codelists.json      # 17 field-domain codelists
 │   └── data.geojson        # Upstream source the split is derived from (6 164 features)
 ├── scripts/
 │   ├── gdb_to_geojson.py   # GDB → data.geojson conversion pipeline
-│   └── split_entities.mjs  # data.geojson → per-entity files
+│   ├── fetch_parcels.mjs   # OpenData-AV → land_parcels.geojson (+ optional ERP export join)
+│   ├── split_entities.mjs  # data.geojson → per-entity files
+│   └── lib/geo.mjs         # Shared planar helpers (LV95, point-in-polygon, areas)
 ├── docs/
 │   ├── DATAMODEL.md        # Data model: conceptual model, output schema, Care Profiles, terminology
 │   ├── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline

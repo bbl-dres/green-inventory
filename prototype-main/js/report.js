@@ -1,12 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // REPORT — per-Standort Pflegebericht (PDF, on demand)
 // Triggered by the ⬇ PDF button in a Standort popup (see popupHTML in map.js).
-// Renders a 2-page landscape A4 PDF:
-//   Page 1 — Situationsplan: a vector map on a grey background showing the
-//            green-area profiles (filled by BBL colour), tree dots, the parcel
-//            boundary in red, a parcel-ID label at the pole of inaccessibility,
-//            plus a colour legend and a metric scale bar (bottom-left).
-//   Page 2 — Pflegeübersicht: the Profil-Übersicht (counts + areas) and the
+// Renders a 3-page landscape A4 PDF:
+//   Page 1 — Situationsplan: a vector map over the light basemap showing the
+//            green-area profiles (filled by BBL colour), tree dots, the
+//            cadastral parcels the elements stand on (dashed violet, Amtliche
+//            Vermessung), the Standort's Pflegeperimeter in red, an object-ID
+//            label at the pole of inaccessibility, plus a colour legend and a
+//            metric scale bar (bottom-left).
+//   Page 2 — Luftbild: the same view over the swisstopo aerial basemap.
+//   Page 3 — Pflegeübersicht: the Profil-Übersicht (counts + areas) and the
 //            Pflegekalender merged into one table — quantities, requirements
 //            and intervals per profile.
 // Vector map is drawn directly from the GeoJSON (no basemap tiles) so it is
@@ -74,8 +77,12 @@ async function buildStandortReport(siteOid) {
   const children = geojsonData.features.filter(f => {
     const p = f.properties;
     return p.site_oid === siteOid &&
-           p.entity_type !== 'site' && p.entity_type !== 'site_location';
+           p.entity_type !== 'site' && p.entity_type !== 'site_location' &&
+           p.entity_type !== 'parcel';   // parcels carry the primary Standort, not children
   });
+  // Cadastral credit on the map pages when the children have located parcels.
+  const parcelCredit = children.some(f => f.properties.parcel_fid != null)
+    ? ' · Grundstücke: AV (cadastre.ch)' : '';
 
   // ── Profil-Übersicht: group by entity_type + fk_profil ──
   const groups = {};
@@ -111,7 +118,7 @@ async function buildStandortReport(siteOid) {
   const H = doc.internal.pageSize.getHeight();
   const M = 12, STRIP_H = 18;
 
-  // Map label: the site's system_id (objektnummer, e.g. "2001BW").
+  // Map label: the Standort's legacy_id (the surveyors' Objektnummer, e.g. "2001BW").
   const parcelLabel = sp.objektnummer || sp.parzelle || '–';
 
   // ═══ PAGE 1 — header row (attributes + Swiss locator) + Situationsplan ═══
@@ -142,7 +149,7 @@ async function buildStandortReport(siteOid) {
   const mapBox1 = { x: M, y: headBottom + 4, w: W - 2 * M, h: (H - 12) - (headBottom + 4) };
   const view1 = await rptRenderMapPage(doc, site, children, groupList, sp, mapBox1,
     rptBasemapUrl('positron', 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'),
-    { fillOpacity: 1, label: parcelLabel, geoUrl, credit: 'Quelle: CARTO · OpenStreetMap' });
+    { fillOpacity: 1, label: parcelLabel, geoUrl, credit: 'Quelle: CARTO · OpenStreetMap' + parcelCredit });
 
   // ═══ PAGE 2 — Luftbild (aerial basemap, photo-forward overlay) ═══
   doc.addPage();
@@ -155,7 +162,7 @@ async function buildStandortReport(siteOid) {
   const mapBox2 = { x: M, y: ya + 6, w: W - 2 * M, h: (H - 12) - (ya + 6) };
   await rptRenderMapPage(doc, site, children, groupList, sp, mapBox2,
     rptBasemapUrl('swisstopo', 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json'),
-    { polyOutline: true, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' });
+    { polyOutline: true, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' + parcelCredit });
 
   // ═══ PAGE 3 — Pflegeübersicht (combined table) ═══
   doc.addPage();
@@ -363,7 +370,21 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
     doc.circle(mx, my, 1.5, 'FD');
   }
 
-  // 4. Parcel boundary in red, on top of the fills.
+  // 3b. Cadastral parcels the children stand on (Amtliche Vermessung): thin
+  //     dashed violet outlines beneath the red Pflegeperimeter.
+  const parcelFids = new Set(children.map(f => f.properties.parcel_fid).filter(v => v != null));
+  if (parcelFids.size && typeof geojsonData !== 'undefined' && geojsonData) {
+    doc.setDrawColor(91, 45, 142); doc.setLineWidth(0.35);
+    try { doc.setLineDashPattern([1.2, 0.8], 0); } catch (_) {}
+    for (const f of geojsonData.features) {
+      if (f.properties.entity_type === 'parcel' && parcelFids.has(f.properties.parcel_fid)) {
+        rptDrawMultiPoly(doc, f.geometry, proj, 'S');
+      }
+    }
+    try { doc.setLineDashPattern([], 0); } catch (_) {}
+  }
+
+  // 4. Standort perimeter (Pflegeperimeter) in red, on top of the fills.
   doc.setDrawColor(RPT_PARCEL_RED[0], RPT_PARCEL_RED[1], RPT_PARCEL_RED[2]);
   doc.setLineWidth(0.8);
   rptDrawMultiPoly(doc, site.geometry, proj, 'S');

@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIG — legend groups, palette, expressions, table columns
 //
-// The GeoJSON loaded by this app comes from scripts/gdb_to_geojson.py and
-// contains six entity_types:
-//   site            - 73 boundary polygons (Standortfläche)
+// The FeatureCollection js/data.js assembles from the per-entity files in
+// data/ (docs/DATAMODEL.md) contains seven entity_types:
+//   site            - 73 Standorte (tender units) with their drawn Pflegeperimeter
 //   site_location   - 73 centroid dots (one per Standort, useful zoomed out)
+//   parcel          - cadastral parcels (Amtliche Vermessung, EGRID) hosting elements
 //   area            - polygon vegetation/surface (coloured by fk_profil hash)
 //   tree_canopy     - circle polygons (tree crowns)
 //   tree            - point trees with baumart
@@ -372,6 +373,7 @@ function careProfile(entity_type, code) {
 const ENTITY_COLORS = {
   site:          { fill: '#7d8a9c', stroke: '#3d4757' },
   site_location: { fill: '#cc1f1f', stroke: '#7a0d0d' },
+  parcel:        { fill: '#5b2d8e', stroke: '#5b2d8e' },   // cadastral parcel (AV)
   area:          { fill: '#bdbdbd', stroke: 'rgba(0,0,0,0.32)' }, // overridden by profile hash
   tree_canopy:   { fill: '#5fa84a', stroke: '#2f6d20' },
   tree:          { fill: '#2d8000', stroke: '#0e3f00' },
@@ -464,11 +466,23 @@ const LEGEND_GROUPS = [
   { id: 'wasser',        label: 'Wasserflächen',          entity_type: 'area', profileCodes: [34, 35] },
   { id: 'anderes',       label: 'Anderes',                entity_type: 'area', profileCodes: [36] },
 
-  // ── Site boundaries (bottom of stack) ───────────────────────────────
+  // ── Standort perimeters.  The drawn Pflegeperimeter is a plan frame from
+  //    the tender plans, not a boundary and not a maintained area
+  //    (docs/DATAMODEL.md §3.1).  Shown by default; the legend eye hides it
+  //    (set defaultHidden: true to start with it off).
   {
-    id: 'site', label: 'Standorte (Parzellen)', entity_type: 'site',
+    id: 'site', label: 'Standorte (Pflegeperimeter)', entity_type: 'site',
     items: [
-      { label: 'Standortgrenze', fill: 'rgba(125,138,156,0.22)' },
+      { label: 'Pflegeperimeter (Ausschreibung)', fill: 'rgba(125,138,156,0.22)' },
+    ]
+  },
+
+  // ── Cadastral parcels (bottom of stack) — Amtliche Vermessung, keyed by
+  //    EGRID: the legal unit of ground (docs/DATAMODEL.md §3.2) ──────────
+  {
+    id: 'parcel', label: 'Grundstücke (Amtliche Vermessung)', entity_type: 'parcel',
+    items: [
+      { label: 'Grundstücksgrenze (AV, cadastre.ch)', fill: 'rgba(91,45,142,0.10)' },
     ]
   },
 ];
@@ -490,7 +504,7 @@ function installAreaFillExpr(profileCodes) {
 // Loaded + joined into one in-memory FeatureCollection by loadInventory()
 // (js/data.js).  data.geojson is no longer read by the app.
 const DATA_FILES = {
-  sites:     'data/sites.json',
+  sites:     'data/sites.geojson',
   parcels:   'data/land_parcels.geojson',
   polygons:  'data/maintenance_polygons.geojson',
   points:    'data/maintenance_points.geojson',
@@ -530,9 +544,19 @@ const TABLE_COLS = [
   { key: 'site_objektnummer',     label: 'Objekt-Nr.',       visible: false },
   { key: 'site_adresse',          label: 'Adresse',          visible: false },
   { key: 'site_lose',             label: 'Los',              visible: false },
-  { key: 'parzelle',              label: 'Parzelle',         visible: false },
+  { key: 'parzelle',              label: 'Parzelle (erfasst)', visible: false },
   { key: 'erstellungsjahr',       label: 'Baujahr',          visible: false },
   { key: 'erfassungsdatum',       label: 'Erfasst',          visible: false },
+
+  // ── Grundstück (cadastral parcel, Amtliche Vermessung) — on parcel rows
+  //    and, as the located parcel, on every element row ─────────────────
+  { key: 'egrid',                 label: 'EGRID',            visible: false },
+  { key: 'parcel_number',         label: 'Parzelle (AV)',    visible: false },
+  { key: 'municipality_name',     label: 'Gemeinde',         visible: false },
+  { key: 'canton',                label: 'Kanton',           visible: false },
+  { key: 'erp_id',                label: 'ERP-Nr.',          visible: false },
+  { key: 'erp_name',              label: 'ERP-Bezeichnung',  visible: false },
+  { key: 'element_count',         label: 'Pflegeelemente',   visible: false },
 
   // ── Pflege / Klassifikation (decoded labels only — raw fk_* codes are
   //    still on every feature for power users / API access, just hidden
@@ -604,6 +628,17 @@ const TABLE_COL_DEFAULTS = {
     'baumart',
     'area_m2',
   ],
+  parcels: [
+    '_idx',
+    'egrid',
+    'parcel_number',
+    'municipality_name',
+    'canton',
+    'erp_id',
+    'site_name',
+    'area_m2',
+    'element_count',
+  ],
 };
 
 // Compact layout (phones): fewer, name-first columns.  With the desktop
@@ -613,6 +648,7 @@ const TABLE_COL_DEFAULTS = {
 const TABLE_COL_DEFAULTS_COMPACT = {
   sites: ['site_name', 'site_adresse', 'pflegeklasse', 'area_m2'],
   green: ['subtype', 'feature_type', 'site_name', 'area_m2'],
+  parcels: ['parcel_number', 'municipality_name', 'site_name', 'area_m2'],
 };
 
 // Filter dropdown columns - which columns get a checkbox-list filter,
@@ -624,7 +660,8 @@ const FILTER_COLS_DEFAULT = [
   'site_name',          // Standort (most common entry point)
   'profil_label',       // Profil (44 polygon + 23 point names)
   'baumart',            // Tree species (430 entries, but searchable)
-  'entity_type',        // Typ (broad bucket: site/area/tree/...)
+  'entity_type',        // Typ (broad bucket: site/parcel/area/tree/...)
+  'municipality_name',  // Gemeinde (parcels and the located parcel of elements)
   'site_lose',          // Los (DLZ district)
   'pflegeklasse',       // Pflegeklasse (PK 1/2/3)
   'eigentuemer',        // Eigentümer (Bund/Dritte)

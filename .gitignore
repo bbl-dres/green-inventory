@@ -13,3 +13,7 @@ Thumbs.db
 node_modules/
 prototype-main/tools/responsive-audit/package-lock.json
 prototype-main/tools/responsive-audit/out*/
+
+# ERP real-estate exports are internal data: pass them to fetch_parcels.mjs with --erp, never commit them
+prototype-main/data/erp_land_objects.*
+prototype-main/data/*.txt
