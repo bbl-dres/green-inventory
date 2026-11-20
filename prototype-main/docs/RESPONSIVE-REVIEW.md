@@ -378,9 +378,12 @@ minimum). 11 px is the deliberate type floor, so only 10 px text is counted.
 
 ## Screenshots
 
-### Phone — iPhone 14 (390 × 664)
+The six before / after screenshots this section describes are no longer in the
+repository. [`tools/responsive-audit`](../tools/responsive-audit/README.md) records
+them again (`audit.js` for the states, `contact-sheet.js` for the sheets); the
+descriptions are kept.
 
-![iPhone 14 before and after: initial view, tapping a feature, legend drawer, filter drawer](responsive-review/phone-before-after.jpg)
+### Phone — iPhone 14 (390 × 664)
 
 *Before*: the header runs off-screen, so Filter can't be reached; a tapped feature
 disappears under the auto-opened table; the “Prototyp” pill sits on top of the legend
@@ -389,14 +392,10 @@ stays in view and the table stays closed; the drawers are clean.
 
 ### Laptops — 1080p at 150 % (1280 × 585) and 1366 × 768
 
-![Laptops before and after: clicking a feature in the lower part of the map](responsive-review/laptop-before-after.jpg)
-
 *Before*: only the popup's title strip peeks above the table (1 % and 8 % visible).
 *After*: the popup is capped to the map height and panned fully into view.
 
 ### Phone in landscape (844 × 340)
-
-![Landscape phone before and after: table open and filter open](responsive-review/landscape-before-after.jpg)
 
 *Before*: desktop layout. Two docked panels, and with the table open 0 px of map.
 *After*: compact layout, a 48 px header, a drawer instead of docked panels, and a
@@ -404,14 +403,10 @@ resizable table sheet.
 
 ### Tablet in portrait (iPad Air, 820 × 1106)
 
-![iPad Air portrait before and after: filter open and table open](responsive-review/tablet-before-after.jpg)
-
 *Before*: legend and filter docked together left a 260 px map. *After*: one docked
 panel at a time (540 px map), and the legend starts closed.
 
 ### Details
-
-![Details before and after: basemap picker, home-indicator inset, sticky hover, 320 px table](responsive-review/details-before-after.jpg)
 
 Basemap picker off-screen → 2 × 2 grid · footer links over the footer's edge with the
 home-indicator inset → footer moved into the ⋯ menu · tapped controls falling back to
@@ -419,8 +414,6 @@ browser styles → unchanged · a 320 px phone with an overflowing header and 1 
 column → pinned name column.
 
 ### Every profile after the change
-
-![All 18 device profiles after the change, feature clicked in the lower part of the map](responsive-review/matrix-after.jpg)
 
 The same “click a feature in the lower part of the map” state on all 18 profiles.
 The popup is fully visible on every one.

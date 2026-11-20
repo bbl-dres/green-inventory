@@ -67,7 +67,7 @@ The legend decides **what is drawn**; the filter (below) narrows by attributes.
 ### Responsive layout
 - Three layout tiers: **wide** (≥ 1100 px: legend card open, filter docked), **medium** (700–1099 px: legend starts as a pill; legend card and docked filter one at a time) and **compact** (phones in portrait *and* landscape: legend, feature card and table as bottom sheets — one at a time —, the filter as a drawer, and a ⋯ menu for Share / Print / links).
 - Touch screens get 44 px targets and 16 px inputs; the notch and home indicator are respected; map controls and popups adapt to the map's own size (container queries).
-- Device review, measurements and before/after screenshots: [`docs/RESPONSIVE-REVIEW.md`](docs/RESPONSIVE-REVIEW.md). Re-run the measurements with [`tools/responsive-audit`](tools/responsive-audit/README.md).
+- Device review and measurements: [`docs/RESPONSIVE-REVIEW.md`](docs/RESPONSIVE-REVIEW.md). Re-run the measurements with [`tools/responsive-audit`](tools/responsive-audit/README.md).
 
 ## Data pipeline
 
@@ -171,8 +171,7 @@ prototype-main/
 │   ├── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline
 │   ├── wireframes/         # Design study behind the legend, feature card and detail page
 │   ├── reviews/            # Code reviews (findings, what was fixed, what is open)
-│   ├── RESPONSIVE-REVIEW.md # Responsive / mobile design review (figures in responsive-review/)
-│   └── responsive-review/  # Before / after screenshots for the review
+│   └── RESPONSIVE-REVIEW.md # Responsive / mobile design review
 ├── tools/
 │   └── responsive-audit/   # Playwright device-matrix audit behind the review
 └── assets/
