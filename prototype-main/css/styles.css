@@ -6,7 +6,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   height: 100%;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--text-base);
   color: var(--grey-900);
   /* App shell never scrolls as a page: stop pull-to-refresh / rubber-band
@@ -19,37 +19,23 @@ html, body {
 
 /* ── Shared: uppercase section label ──────────────────── */
 /* grey-500 (4.7:1 on white) — grey-400 measured 2.3–2.4:1, below WCAG AA. */
-.section-label,
 .dd-menu-label,
-.filter-group-label,
-.search-section-header,
-#sidebar-header {
+.search-section-header {
   font-size: var(--text-label); font-weight: var(--fw-bold);
   color: var(--grey-500); text-transform: uppercase; letter-spacing: .06em;
 }
-
-/* ── Shared: checkbox list item ───────────────────────── */
-.check-item {
-  display: flex; align-items: center; gap: var(--sp2);
-  padding: var(--sp2) 10px; font-size: var(--text-sm); color: var(--grey-700);
-  cursor: pointer; border-radius: var(--radius-sm); transition: background var(--t-fast);
-}
-.check-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); }
 
 /* Hover affordances are gated to devices that can actually hover.  On touch
    screens a tapped element keeps :hover until the next tap elsewhere, so
    ungated hover styles "stick".  (The previous fix reset them with `revert`,
    which rolls back to *browser-default* button styles — grey fill, black
-   border — on the last-tapped control.) */
-@media (hover: hover) {
-  .check-item:hover { background: var(--grey-100); }
-}
+   border — on the last-tapped control.)  Every :hover rule in this file sits
+   in an `@media (hover: hover)` block for that reason. */
 
 /* ── Shared: outlined interactive button base ──────────── */
 .edit-btn,
 .dd-btn,
-.pg-btn,
-.filter-clear-btn {
+.pg-btn {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--white); border: 1px solid var(--grey-300);
   border-radius: var(--radius); cursor: pointer;
@@ -63,7 +49,7 @@ html, body {
   position: absolute; right: var(--sp2); top: 50%; transform: translateY(-50%);
   display: flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; padding: 0; border: none; background: none;
-  cursor: pointer; font-size: 16px; line-height: 1; color: var(--grey-500);
+  cursor: pointer; font-size: var(--text-title); line-height: 1; color: var(--grey-500);
   border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
 }
 @media (hover: hover) {
@@ -74,15 +60,29 @@ html, body {
    search fields, and grey-400 measured 2.4:1 on white. */
 ::placeholder { color: var(--grey-500); opacity: 1; }
 
+/* ── Prototype banner ──────────────────────────────────── */
+/* The permanent disclaimer: a red strip across the top of every page, white
+   text, centred.  It is the topmost element, so it — not the header below —
+   takes the top safe-area inset (notch / status bar). */
+.proto-banner {
+  flex-shrink: 0; position: relative; z-index: var(--z-header);
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(var(--banner-height) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) max(var(--sp4), env(safe-area-inset-right, 0px)) 0 max(var(--sp4), env(safe-area-inset-left, 0px));
+  background: var(--red); color: var(--white);
+  font-size: var(--text-sm); font-weight: var(--fw-semibold); line-height: 1.2;
+  letter-spacing: .02em; text-align: center;
+}
+
 /* ── Header ────────────────────────────────────────────── */
-/* Safe-area insets: in landscape on notched phones (and standalone/PWA
-   mode) the header must clear the notch / status bar. */
+/* Side safe-area insets: in landscape on notched phones the header must
+   clear the notch.  (The top inset is the banner's.) */
 #header {
-  height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+  height: var(--header-height);
   background: var(--white);
   border-bottom: 1px solid var(--grey-300);
   display: flex; align-items: center; justify-content: space-between;
-  padding: env(safe-area-inset-top, 0px) max(var(--sp5), env(safe-area-inset-right, 0px)) 0 max(var(--sp5), env(safe-area-inset-left, 0px));
+  padding: 0 max(var(--sp5), env(safe-area-inset-right, 0px)) 0 max(var(--sp5), env(safe-area-inset-left, 0px));
   flex-shrink: 0; position: relative; z-index: var(--z-header); gap: var(--sp5);
 }
 .header-title { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
@@ -178,8 +178,8 @@ html, body {
   position: absolute; top: calc(100% + var(--sp2)); left: 0; right: 0;
   background: var(--white); border: 1px solid var(--grey-200);
   border-radius: var(--radius); box-shadow: var(--shadow-lg);
-  max-height: min(380px, calc(100vh - var(--header-height) - var(--sp5)));
-  max-height: min(380px, calc(100dvh - var(--header-height) - var(--sp5)));
+  max-height: min(380px, calc(100vh - var(--banner-height) - var(--header-height) - var(--sp5)));
+  max-height: min(380px, calc(100dvh - var(--banner-height) - var(--header-height) - var(--sp5)));
   overflow-y: auto; overscroll-behavior: contain; display: none;
 }
 #search-results.active { display: block; }
@@ -208,73 +208,189 @@ html, body {
 /* ── Body / layout ─────────────────────────────────────── */
 #body { flex: 1; display: flex; overflow: hidden; }
 
-/* ── Sidebar ───────────────────────────────────────────── */
-#sidebar {
-  width: var(--panel-width); background: var(--white);
-  border-right: 1px solid var(--grey-300);
-  display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
-  transition: width var(--t-slow), opacity var(--t-slow);
-}
-#sidebar.collapsed { width: 0; border-right: none; opacity: 0; pointer-events: none; }
-#sidebar-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: var(--sp3) var(--sp5); border-bottom: 1px solid var(--grey-200);
-  flex-shrink: 0;
-}
+/* ── Panel basics (legend card, filter sidebar) ────────── */
+.panel-title { font-size: var(--text-sm); font-weight: var(--fw-bold); color: var(--grey-900); }
 /* 24 px = WCAG 2.5.8 minimum target; grey-500 for 3:1 icon contrast. */
 .sidebar-close-btn {
   display: flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; padding: 0; border: none; background: none;
-  cursor: pointer; font-size: 18px; line-height: 1; color: var(--grey-500);
+  cursor: pointer; font-size: var(--text-lg); line-height: 1; color: var(--grey-500);
   border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
 }
+/* Borderless icon button (collapse, close, pager arrows). */
+.icon-ghost {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: none; border-radius: var(--radius);
+  color: var(--grey-600); cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.icon-ghost:disabled { color: var(--grey-400); cursor: default; }
+.link-btn {
+  padding: 0; background: none; border: none; cursor: pointer;
+  font: inherit; color: var(--primary); text-decoration: underline;
+}
+.muted { color: var(--grey-600); }
 @media (hover: hover) {
   .sidebar-close-btn:hover { color: var(--grey-700); background: var(--grey-100); }
+  .icon-ghost:hover:not(:disabled) { color: var(--grey-900); background: var(--grey-100); }
+  .link-btn:hover { color: var(--primary-dark); }
 }
-#legend-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp2) 0 var(--sp4); }
 
-/* ── Legend groups ─────────────────────────────────────── */
-.lg-group { margin-bottom: var(--sp1); }
-.lg-group-head {
-  display: flex; align-items: center; gap: var(--sp2);
-  padding: 5px var(--sp4) var(--sp1) var(--sp3);
+/* Our own panels inside #map: MapLibre sets Helvetica / 12px / 20px on its
+   container, which everything in it would inherit. */
+.legend, .legend-bar, .fcard, .map-context-menu, .measure-distance-display,
+#toast-container, #map-loading, #tbl-toggle, #basemap-switcher {
+  font-family: var(--font-ui);
 }
-/* Generic eye-btn — used by both group headers and external-layer rows so
-   they share visual style (size, hover, hidden state). */
-.eye-btn {
-  flex-shrink: 0; width: 24px; height: 24px;
-  background: none; border: none; cursor: pointer;
-  color: var(--grey-500); padding: 1px;
-  border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center;
-  transition: color var(--t-fast);
+.legend, .legend-bar, .fcard { line-height: 1.4; }
+
+/* ── Legend: floating card over the map ────────────────── */
+/* The legend no longer takes a column: it floats in the map's top-left
+   corner (12 px inset) and scrolls inside when the map is short.  Collapsed
+   it is the pill in .legend-bar.  Phones: bottom sheet, see the compact tier. */
+.legend-bar {
+  position: absolute; top: var(--map-inset);
+  left: max(var(--map-inset), env(safe-area-inset-left, 0px));
+  z-index: var(--z-map-panel);
+  display: flex; align-items: center; gap: var(--sp3);
+  pointer-events: none;                /* the row itself lets map gestures through */
 }
-.eye-btn.hidden-eye { color: var(--grey-400); }
+.legend-pill, .lg-chip {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: var(--sp3); flex-shrink: 0;
+  height: var(--ctrl-h-md); padding: 0 var(--sp4);
+  background: var(--white); border: none; border-radius: var(--radius-full);
+  box-shadow: var(--shadow-pill);
+  font: inherit; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--grey-900);
+  cursor: pointer; white-space: nowrap;
+  transition: box-shadow var(--t-fast), color var(--t-fast);
+}
+.legend-pill { box-shadow: var(--shadow-map-ctrl); }
+.legend-pill-icon { display: none; color: var(--grey-600); }
+.legend-pill-note { font-weight: var(--fw-medium); color: var(--grey-600); }
+.legend-pill-note:empty { display: none; }
+/* Desktop / tablet: the card replaces the pill while it is open. */
+#map.legend-open .legend-pill { display: none; }
+.legend-chips { display: none; }
 @media (hover: hover) {
-  .eye-btn:hover { color: var(--grey-700); }
+  .legend-pill:hover, .lg-chip:hover { box-shadow: var(--shadow-pill-hover); color: var(--primary); }
 }
-.lg-group-title {
-  font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-700);
-  text-transform: uppercase; letter-spacing: .05em;
+
+.legend {
+  position: absolute; top: var(--map-inset);
+  left: max(var(--map-inset), env(safe-area-inset-left, 0px));
+  z-index: var(--z-map-panel);
+  width: var(--legend-w); max-width: calc(100% - 2 * var(--map-inset));
+  max-height: calc(100% - 2 * var(--map-inset));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
 }
-/* Left indent = head padding (8) + eye button (24) + gap (4): labels line
-   up under the group title. */
-.lg-items { padding: 0 var(--sp4) var(--sp1) 36px; }
-.lg-item { display: flex; align-items: center; gap: 7px; padding: var(--sp1) 0; transition: opacity var(--t-base); }
-.lg-item.empty { opacity: 0.38; }
-.lg-swatch { width: 22px; height: 13px; border-radius: var(--radius-sm); flex-shrink: 0; border: 1px solid rgba(0,0,0,.12); }
-.lg-label { font-size: var(--text-sm); color: var(--grey-800); line-height: 1.3; }
-.group-hidden .lg-items { opacity: 0.3; pointer-events: none; }
+.legend[hidden] { display: none; }
+.sheet-grabber { display: none; }
+.when-compact { display: none; }
+.legend-head {
+  display: flex; align-items: center; gap: var(--sp3); flex-shrink: 0;
+  padding: var(--sp4) var(--sp3) var(--sp4) var(--sp5); border-bottom: 1px solid var(--grey-200);
+}
+.legend-head-text { flex: 1; min-width: 0; }
+.legend-sub { margin-top: 1px; font-size: var(--text-label); color: var(--grey-600); }
+.legend-sub[hidden] { display: none; }
+.legend-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp2) 0; }
+/* The scale bar would sit under the card: move it next to it. */
+@container map (min-width: 640px) {
+  #map.legend-open .maplibregl-ctrl-bottom-left { left: calc(var(--legend-w) + var(--map-inset)); }
+}
+
+/* Group row: eye · mini swatches · label · chevron.  No counts. */
+.lg-group.open { background: var(--grey-50); }
+.lg-row {
+  display: flex; align-items: center; gap: var(--sp2);
+  height: var(--legend-row-h); padding: 0 var(--sp3) 0 var(--sp2);
+}
+.lg-eye, .lg-info {
+  position: relative; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: none; border-radius: var(--radius);
+  color: var(--grey-500); cursor: pointer; transition: color var(--t-fast);
+}
+.lg-eye.sm { width: 26px; height: 26px; }
+/* Partly visible group: blue eye with a ring badge. */
+.lg-eye.mixed { color: var(--primary); }
+.lg-eye.mixed::after {
+  content: ''; position: absolute; right: 2px; bottom: 3px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--white); box-shadow: inset 0 0 0 2px var(--primary);
+}
+.lg-open {
+  flex: 1; min-width: 0; height: 100%;
+  display: flex; align-items: center; gap: var(--sp3); padding: 0 var(--sp2);
+  background: transparent; border: none; border-radius: var(--radius);
+  font: inherit; color: var(--grey-900); text-align: left; cursor: pointer;
+}
+.lg-minis { display: flex; gap: var(--sp1); width: 30px; flex-shrink: 0; }
+.lg-group-label {
+  flex: 1; min-width: 0; font-size: var(--text-sm); font-weight: var(--fw-medium);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lg-chev { display: flex; color: var(--grey-500); transition: transform var(--t-base); }
+.lg-group.open .lg-chev { transform: rotate(90deg); }
+
+/* Profile row: eye · swatch · label on one line · ⓘ. */
+.lg-items { padding: 0 var(--sp2) var(--sp3) 26px; }
+.lg-item {
+  display: flex; align-items: center; gap: var(--sp2); min-height: 30px;
+  border-radius: var(--radius); font-size: var(--text-meta); color: var(--grey-800);
+}
+.lg-item.info-active { background: var(--primary-bg); }
+.lg-item.info-active .lg-info { color: var(--primary); }
+.lg-item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp3); transition: opacity var(--t-base); }
+.lg-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-out-tag { display: none; flex-shrink: 0; font-size: var(--text-label); font-style: italic; }
+/* Switched off, or nothing of it in the map view: greyed (the list order
+   never changes while the map moves — only these classes do). */
+.lg-item.off .lg-item-main,
+.lg-item.out .lg-item-main,
+.lg-group.off .lg-group-label, .lg-group.off .lg-minis,
+.lg-group.out .lg-group-label, .lg-group.out .lg-minis { opacity: .5; }
+.lg-item.out:not(.off) .lg-out-tag { display: inline; }
+@media (hover: hover) {
+  .lg-eye:hover, .lg-info:hover { color: var(--grey-900); }
+  .lg-eye.mixed:hover { color: var(--primary-dark); }
+  .lg-open:hover .lg-group-label { color: var(--primary); }
+}
+
+/* ── Swatches ──────────────────────────────────────────── */
+/* One way to show a profile everywhere (legend, cards, info dialog, detail
+   page): a small swatch in the map colour — set inline as background-color,
+   so the pattern classes below can lay their background-image over it. */
+.swatch {
+  display: inline-block; flex-shrink: 0; width: 14px; height: 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
+}
+.swatch-mini {
+  display: inline-block; flex-shrink: 0; width: 8px; height: 14px;
+  border-radius: var(--sp1); border: 1px solid var(--border-subtle);
+}
+.swatch-mini.round { border-radius: var(--sp2); }
+/* Layers without a profile */
+.swatch.is-marker { border-radius: 50%; background: var(--map-perimeter); border-color: var(--white); box-shadow: 0 0 0 1px var(--border-subtle); }
+.swatch.is-parcel { height: 10px; background: transparent; border: 2px dashed var(--map-parcel); border-radius: var(--sp1); }
+.swatch-line { display: inline-block; flex-shrink: 0; width: 14px; height: 0; border-top: 2px solid var(--map-perimeter); }
+.swatch-line.dashed { border-top-style: dashed; border-top-color: var(--map-parcel); }
+.swatch-mini.is-marker { border-radius: var(--sp2); background: var(--map-perimeter); }
+.swatch-mini.is-dash { background: var(--map-parcel); }
 
 /* Pattern swatches */
-.sw-dots    { background-image: radial-gradient(circle, #333 30%, transparent 30%); background-size: 5px 5px; }
-.sw-vdots   { background-image: radial-gradient(circle, #856a00 40%, transparent 40%); background-size: 5px 5px; }
-.sw-odots   { background-image: radial-gradient(circle, #804000 35%, transparent 35%); background-size: var(--sp2) var(--sp2); }
-.sw-pstripe { background-image: repeating-linear-gradient(45deg,#9040c0 0,#9040c0 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
-.sw-ostripe { background-image: repeating-linear-gradient(45deg,#c05000 0,#c05000 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
-.sw-hstripe { background-image: repeating-linear-gradient(45deg,#5a3800 0,#5a3800 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
-.sw-xhatch  { background-image: repeating-linear-gradient(45deg,#333 0,#333 1px,transparent 0,transparent 50%), repeating-linear-gradient(-45deg,#333 0,#333 1px,transparent 0,transparent 50%); background-size: 5px 5px; }
-.sw-gdots   { background-image: radial-gradient(circle, #555 30%, transparent 30%); background-size: 5px 5px; }
-.sw-outline { background: transparent !important; border: 2px solid var(--red) !important; }
+.sw-dots    { background-image: radial-gradient(circle, var(--pattern-ink) 30%, transparent 30%); background-size: 5px 5px; }
+.sw-vdots   { background-image: radial-gradient(circle, var(--pattern-ink-ochre) 40%, transparent 40%); background-size: 5px 5px; }
+.sw-odots   { background-image: radial-gradient(circle, var(--pattern-ink-brown) 35%, transparent 35%); background-size: var(--sp2) var(--sp2); }
+.sw-pstripe { background-image: repeating-linear-gradient(45deg,var(--pattern-ink-purple) 0,var(--pattern-ink-purple) 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
+.sw-ostripe { background-image: repeating-linear-gradient(45deg,var(--pattern-ink-orange) 0,var(--pattern-ink-orange) 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
+.sw-hstripe { background-image: repeating-linear-gradient(45deg,var(--pattern-ink-dbrown) 0,var(--pattern-ink-dbrown) 1.5px,transparent 0,transparent 50%); background-size: 5px 5px; }
+.sw-xhatch  { background-image: repeating-linear-gradient(45deg,var(--pattern-ink) 0,var(--pattern-ink) 1px,transparent 0,transparent 50%), repeating-linear-gradient(-45deg,var(--pattern-ink) 0,var(--pattern-ink) 1px,transparent 0,transparent 50%); background-size: 5px 5px; }
+.sw-gdots   { background-image: radial-gradient(circle, var(--pattern-ink-grey) 30%, transparent 30%); background-size: 5px 5px; }
 .sw-circ    { border-radius: 50% !important; width: 13px !important; height: 13px !important; border: 2px solid rgba(0,0,0,.25) !important; }
 .sw-circ-cross {
   border-radius: 50% !important; width: 13px !important; height: 13px !important;
@@ -316,20 +432,6 @@ html, body {
 @keyframes editPulse {
   0%, 100% { border-color: var(--red); }
   50%      { border-color: rgba(204, 0, 0, .4); }
-}
-/* Legend toggle button (visible when sidebar is collapsed) */
-.legend-toggle-btn {
-  position: absolute; top: var(--sp3); left: max(var(--sp3), env(safe-area-inset-left, 0px));
-  z-index: var(--z-map-ctrl);
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; padding: 0;
-  background: var(--white); border: 1px solid var(--grey-300);
-  border-radius: var(--radius); cursor: pointer;
-  color: var(--grey-600); box-shadow: var(--shadow-map-ctrl);
-  transition: border-color var(--t-fast), color var(--t-fast);
-}
-@media (hover: hover) {
-  .legend-toggle-btn:hover { border-color: var(--primary); color: var(--primary); }
 }
 
 .maplibregl-ctrl-top-right { top: var(--sp3); right: max(var(--sp3), env(safe-area-inset-right, 0px)); }
@@ -386,25 +488,25 @@ html, body {
 /* Width: never wider than the map minus a margin (cqw = #map width). */
 .maplibregl-popup { max-width: min(320px, calc(100cqw - 24px)) !important; }
 .maplibregl-popup.identify-popup { max-width: min(380px, calc(100cqw - 24px)) !important; }
-/* Docked popups: the feature card and the identify card sit in the map's
-   top-right corner — left of the control stack, below the prototype pill —
-   instead of hanging off the clicked point, so the selected geometry stays
-   visible.  MapLibre positions popups with an inline transform; !important
-   wins over it.  The tip makes no sense without an anchor. */
+/* Docked popup: the identify card of the external layers sits in the map's
+   top-right corner — left of the control stack, where the feature card
+   (.fcard) docks too; only one of the two is open at a time — instead of
+   hanging off the clicked point, so the geometry stays visible.  MapLibre
+   positions popups with an inline transform; !important wins over it.  The
+   tip makes no sense without an anchor. */
 .maplibregl-popup.docked {
-  top: 44px !important; bottom: auto !important;
-  left: auto !important; right: calc(var(--ctrl-h) + 24px) !important;
+  top: var(--map-inset) !important; bottom: auto !important;
+  left: auto !important; right: calc(var(--ctrl-h) + 2 * var(--map-inset)) !important;
   transform: none !important;
 }
 .maplibregl-popup.docked .maplibregl-popup-tip { display: none; }
 /* Short maps (table open): the card must end above the basemap button in the
    bottom-right corner, so the body cap is tighter than for anchored popups. */
-.maplibregl-popup.docked .pu-body,
-.maplibregl-popup.docked .ext-popup { max-height: clamp(96px, calc(100cqh - 250px), 380px); }
+.maplibregl-popup.docked .ext-popup { max-height: clamp(96px, calc(100cqh - 220px), 380px); }
 /* Narrow map: the zoom group is hidden (see the container queries below) and
    only the Home / 3D pair remains top-right — dock the card beneath it. */
 @container map (max-width: 480px) {
-  .maplibregl-popup.docked { right: 12px !important; top: calc(2 * var(--ctrl-h) + 28px) !important; }
+  .maplibregl-popup.docked { right: var(--map-inset) !important; top: calc(2 * var(--ctrl-h) + 28px) !important; }
 }
 .maplibregl-popup-content {
   padding: 0; border-radius: var(--radius); overflow: hidden;
@@ -418,94 +520,145 @@ html, body {
 @media (hover: hover) {
   .maplibregl-popup-close-button:hover { color: var(--grey-700); }
 }
-.pu-header {
-  position: relative;
-  display: flex; align-items: center; gap: var(--sp3);
-  padding: var(--sp3) var(--sp4); border-bottom: 1px solid var(--grey-100);
+
+/* ── Buttons (feature card, detail page) ───────────────── */
+/* At most one primary (blue) button per surface. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp3);
+  height: var(--ctrl-h-md); padding: 0 var(--sp5);
+  background: var(--white); border: 1px solid var(--grey-300); border-radius: var(--radius);
+  font: inherit; font-size: var(--text-sm); font-weight: var(--fw-medium); color: var(--grey-900);
+  text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
 }
-.pu-swatch {
-  width: 14px; height: 14px; border-radius: var(--radius-sm); flex-shrink: 0;
-  border: 1px solid var(--border-subtle);
-}
-.pu-titles { min-width: 0; }
-.pu-type { font-weight: var(--fw-semibold); color: var(--grey-900); line-height: 1.3; }
-.pu-sub  { color: var(--grey-500); font-size: var(--text-xs); line-height: 1.3; }
-/* Pflegebericht download button — top-right of the popup header, left of the
-   × close button.  Absolute within .pu-header (position:relative above). */
-.pu-report-btn {
-  position: absolute; top: 6px; right: 28px; z-index: 2;
-  display: inline-flex; align-items: center; gap: 4px;
-  height: 22px; padding: 0 8px;
-  background: var(--primary); color: var(--white); border: none;
-  border-radius: var(--radius-sm); cursor: pointer;
-  font-size: var(--text-xs); font-weight: var(--fw-medium); line-height: 1;
-  transition: background var(--t-fast);
-}
+.btn svg { flex-shrink: 0; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--white); font-weight: var(--fw-semibold); }
+.btn-icon { width: var(--ctrl-h-md); padding: 0; flex-shrink: 0; color: var(--grey-700); }
 @media (hover: hover) {
-  .pu-report-btn:hover { background: var(--primary-dark); }
+  .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--white); }
 }
-.pu-report-btn svg { stroke: var(--white); flex-shrink: 0; }
-.pu-row {
-  display: flex; justify-content: space-between; align-items: baseline;
-  padding: var(--sp1) 0; font-size: var(--text-sm); color: var(--grey-500);
+
+/* ── Label / value grid ────────────────────────────────── */
+/* The one pattern for attributes: label left, value right, one attribute
+   per row (feature card, Stammdaten on the detail page). */
+.dl-grid {
+  display: grid; grid-template-columns: var(--dl-label-w) minmax(0, 1fr);
+  column-gap: var(--sp4); row-gap: var(--sp2); align-items: baseline; margin: 0;
 }
-.pu-row + .pu-row { border-top: 1px solid var(--grey-50); }
-.pu-row strong {
-  color: var(--grey-800); font-weight: var(--fw-medium);
-  text-align: right; margin-left: var(--sp4);
-  word-break: break-word; max-width: 60%;
+.dl-grid[hidden] { display: none; }
+.dl-grid dt { font-size: var(--text-meta); color: var(--grey-600); }
+.dl-grid dd { margin: 0; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--grey-900); overflow-wrap: anywhere; }
+
+/* ── Feature card (selected object) ────────────────────── */
+/* Docked in the map's top-right corner, left of the control stack, so the
+   selected geometry stays visible.  Compact by design: the facts fit without
+   a scrollbar; only «Weitere Attribute» may make the body scroll.  Phones:
+   bottom sheet, see the compact tier. */
+.fcard {
+  position: absolute; top: var(--map-inset);
+  right: calc(var(--ctrl-h) + 2 * var(--map-inset));
+  z-index: var(--z-map-panel);
+  width: var(--fcard-w); max-width: calc(100% - var(--ctrl-h) - 3 * var(--map-inset));
+  /* Ends above the basemap button in the bottom-right corner. */
+  --fcard-clear: 150px;
+  max-height: calc(100% - var(--map-inset) - var(--fcard-clear));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm); color: var(--grey-900);
 }
-.pu-section {
-  font-size: var(--text-label); font-weight: var(--fw-bold);
-  color: var(--grey-500); text-transform: uppercase; letter-spacing: .06em;
-  margin: var(--sp3) 0 var(--sp1) 0;
-  padding-top: var(--sp2); border-top: 1px solid var(--grey-100);
+.fcard[hidden] { display: none; }
+/* Pager — only when the click hit several objects. */
+.fcard-pager {
+  display: flex; align-items: center; gap: var(--sp2); flex-shrink: 0;
+  padding: var(--sp2) var(--sp2) var(--sp2) var(--sp5);
+  background: var(--grey-100); font-size: var(--text-meta); color: var(--grey-800);
 }
-.pu-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-/* Body height follows the map height (cqh = #map height): a fixed 380 px
-   popup could not fit into a 190–300 px map (short laptops at 150%, phones,
-   table open) and ended up under the table panel.  The 160 px leave room for
-   the popup header + tip (~58 px) and revealPopup()'s top / bottom margins
-   (40 + 52 px, map.js).  380 px fallback without container-query units. */
-.pu-body {
-  max-height: 380px;
-  max-height: clamp(96px, calc(100cqh - 160px), 380px);
+.fcard-pager-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcard-pager-pos { font-weight: var(--fw-semibold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fcard-nav { color: var(--grey-900); }
+.fcard-head {
+  display: flex; align-items: flex-start; gap: var(--sp4); flex-shrink: 0;
+  padding: var(--sp4) var(--sp3) var(--sp4) var(--sp5);
+}
+.fcard-head > .swatch, .fcard-head > .swatch-line { margin-top: 3px; }
+.fcard-titles { flex: 1; min-width: 0; }
+.fcard-type {
+  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.fcard-title { margin-top: var(--sp1); font-size: var(--text-title); font-weight: var(--fw-bold); line-height: 1.25; overflow-wrap: anywhere; }
+.fcard-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--sp5) var(--sp4); }
+.fcard-more-btn {
+  display: flex; align-items: center; gap: var(--sp2); width: 100%;
+  min-height: var(--ctrl-h); margin-top: var(--sp2); padding: 0;
+  background: transparent; border: none; cursor: pointer;
+  font: inherit; font-size: var(--text-meta); font-weight: var(--fw-semibold); color: var(--primary); text-align: left;
+}
+.fcard-more-btn svg { transition: transform var(--t-base); }
+.fcard-more-btn[aria-expanded="true"] svg { transform: rotate(90deg); }
+.fcard-more { margin-top: var(--sp2); padding-top: var(--sp3); border-top: 1px solid var(--grey-100); }
+.fcard-actions {
+  display: flex; gap: var(--sp3); flex-shrink: 0;
+  padding: var(--sp4) var(--sp5) var(--sp5); border-top: 1px solid var(--grey-100);
+}
+.fcard-actions .btn-primary { flex: 1; }
+/* No detail page to link to (an element without Standort; the Situationsplan
+   of the detail page itself): the zoom button carries its label. */
+.fcard-actions .fcard-zoom { flex: 1; }
+
+/* ── Modal dialog (legend info) ────────────────────────── */
+/* Centred over the whole app on a dark scrim; focus is trapped inside
+   (openDialog, util.js).  Phones: bottom-anchored sheet, see the compact tier. */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp5); background: var(--scrim-bg);
+  animation: scrimIn var(--t-base) ease;
+}
+.modal-scrim[hidden] { display: none; }
+.modal {
+  position: relative; width: 640px; max-width: 100%; max-height: min(800px, 100%);
   overflow-y: auto; overscroll-behavior: contain;
-  padding: var(--sp3) var(--sp4);
+  padding: var(--sp6); border-radius: var(--radius-xl);
+  background: var(--white); box-shadow: var(--shadow-modal); color: var(--grey-900);
+}
+.modal:focus { outline: none; }
+.modal-head { display: flex; align-items: flex-start; gap: var(--sp5); }
+.modal-titles { flex: 1; min-width: 0; }
+.modal-title { font-size: var(--text-lg); font-weight: var(--fw-bold); line-height: 1.3; }
+.modal-sub { margin-top: var(--sp2); font-size: var(--text-sm); color: var(--grey-600); }
+.modal-close {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: var(--ctrl-h-md); height: var(--ctrl-h-md);
+  background: var(--grey-100); border: none; border-radius: 50%;
+  color: var(--grey-800); cursor: pointer; transition: background var(--t-fast);
+}
+.modal-desc {
+  margin-top: var(--sp5); padding: var(--sp5); border-radius: var(--radius-lg);
+  background: var(--grey-100); font-size: var(--text-sm); line-height: 1.55; color: var(--grey-800);
+}
+.modal-h3 { margin: var(--sp6) 0 var(--sp3); font-size: var(--text-base); font-weight: var(--fw-bold); }
+.modal-group-label {
+  margin-bottom: var(--sp2); font-size: var(--text-label); font-weight: var(--fw-bold);
+  color: var(--grey-600); letter-spacing: .06em; text-transform: uppercase;
+}
+.modal-legend-row { display: flex; align-items: center; gap: var(--sp4); min-height: 30px; font-size: var(--text-sm); }
+.modal-legend-row .swatch { width: 18px; }
+.modal-meta { margin: 0; }
+.modal-meta-row {
+  display: flex; gap: var(--sp5); padding: var(--sp4) 0;
+  border-top: 1px solid var(--grey-200); font-size: var(--text-sm); line-height: 1.45;
+}
+.modal-meta-row dt { width: 190px; flex-shrink: 0; font-weight: var(--fw-semibold); color: var(--grey-900); }
+.modal-meta-row dd { flex: 1; min-width: 0; margin: 0; color: var(--grey-800); overflow-wrap: anywhere; }
+.modal a { color: var(--primary); text-decoration: none; }
+@media (hover: hover) {
+  .modal-close:hover { background: var(--grey-200); }
+  .modal a:hover { color: var(--primary-dark); text-decoration: underline; }
 }
 .ext-popup { max-height: 380px; max-height: clamp(96px, calc(100cqh - 110px), 420px); overflow-y: auto; overscroll-behavior: contain; }
 
-/* ── Map overlay banners (shared base) ─────────────────── */
-#edit-banner,
-#save-banner {
-  display: none; position: absolute; left: 50%; transform: translateX(-50%);
-  z-index: var(--z-overlay); border-radius: var(--radius);
-  font-size: var(--text-sm); box-shadow: var(--shadow-md);
-}
-
-/* Permanent "Prototyp" pill at the top-center of the map.  Same colour
-   family as the footer pill so the demo flag reads consistently in both
-   places.  Pointer-events disabled so it never intercepts map clicks. */
-#map-prototype-banner {
-  position: absolute;
-  top: var(--sp3);
-  left: 50%; transform: translateX(-50%);
-  z-index: var(--z-overlay);
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-pill);
-  padding: 2px var(--sp4);
-  font-size: var(--text-xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: 0.03em;
-  color: var(--warn-text);
-  white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-  pointer-events: none;
-  /* If the placeholder edit mode is ever turned on, hide this pill so it
-     doesn't stack under the edit banner (same position). */
-}
-#map.edit-active #map-prototype-banner { display: none; }
 
 /* Loading / error pill, centred on the map until the inventory is ready. */
 #map-loading {
@@ -536,37 +689,18 @@ html, body {
   cursor: pointer;
 }
 #map-loading-retry[hidden] { display: none; }
+/* «Bearbeiten» placeholder: a banner at the top of the map while it is on. */
 #edit-banner {
-  top: var(--sp3);
+  display: none; position: absolute; left: 50%; top: var(--sp3); transform: translateX(-50%);
+  z-index: var(--z-overlay); border-radius: var(--radius);
+  font-size: var(--text-sm); box-shadow: var(--shadow-md);
   background: var(--warn-bg); border: 1.5px solid var(--warn-border);
   padding: var(--sp2) var(--sp5); color: var(--warn-text); pointer-events: none;
 }
 #edit-banner.visible { display: block; }
-#save-banner {
-  bottom: var(--sp5);
-  background: var(--white); border: 1.5px solid var(--grey-300);
-  padding: var(--sp3) var(--sp6); color: var(--grey-800);
-  box-shadow: var(--shadow-pop);
-  align-items: center; gap: var(--sp4);
-}
-#save-banner.visible { display: flex; }
-#save-banner button {
-  background: var(--primary); color: var(--white); border: none;
-  border-radius: var(--radius); padding: var(--sp-btn-y) 14px; cursor: pointer;
-  font-size: var(--text-sm); font-weight: var(--fw-semibold);
-  transition: background var(--t-fast);
-}
-#save-banner .cancel-btn { background: none; color: var(--grey-600); border: 1px solid var(--grey-300); }
-@media (hover: hover) {
-  #save-banner button:hover { background: var(--primary-dark); }
-  #save-banner .cancel-btn:hover { background: var(--grey-100); }
-}
 
 /* ── Footer ────────────────────────────────────────────── */
-/* 3-column grid: coords (left), prototype-banner (centred), links (right).
-   Centred element stays geometrically centred regardless of left/right
-   content width — `justify-content: space-between` on flex would shift it
-   off-axis as coords expand/contract. */
+/* Coordinates left (they take the free room and truncate), links right. */
 /* Height grows by the bottom safe-area inset (iPhone / iPad home
    indicator): with a fixed 32 px height the inset padding squeezed the
    content box to 0 px and the links spilled above the footer's top edge. */
@@ -574,10 +708,12 @@ html, body {
   height: calc(var(--footer-height) + env(safe-area-inset-bottom, 0px)); background: var(--grey-100);
   border-top: 1px solid var(--grey-300);
   padding: 0 var(--sp5); font-size: var(--text-xs); color: var(--grey-600);
-  display: flex; justify-content: space-between; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: var(--sp4);
   flex-shrink: 0; z-index: var(--z-overlay);
 }
-#coordinates { font-family: monospace; }
+#coordinates { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#footer-links { justify-self: end; white-space: nowrap; }
 #footer-links a { display: inline-block; padding: 6px 0; color: var(--primary); text-decoration: none; margin-left: var(--sp4); }
 @media (hover: hover) {
   #footer-links a:hover { text-decoration: underline; }
@@ -682,8 +818,8 @@ html, body {
   position: absolute; bottom: var(--map-ctrl-bottom); left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-toggle);
-  display: inline-flex; align-items: center; gap: var(--sp2);
-  padding: 11px var(--sp5) 11px var(--sp4);
+  display: inline-flex; align-items: center; gap: var(--sp3);
+  padding: 11px var(--sp4) 11px var(--sp5);
   background: var(--white); border: 1px solid var(--grey-300);
   border-radius: var(--radius-full);
   font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--grey-500);
@@ -698,8 +834,10 @@ html, body {
     box-shadow: var(--shadow-pill-hover);
   }
 }
-#tbl-toggle svg { transition: transform var(--t-base); flex-shrink: 0; }
-#tbl-toggle.collapsed svg { transform: rotate(180deg); }
+/* Table icon · label · chevron (points up while the table is closed). */
+#tbl-toggle svg { flex-shrink: 0; }
+.tbl-toggle-chev { transition: transform var(--t-base); }
+#tbl-toggle.collapsed .tbl-toggle-chev { transform: rotate(180deg); }
 
 /* ── Table action bar ──────────────────────────────────── */
 /* Wraps instead of clipping: at 540 px (tablet portrait with the legend
@@ -827,7 +965,7 @@ html, body {
 }
 .dd-divider { height: 1px; background: var(--grey-100); margin: var(--sp2) 0; }
 
-/* Column selector — extends .check-item.  Rows are at least --row-h tall
+/* Checkbox rows (column selector, filter groups): at least --row-h tall
    (24 px desktop = WCAG 2.5.8; 40 px on touch) — they measured 19 px. */
 .col-check-item,
 .filter-check-item {
@@ -844,32 +982,9 @@ html, body {
   .filter-check-item:hover { background: var(--grey-100); }
 }
 
-/* ── Filter dropdown (checkbox groups) ─────────────────── */
-#tbl-filter-dd { max-height: 340px; overflow-y: auto; }
-/* The dd-menu has padding: var(--sp2).  A sticky element inside that box
-   is positioned at top:0 of its containing block (dd-menu's content edge,
-   below the 4px padding-top), so scrolled items can briefly bleed into the
-   4px gap above the sticky bar.  Negative top + margin + padding pulls
-   the wrap up to cover the padding region completely; a bottom shadow +
-   border give a clean visual seam. */
-.filter-search-wrap {
-  position: sticky; top: calc(-1 * var(--sp2)); z-index: 2;
-  background: var(--white);
-  margin: calc(-1 * var(--sp2)) calc(-1 * var(--sp2)) 0;
-  padding: var(--sp2);
-  border-bottom: 1px solid var(--grey-200);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-}
-.filter-search {
-  width: 100%; height: var(--ctrl-h-sm); padding: 0 26px 0 var(--sp3);
-  border: 1px solid var(--grey-300); border-radius: var(--radius-sm);
-  font-size: var(--text-sm); background: var(--white); color: var(--grey-900);
-  transition: border-color var(--t-fast);
-}
-.filter-search:focus { outline: none; border-color: var(--primary); box-shadow: var(--shadow-focus); }
+/* ── Filter groups (sidebar) ───────────────────────────── */
 .filter-group { padding: var(--sp1) 0; }
 .filter-group + .filter-group { border-top: 1px solid var(--grey-100); margin-top: var(--sp1); padding-top: var(--sp2); }
-.filter-group-label { padding: 5px 10px var(--sp1); }
 .filter-check-item { gap: var(--sp2); padding: var(--sp2) 10px; }
 
 /* ── Filter pill bar ───────────────────────────────────── */
@@ -877,20 +992,21 @@ html, body {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp2);
   padding: var(--sp2) var(--sp4); background: var(--grey-50); border-bottom: 1px solid var(--grey-200);
 }
-/* Chip-style pills: neutral grey background lets many pills coexist
-   without dominating the action area.  The × button is muted by default
-   and turns red on hover/focus as the destructive cue. */
+/* Chip-style pills in the light primary tint — the same look above the table
+   and at the top of the filter sidebar.  The × button turns red on hover as
+   the destructive cue. */
 .filter-pill {
   display: inline-flex; align-items: center; gap: var(--sp2);
-  padding: var(--sp1) var(--sp3); font-size: var(--text-sm); line-height: 22px;
-  background: var(--grey-100); color: var(--grey-800);
-  border: 1px solid var(--grey-300); border-radius: var(--radius-pill);
+  padding: var(--sp1) var(--sp3) var(--sp1) var(--sp4); font-size: var(--text-meta); line-height: 20px;
+  font-weight: var(--fw-semibold);
+  background: var(--primary-bg); color: var(--primary-dark);
+  border: none; border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .pill-x {
   background: none; border: none; cursor: pointer;
   font-size: var(--text-base); line-height: 1;
-  color: var(--grey-500); padding: 0 0 0 var(--sp1); font-weight: var(--fw-bold);
+  color: var(--primary-dark); padding: 0 0 0 var(--sp1); font-weight: var(--fw-bold);
   transition: color var(--t-fast);
 }
 .filter-reset-link {
@@ -932,7 +1048,6 @@ html, body {
   color: var(--grey-800); white-space: nowrap;
 }
 #tbl tbody tr { cursor: pointer; }
-#tbl tbody tr.row-active td { background: var(--row-active); }
 /* Selected row: light primary tint, no inset border.  Hover-while-selected
    keeps the selected bg so the hover state doesn't visually override the
    selection. */
@@ -1007,9 +1122,15 @@ html, body {
   box-shadow: var(--shadow-lg); min-width: 190px; max-width: calc(100% - 16px);
   z-index: var(--z-dropdown); display: none; overflow: hidden;
 }
-/* The coordinate line is the widest item — let it wrap on narrow maps. */
-.context-menu-coords span { white-space: normal; overflow-wrap: anywhere; }
 .map-context-menu.show { display: block; }
+.map-context-menu .dd-divider { margin: var(--sp1) 0; }
+/* Coordinate rows (LV95, WGS 84): label left, value right; a click copies. */
+.context-menu-coord {
+  width: 100%; justify-content: space-between; gap: var(--sp5);
+  background: none; border: none; font: inherit; font-size: var(--text-sm); text-align: left;
+}
+.ctx-coord-label { color: var(--grey-600); }
+.ctx-coord-value { font-family: ui-monospace, monospace; font-size: var(--text-meta); color: var(--grey-900); }
 
 .context-menu-item {
   display: flex; align-items: center; gap: var(--sp3);
@@ -1020,8 +1141,6 @@ html, body {
   .context-menu-item:hover { background: var(--grey-50); }
 }
 .context-menu-item svg { flex-shrink: 0; color: var(--grey-500); }
-.context-menu-coords.copied { background: var(--success-bg); color: var(--success); }
-.context-menu-coords.copied svg { color: var(--success); }
 .context-menu-item.measure-active { background: var(--primary-a12); color: var(--primary); }
 .context-menu-item.measure-active svg { color: var(--primary); }
 
@@ -1044,7 +1163,7 @@ html, body {
 .measure-distance-close {
   margin-left: auto; background: none; border: none;
   min-width: 24px; min-height: 24px;
-  padding: var(--sp1); cursor: pointer; font-size: 18px; line-height: 1;
+  padding: var(--sp1); cursor: pointer; font-size: var(--text-lg); line-height: 1;
   color: var(--grey-500); border-radius: var(--radius-sm);
   transition: background var(--t-fast), color var(--t-fast);
 }
@@ -1108,15 +1227,18 @@ html, body {
 @keyframes toastIn  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
 
-/* ── External-layers section in the legend sidebar ──────────────────── */
-.lg-group-external { border-top: 1px solid var(--grey-200); margin-top: var(--sp3); padding-top: var(--sp2); }
-/* Wrapper for the rows.  Padding-left aligned with .lg-group-head (sp3) so
-   the eye icon sits at the same column as section-header eyes - otherwise
-   the inherited .lg-items 34px indent pushes them further right. */
-.lg-ext-items { padding: 0 var(--sp4) var(--sp2) 0; }
+/* ── External-layers section in the legend ──────────────────────────── */
+.lg-group-external { border-top: 1px solid var(--grey-200); margin-top: var(--sp2); padding-top: var(--sp3); }
+.lg-ext-head {
+  padding: 0 var(--sp5) var(--sp2);
+  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+/* Rows: the eye sits in the same column as the group eyes above. */
+.lg-ext-items { padding: 0 0 var(--sp2); }
 .lg-ext-item {
   display: flex; align-items: center; gap: var(--sp2);
-  padding: 4px var(--sp4) 4px var(--sp3);
+  padding: var(--sp1) var(--sp3) var(--sp1) var(--sp2);
   border-radius: var(--radius-sm);
 }
 .lg-ext-item.group-hidden { opacity: 0.45; }
@@ -1139,7 +1261,7 @@ html, body {
 .lg-ext-remove {
   flex-shrink: 0;
   width: 24px; height: 24px; border: none; background: transparent;
-  color: var(--grey-500); cursor: pointer; font-size: 16px; line-height: 1;
+  color: var(--grey-500); cursor: pointer; font-size: var(--text-title); line-height: 1;
   border-radius: var(--radius-sm); transition: color var(--t-fast), background var(--t-fast);
   display: flex; align-items: center; justify-content: center;
 }
@@ -1149,7 +1271,7 @@ html, body {
   .lg-ext-remove:hover { color: var(--red); background: var(--grey-100); }
 }
 
-/* ── Filter sidebar (right side, mirror of #sidebar legend) ─────────── */
+/* ── Filter sidebar (docked on the right) ───────────────────────────── */
 #filter-sidebar {
   width: var(--panel-width); background: var(--white);
   border-left: 1px solid var(--grey-300);
@@ -1162,17 +1284,21 @@ html, body {
   display: flex; align-items: center; gap: var(--sp2);
   padding: var(--sp3) var(--sp4) var(--sp3) var(--sp5); border-bottom: 1px solid var(--grey-200);
   flex-shrink: 0; min-height: 41px;
-  font-size: var(--text-label); font-weight: var(--fw-bold);
-  color: var(--grey-500); text-transform: uppercase; letter-spacing: .06em;
 }
-#filter-sidebar-header > span:first-child { flex: 1; }
+#filter-sidebar-header .panel-title { flex: 1; }
 #filter-sidebar-header .tbl-badge { font-size: var(--text-label); }
-/* Reset link sits in the header row, in sentence case like elsewhere.  It
-   used to share a row with the search field and was clipped to "Alle zur…"
-   in phone-width drawers. */
-#filter-sidebar-header .filter-reset-link {
-  text-transform: none; letter-spacing: 0; font-weight: var(--fw-medium);
-  font-size: var(--text-xs);
+/* Reset link sits in the header row.  It used to share a row with the search
+   field and was clipped to "Alle zur…" in phone-width drawers. */
+#filter-sidebar-header .filter-reset-link { font-size: var(--text-meta); color: var(--primary); }
+
+/* Active filters as removable pills, above the search field. */
+.filter-pills { display: flex; flex-wrap: wrap; gap: var(--sp2); padding: var(--sp3) var(--sp4) 0; flex-shrink: 0; }
+.filter-pills[hidden] { display: none; }
+.filter-pills .filter-pill { white-space: normal; }
+/* One line of plain grey text: where profiles are switched. */
+#filter-sidebar-hint {
+  flex-shrink: 0; margin: var(--sp4) var(--sp5) var(--sp5);
+  font-size: var(--text-meta); line-height: 1.45; color: var(--grey-600);
 }
 
 #filter-sidebar-controls {
@@ -1213,13 +1339,11 @@ html, body {
   .filter-group-head:hover { background: var(--grey-50); }
 }
 .filter-group-head .filter-group-name { flex: 1; }
-.filter-group-head .filter-group-count {
-  /* grey-500 keeps the count subdued while still passing WCAG AA at 11 px. */
-  font-size: var(--text-xs); color: var(--grey-500); font-weight: var(--fw-medium);
-}
+/* Number of values ticked in the group. */
 .filter-group-head .filter-group-active {
-  font-size: var(--text-xs); color: var(--primary); font-weight: var(--fw-bold);
-  background: var(--primary-bg);
+  min-width: 18px; text-align: center;
+  font-size: var(--text-xs); color: var(--white); font-weight: var(--fw-semibold);
+  background: var(--primary);
   border-radius: var(--radius-pill); padding: 1px var(--sp2);
 }
 .filter-group-head .filter-group-caret {
@@ -1312,18 +1436,19 @@ html, body {
 @media (pointer: coarse) {
   /* iOS Safari zooms the page when a text field or select with
      font-size < 16px gains focus. */
-  #search-input, #tbl-search, #filter-sidebar-search, .filter-search,
+  #search-input, #tbl-search, #filter-sidebar-search,
   #pg-size-select { font-size: 16px; }
 
-  .eye-btn { width: 44px; height: 44px; padding: 15px; }
-  .lg-items { padding-left: 56px; }            /* 8 + 44 + 4, under the title */
+  .lg-eye, .lg-eye.sm, .lg-info, .icon-ghost,
   .lg-ext-remove,
   .input-clear-x,
   .sidebar-close-btn,
   .measure-distance-close { width: 44px; height: 44px; }
+  .lg-items { padding-left: var(--sp6); }
+  .lg-item { min-height: 44px; }
+  .lg-eye.mixed::after { right: 10px; bottom: 11px; }
   .maplibregl-popup-close-button { min-width: 44px; min-height: 44px; padding: 8px 12px; font-size: 22px; }
-  .pu-report-btn { height: 32px; padding: 0 10px; top: 6px; right: 48px; }
-  .legend-toggle-btn { width: 44px; height: 44px; }
+  .fcard-pager { padding-top: 0; padding-bottom: 0; }
   .maplibregl-ctrl-group button { width: 44px; height: 44px; }
   #tbl-toggle { min-height: 44px; }
   .context-menu-item { padding: 12px var(--sp4); }
@@ -1338,21 +1463,23 @@ html, body {
   #tbl-resize-handle { height: 16px; background: var(--grey-100); }
   #tbl-resize-handle::after { opacity: 1; background: var(--grey-400); }
 
-  /* Larger tap targets for legend swatches' parent rows. */
-  .lg-item { padding: 6px 0; }
-
   /* Filter-pill close button is 14px; bump tap area without growing visual. */
   .pill-x { min-width: 24px; min-height: 24px; padding: 4px 0 4px var(--sp1); }
 }
 
 /* ── Map chrome vs. the map's own size (container queries) ────────────── */
-/* Short map (table open on a laptop at 150%, landscape phones): smaller
-   basemap button so it clears the control stack on the right. */
-@container map (max-height: 440px) {
-  #basemap-switcher { bottom: 44px; }
-  .bm-btn { padding: 4px; }
-  .bm-btn img { width: 48px; height: 36px; }
-  .bm-btn span { display: none; }
+/* Short map (a laptop at 150 % scaling, table open, landscape phones):
+   smaller basemap button so it clears the control stack on the right — and
+   the feature card above it, which then fits its facts without scrolling
+   (--fcard-clear = the room the basemap button needs below the card).
+   Map page only: the Situationsplan on the detail page has no card or table
+   to make room for and keeps the full-size button. */
+@container map (max-height: 520px) {
+  body:not(.page-standort) #basemap-switcher { bottom: 44px; }
+  body:not(.page-standort) .bm-btn { padding: 4px; }
+  body:not(.page-standort) .bm-btn img { width: 48px; height: 36px; }
+  body:not(.page-standort) .bm-btn span { display: none; }
+  .fcard { --fcard-clear: 102px; }
 }
 /* Narrow or very short map: drop the zoom / compass group (pinch, wheel,
    double-tap and keyboard all zoom).  :has() hides the whole group — hiding
@@ -1373,13 +1500,10 @@ html, body {
    Closing the table (pill) brings everything back. */
 @container map (max-height: 240px) {
   #basemap-switcher { display: none; }
+  .fcard { --fcard-clear: var(--map-inset); }
 }
 @container map (max-height: 180px) {
   .maplibregl-ctrl-top-right { display: none; }
-}
-/* Narrow map: tighter disclaimer pill so it clears the corner controls. */
-@container map (max-width: 400px) {
-  #map-prototype-banner { padding: 2px var(--sp3); letter-spacing: 0; }
 }
 /* Narrow map: the basemap picker opens upwards as a 2 × 2 grid instead of a
    360 px row to the left (which started off-screen on phones). */
@@ -1419,8 +1543,8 @@ html, body {
   /* Results span the full header width (containing block = #header). */
   #search-results {
     left: var(--sp2); right: var(--sp2);
-    max-height: calc(100vh - var(--header-height) - var(--sp6));
-    max-height: calc(100dvh - var(--header-height) - env(safe-area-inset-top, 0px) - var(--sp6));
+    max-height: calc(100vh - var(--banner-height) - var(--header-height) - var(--sp6));
+    max-height: calc(100dvh - var(--banner-height) - var(--header-height) - env(safe-area-inset-top, 0px) - var(--sp6));
   }
   #share-toggle, #print-toggle, #edit-toggle { display: none; }
   .more-wrap { display: block; }
@@ -1433,52 +1557,101 @@ html, body {
      Frees 32 px (+ home-indicator inset) of map height. */
   #footer { display: none; }
 
-  /* Legend + filter → drawers over the map. */
-  #sidebar, #filter-sidebar {
+  /* Filter → drawer over the map. */
+  #filter-sidebar {
     position: fixed;
-    top: calc(var(--header-height) + env(safe-area-inset-top, 0px)); bottom: 0;
+    top: calc(var(--banner-height) + var(--header-height) + env(safe-area-inset-top, 0px)); bottom: 0;
     z-index: var(--z-drawer);
     transition: transform var(--t-slow);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  #sidebar {
-    left: 0; width: min(85vw, 320px);
-    padding-left: env(safe-area-inset-left, 0px);
-    transform: translateX(0);
-    box-shadow: var(--shadow-drawer-l);
-  }
-  #sidebar.collapsed {
-    width: min(85vw, 320px);          /* keep size, just slide off-screen */
-    border-right: 1px solid var(--grey-300);
-    transform: translateX(-105%);     /* extra 5% covers shadow */
-    opacity: 1;                        /* slide, don't fade */
-    pointer-events: none;
-  }
-  #filter-sidebar {
     right: 0; width: min(85vw, 340px);
     padding-right: env(safe-area-inset-right, 0px);
     transform: translateX(0);
     box-shadow: var(--shadow-drawer-r);
   }
   #filter-sidebar.collapsed {
-    width: min(85vw, 340px);
+    width: min(85vw, 340px);          /* keep size, just slide off-screen */
     border-left: 1px solid var(--grey-300);
-    transform: translateX(105%);
-    opacity: 1;
+    transform: translateX(105%);      /* extra 5% covers shadow */
+    opacity: 1;                        /* slide, don't fade */
     pointer-events: none;
   }
-  /* Backdrop scrim while a drawer is open (:has — Safari 15.4+, Chrome 105+;
+  /* Backdrop scrim while the drawer is open (:has — Safari 15.4+, Chrome 105+;
      older browsers just get no dimming).  Tapping it closes the drawer
      (click handler on #body in map.js). */
-  #body:has(#sidebar:not(.collapsed))::before,
   #body:has(#filter-sidebar:not(.collapsed))::after {
     content: '';
     position: fixed; left: 0; right: 0; bottom: 0;
-    top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+    top: calc(var(--banner-height) + var(--header-height) + env(safe-area-inset-top, 0px));
     background: var(--scrim-bg);
     z-index: var(--z-scrim);
     animation: scrimIn var(--t-base) ease;
   }
+
+  /* ── Bottom sheets: legend and feature card ──────────────────────────
+     One sheet at a time (legend, feature card, table) — map.js / table.js
+     close the others.  Both live inside #map, so they cover the bottom
+     controls and the «Tabelle» pill while they are open. */
+  .sheet-grabber {
+    display: block; flex-shrink: 0; width: 36px; height: var(--sp2);
+    margin: var(--sp3) auto 0; border-radius: var(--sp1); background: var(--grey-300);
+  }
+  .legend, .fcard {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: auto; max-width: none;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: var(--shadow-sheet);
+  }
+  .legend { height: 55%; max-height: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .legend-head { padding-top: var(--sp3); }
+  .legend .panel-title { font-size: var(--text-title); }
+  .when-wide { display: none; }
+  .when-compact { display: block; }
+  .lg-group-label { font-size: var(--text-md); }
+  .lg-item { font-size: var(--text-base); }
+
+  /* The pill gets the layers icon and stays put — pressed — while its sheet
+     is open; the quick chips follow it and scroll sideways, clear of the
+     control stack on the right. */
+  .legend-bar {
+    top: var(--sp3); left: 0; right: calc(var(--ctrl-h) + 2 * var(--sp4));
+    padding: var(--sp1) var(--sp1) var(--sp2) max(var(--sp3), env(safe-area-inset-left, 0px));
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .legend-bar::-webkit-scrollbar { display: none; }
+  .legend-pill { box-shadow: var(--shadow-pill); }
+  .legend-pill-icon { display: block; }
+  .legend-pill .lg-minis, .legend-pill-note { display: none; }
+  #map.legend-open .legend-pill { display: inline-flex; background: var(--primary); color: var(--white); }
+  #map.legend-open .legend-pill-icon { color: var(--white); }
+  .legend-chips { display: flex; gap: var(--sp3); }
+  .lg-chip[aria-pressed="false"] { color: var(--grey-600); }
+  .lg-chip[aria-pressed="false"] .swatch { opacity: .35; }
+  /* With a card open the chips would compete with it for the top row. */
+  #map.has-card .legend-chips { display: none; }
+
+  .fcard { max-height: 80%; padding-bottom: max(var(--sp5), env(safe-area-inset-bottom, 0px)); }
+  .fcard-head { padding-top: var(--sp3); }
+  .fcard-head > .swatch { width: 16px; height: 16px; }
+  .fcard-title { font-size: var(--text-lg); }
+  .fcard .dl-grid { --dl-label-w: 130px; row-gap: var(--sp3); }
+  .fcard .dl-grid dt { font-size: var(--text-sm); }
+  .fcard .dl-grid dd { font-size: var(--text-md); }
+  .fcard-actions { padding-bottom: 0; border-top: none; }
+  .fcard-actions .btn { font-size: var(--text-md); }
+  /* While the table sheet is open it is the place for details: the card
+     steps aside and returns when the table closes (the selection stays). */
+  #main-content:not(.tbl-collapsed) .fcard { display: none; }
+
+  /* Info dialog: full-width sheet anchored to the bottom. */
+  .modal-scrim { align-items: flex-end; padding: 0; }
+  .modal {
+    width: 100%; max-height: 88%;
+    padding: var(--sp5) var(--sp5) calc(var(--sp6) + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+  .modal-meta-row { flex-direction: column; gap: var(--sp1); }
+  .modal-meta-row dt { width: auto; }
 
   /* Table = bottom sheet: about half the screen by default, resizable via
      the handle (the old fixed 45vh height silently ignored dragging). */
@@ -1496,7 +1669,7 @@ html, body {
   .maplibregl-ctrl-bottom-right { right: env(safe-area-inset-right, 0px); }
 }
 @media (max-width: 699px), (max-height: 500px) {
-  @container map (max-height: 440px) {
+  @container map (max-height: 520px) {
     #main-content.tbl-collapsed #basemap-switcher { bottom: calc(44px + env(safe-area-inset-bottom, 0px)); }
   }
 }
@@ -1517,11 +1690,10 @@ html, body {
    ════════════════════════════════════════════════════════════════════════ */
 @media print {
   /* Hide every panel / control / overlay — print the map alone */
-  #header, #footer, #sidebar, #filter-sidebar, #table-panel,
-  #tbl-resize-handle, .legend-toggle-btn, #basemap-switcher,
-  #tbl-toggle, .maplibregl-ctrl,
-  #toast-container, #edit-banner, #save-banner,
-  #map-prototype-banner,
+  .proto-banner, #header, #footer, #filter-sidebar, #table-panel,
+  #tbl-resize-handle, .legend-bar, .legend, .fcard, .modal-scrim,
+  #basemap-switcher, #tbl-toggle, .maplibregl-ctrl,
+  #toast-container, #edit-banner,
   #map-context-menu, .measure-distance-display,
   #search-area { display: none !important; }
   /* Reset shell layout so the map fills the printable page */

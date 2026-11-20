@@ -1,0 +1,283 @@
+/* ─────────────────────────────────────────────────────────
+   Standort detail page (standort.html) — page layout only.
+   Tokens: tokens.css.  Shared components (buttons, swatches,
+   label/value grid, map chrome, toasts): styles.css.
+───────────────────────────────────────────────────────── */
+
+/* The map app is a fixed shell; this page is a normal scrolling document —
+   a column, so the footer sits at the bottom of short pages too. */
+html:has(body.page-standort) { height: auto; }
+body.page-standort {
+  display: flex; flex-direction: column;
+  height: auto; min-height: 100vh;
+  background: var(--grey-100);
+  overscroll-behavior: auto;
+}
+@supports (min-height: 100dvh) { body.page-standort { min-height: 100dvh; } }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ── Page frame ────────────────────────────────────────── */
+/* Fluid, max 1200 px; works down to 320 px. */
+.pg-wrap {
+  max-width: 1200px; margin: 0 auto;
+  padding-left: max(var(--sp6), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sp6), env(safe-area-inset-right, 0px));
+}
+.pg-header, .pg-titlebar { background: var(--white); border-bottom: 1px solid var(--grey-200); }
+.pg-header-row {
+  min-height: var(--header-height);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp4);
+  padding-top: var(--sp3); padding-bottom: var(--sp3);
+}
+.pg-titlebar[hidden], .pg-main[hidden], .pg-state[hidden] { display: none; }
+.pg-title-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp5);
+  padding-top: var(--sp5); padding-bottom: var(--sp5);
+}
+.pg-h1 { min-width: 0; font-size: var(--text-h1); font-weight: var(--fw-bold); line-height: 1.2; overflow-wrap: anywhere; }
+.pg-actions { display: flex; flex-wrap: wrap; gap: var(--sp3); }
+.pg-main { display: flex; flex-direction: column; gap: var(--sp6); width: 100%; padding-top: var(--sp6); padding-bottom: var(--sp6); }
+/* The map app's footer (styles.css), here at the end of the page: its links
+   only, on every screen size — this page has no ⋯ menu to move them to. */
+.page-standort #footer { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: auto; }
+
+/* Loading / not found / error */
+.pg-state {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp3);
+  min-height: 40vh; padding: var(--sp6);
+  font-size: var(--text-sm); color: var(--grey-700);
+}
+.pg-state-msg { flex-direction: column; gap: var(--sp4); text-align: center; }
+.pg-state-title { font-size: var(--text-kpi); font-weight: var(--fw-bold); color: var(--grey-900); }
+
+/* ── Export menu ───────────────────────────────────────── */
+/* Right-aligned to its button, so it stays inside the viewport on phones. */
+.menu-wrap { position: relative; }
+.menu-caret { margin-left: var(--sp1); }
+.menu {
+  position: absolute; right: 0; top: calc(100% + var(--sp3)); z-index: var(--z-dropdown);
+  width: 200px; max-width: calc(100vw - 2 * var(--sp5)); padding: var(--sp2);
+  background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+}
+.menu[hidden] { display: none; }
+.menu-item {
+  display: flex; align-items: center; width: 100%;
+  height: var(--ctrl-h-md); padding: 0 var(--sp4);
+  background: transparent; border: none; border-radius: var(--radius);
+  font: inherit; font-size: var(--text-sm); color: var(--grey-900); text-align: left; cursor: pointer;
+}
+.menu-item:focus-visible { background: var(--grey-100); }
+.menu-item.is-busy { opacity: .6; cursor: progress; }
+.menu-divider { height: 1px; margin: var(--sp2); background: var(--grey-200); }
+@media (hover: hover) {
+  .menu-item:hover { background: var(--grey-100); }
+}
+
+/* ── KPI tiles and cards ───────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp4); }
+.kpi, .card { min-width: 0; background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); }
+.kpi { padding: var(--sp5); }
+.kpi-label { font-size: var(--text-meta); color: var(--grey-600); }
+.kpi-value { margin-top: var(--sp2); font-size: var(--text-kpi); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+.kpi-unit { margin-left: var(--sp2); font-size: var(--text-sm); font-weight: var(--fw-medium); color: var(--grey-600); }
+.card { padding: var(--sp5); }
+.card-title { font-size: var(--text-title); font-weight: var(--fw-bold); }
+.card-link { font-size: var(--text-meta); color: var(--primary); text-decoration: none; }
+.card-link[hidden] { display: none; }
+/* Sources and caveats live in footers; card headers carry the title only. */
+.card-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp3) var(--sp5);
+  margin-top: var(--sp4); padding-top: var(--sp4); border-top: 1px solid var(--grey-100);
+  font-size: var(--text-meta); color: var(--grey-600);
+}
+@media (hover: hover) {
+  .card-link:hover { color: var(--primary-dark); text-decoration: underline; }
+}
+
+/* ── Situationsplan ────────────────────────────────────── */
+/* The map spans the page width.  Legend (collapsed to its pill) and feature
+   card float over it as on the main map — their styles are in styles.css. */
+.card-map { padding: 0; overflow: hidden; }
+.card-map .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp4); padding: var(--sp5); }
+.card-map .card-title { flex: 1; }
+/* An explicit height, never a min-height alone: #map is a size container,
+   and a height that comes only from min-height reaches its container queries
+   as 0 — which hid the map controls.  Tall enough for the feature card above
+   the basemap button, and never taller than the window. */
+.page-standort #map {
+  flex: none; height: clamp(480px, calc(100vh - 200px), 640px);
+  background: var(--grey-100);
+}
+/* The full-size basemap button stays (see styles.css), so the card keeps its
+   full clearance above it. */
+.page-standort .fcard { --fcard-clear: 150px; }
+
+/* Below the map: the feature card (phones) and the legend as a plain key
+   (phones: on demand; print: in full).  Hidden on wider screens, where both
+   float over the map. */
+.plan-below { display: none; }
+.plan-key { border-top: 1px solid var(--grey-100); }
+.plan-key-toggle {
+  display: flex; align-items: center; gap: var(--sp3); width: 100%;
+  min-height: var(--ctrl-h-md); padding: 0 var(--sp5);
+  background: transparent; border: none; cursor: pointer;
+  font: inherit; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--grey-900); text-align: left;
+}
+.plan-key-count { flex: 1; font-weight: var(--fw-medium); color: var(--grey-600); }
+.plan-key-chev { flex-shrink: 0; color: var(--grey-500); transition: transform var(--t-base); }
+.plan-key-toggle[aria-expanded="true"] .plan-key-chev { transform: rotate(180deg); }
+.plan-key-body {
+  columns: 200px; column-gap: var(--sp6);
+  padding: 0 var(--sp5) var(--sp4);
+  font-size: var(--text-meta); color: var(--grey-800);
+}
+.plan-key-body[hidden] { display: none; }
+.pk-group { break-inside: avoid; padding-bottom: var(--sp4); }
+.pk-cap {
+  padding-bottom: var(--sp2);
+  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.pk-item { display: flex; align-items: center; gap: var(--sp3); min-height: 22px; }
+.pk-item.off { opacity: .45; }
+
+/* ── Stammdaten ────────────────────────────────────────── */
+/* Two cards of equal width: Identifikation · Zuständigkeit und Pflege with
+   Erfassung below it. */
+.stamm-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp6); }
+.card-stamm .dl-grid { --dl-label-w: var(--dl-label-w-wide); margin-top: var(--sp4); line-height: 1.5; }
+.card-stamm .dl-grid dt { font-size: var(--text-sm); }
+.card-stamm .dl-grid + .card-title { margin-top: var(--sp5); padding-top: var(--sp5); border-top: 1px solid var(--grey-100); }
+
+/* The toasts float over the page here, not inside the map. */
+.page-standort #toast-container { position: fixed; top: var(--sp5); }
+
+/* ── Pflegekalender ────────────────────────────────────── */
+/* Fixed layout with a width on every column (Code 72 · Profil 280 · Anzahl
+   64 · Fläche 92 · 12 months): on wider cards the extra room is shared
+   proportionally, so the name column and the month grid stay balanced. */
+.card-cal { container: cal / inline-size; }
+.cal-wrap { margin-top: var(--sp4); }
+.cal { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
+.cal th {
+  padding: var(--sp3); text-align: left; white-space: nowrap;
+  font-size: var(--text-label); font-weight: var(--fw-semibold); color: var(--grey-600);
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.cal th abbr { text-decoration: none; }
+.cal th.cal-code { width: 72px; padding-left: 0; }
+.cal th.cal-profil { width: 280px; padding-left: calc(var(--sp3) + 14px + var(--sp3)); }
+.cal th.cal-num { width: 64px; }
+.cal th.cal-num + th.cal-num { width: 92px; }
+.cal th.cal-m { width: var(--month-w); padding-left: 0; padding-right: 0; text-align: center; }
+.cal td { padding: var(--sp2) var(--sp3); vertical-align: middle; }
+.cal td.cal-code { padding-left: 0; }
+.cal th.cal-num, .cal td.cal-num { text-align: right; font-variant-numeric: tabular-nums; }
+.cal td.cal-m { padding: var(--sp2) var(--sp1); }
+.cal-row > td { border-top: 1px solid var(--grey-200); }
+.cal-row.open > td, .cal-task > td { background: var(--grey-50); }
+.cal-code-in { display: flex; align-items: center; gap: var(--sp3); }
+.cal-code-text { font-family: ui-monospace, monospace; font-size: var(--text-meta); color: var(--grey-700); }
+.cal-toggle {
+  display: flex; align-items: center; gap: var(--sp3); width: 100%; min-height: 28px; padding: 0;
+  background: transparent; border: none; cursor: pointer;
+  font: inherit; font-weight: var(--fw-semibold); color: var(--grey-900); text-align: left;
+}
+.cal-toggle.is-static { cursor: default; }
+.cal-chev { display: flex; flex-shrink: 0; width: 14px; color: var(--grey-500); transition: transform var(--t-base); }
+.cal-row.open .cal-chev { transform: rotate(90deg); }
+.cal-name { min-width: 0; overflow-wrap: anywhere; }
+/* Task name: indented to the profile name above it. */
+.cal td.cal-task-name { padding-left: calc(var(--sp3) + 14px + var(--sp3)); color: var(--grey-800); }
+.cal-cell { display: block; height: 16px; border-radius: var(--radius-sm); background: var(--cal-empty); }
+.cal-cell.s2 { background: var(--cal-standard); }
+.cal-cell.s1 { background: repeating-linear-gradient(45deg, var(--cal-standard) 0 2px, var(--cal-estimate) 2px 6px); }
+.cal tfoot td { padding-top: var(--sp3); padding-bottom: var(--sp3); border-top: 2px solid var(--grey-200); font-weight: var(--fw-bold); }
+.cal tfoot td:first-child { padding-left: 0; }
+.cal-empty { padding: var(--sp5) 0; color: var(--grey-600); }
+.cal-narrow { display: none; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: var(--sp3) var(--sp5); color: var(--grey-800); }
+.cal-legend-item { display: inline-flex; align-items: center; gap: var(--sp3); }
+.cal-legend .cal-cell { width: 14px; height: 14px; }
+@media (hover: hover) {
+  button.cal-toggle:hover .cal-name { color: var(--primary); }
+}
+
+/* Narrow card (phones, small windows): months need room.  Below ~900 px the
+   months, their legend and the expandable tasks go; the table shows Profil
+   (swatch + name, taking the remaining width) · Anzahl · Fläche — no
+   horizontal scrolling. */
+@container cal (max-width: 899px) {
+  .cal-m, .cal-task, .cal-legend, .cal-code-text, .cal-chev, .cal-wide { display: none; }
+  .cal-narrow { display: inline; }
+  .cal th.cal-code { width: 22px; }
+  .cal th.cal-profil { width: auto; padding-left: var(--sp3); }
+  button.cal-toggle { cursor: default; }
+}
+
+/* ── Phones ────────────────────────────────────────────── */
+@media (max-width: 699px) {
+  .pg-wrap {
+    padding-left: max(var(--sp5), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--sp5), env(safe-area-inset-right, 0px));
+  }
+  .pg-h1 { font-size: var(--text-kpi); }
+  .pg-main { gap: var(--sp5); padding-top: var(--sp5); }
+  .stamm-grid { grid-template-columns: minmax(0, 1fr); gap: var(--sp5); }
+  .card-stamm .dl-grid { --dl-label-w: 130px; }
+}
+
+/* ── Compact (phones, short landscape windows) ─────────── */
+/* Same breakpoint as the map app's compact tier (LAYOUT_MQ.compact).  The
+   map is too small to carry panels: the feature card and the legend key sit
+   below it, in the page flow. */
+@media (max-width: 699px), (max-height: 500px) {
+  .page-standort #map { height: clamp(280px, 48vh, 400px); }
+  .page-standort .legend-bar, .page-standort .legend { display: none; }
+  .plan-below { display: block; }
+  /* The card: undo the bottom-sheet rules of the map app (styles.css). */
+  .page-standort #plan-card-slot .fcard {
+    position: static; width: auto; max-width: none; max-height: none;
+    border-radius: 0; box-shadow: none; border-top: 1px solid var(--grey-100);
+    padding-bottom: var(--sp5);
+  }
+  .page-standort #plan-card-slot .fcard .sheet-grabber { display: none; }
+  .page-standort #plan-card-slot .fcard-body { overflow: visible; }
+}
+
+/* ── Print ─────────────────────────────────────────────── */
+/* Drucken (export menu): the page without its controls, tables full width,
+   the Pflegekalender on a new page.  (styles.css hides the map controls and
+   forces colours; its full-page map rule is undone here.) */
+@media print {
+  .page-standort .pg-actions, .page-standort #back-to-map,
+  .page-standort #basemap-switcher, .page-standort #toast-container,
+  .page-standort #map-context-menu, .page-standort .card-link { display: none !important; }
+  body.page-standort { background: var(--white); }
+  /* The disclaimer belongs on the printed page too (the map app prints the
+     bare map and hides it). */
+  .page-standort .proto-banner { display: flex !important; }
+  .page-standort .pg-wrap { max-width: none; padding-left: 0; padding-right: 0; }
+  /* The canvas keeps its screen size while printing (no script runs between
+     the print layout and the snapshot): scale it into the print box instead
+     of letting the box crop it. */
+  .page-standort #map { position: relative !important; height: auto !important; aspect-ratio: 2 / 1; }
+  .page-standort #map .maplibregl-canvas { width: 100% !important; height: 100% !important; object-fit: contain; }
+  /* The legend in full, as a key under the plan. */
+  .plan-below { display: block; }
+  .page-standort #plan-card-slot, .plan-key-chev { display: none !important; }
+  .plan-key-body, .plan-key-body[hidden] { display: block !important; }
+  .stamm-grid { gap: var(--sp4); }
+  .kpi, .card { box-shadow: none; border: 1px solid var(--grey-200); break-inside: avoid; }
+  /* Plan + key may be taller than what is left of the first page: let the
+     card break (after the map, between the key's groups) instead of moving
+     to the next page as a whole. */
+  .card-map { break-inside: auto; }
+  .page-standort #map { break-inside: avoid; }
+  .card-cal { break-before: page; break-inside: auto; }
+  .cal tr { break-inside: avoid; }
+}

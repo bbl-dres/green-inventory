@@ -22,7 +22,6 @@
   --primary-bg:    #e8f0fe;   /* light primary fill — pills, badges */
   --red:           #cc0000;
   --success:       #2e7d32;
-  --success-bg:    #e8f5e9;
 
   --warn-bg:     #fff3cd;
   --warn-border: #e6a817;
@@ -38,6 +37,7 @@
 
   /* Typography — 11px is the floor: 10px uppercase labels were below
      comfortable legibility at 100% OS scaling. */
+  --font-ui:    system-ui, -apple-system, sans-serif;
   --text-label: 11px;
   --text-xs:    11px;
   --text-sm:    13px;       /* was 12.5 — round to integer for crisper glyphs */
@@ -72,9 +72,7 @@
   --shadow-pill:      0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
   --shadow-pill-hover:0 2px 8px var(--primary-a18), 0 0 0 1px rgba(0,94,168,.1);
   --shadow-map-ctrl:  0 2px 8px rgba(0,0,0,.2);
-  --shadow-pop:       0 2px 12px rgba(0,0,0,.15);     /* save banner, popups */
   --shadow-panel:     0 4px 16px rgba(0,0,0,.18);     /* basemap-panel, sticky filter wrap */
-  --shadow-drawer-l:  4px 0 16px rgba(0,0,0,.18);     /* left drawer (legend) */
   --shadow-drawer-r: -4px 0 16px rgba(0,0,0,.18);     /* right drawer (filter) */
 
   /* Transitions */
@@ -101,6 +99,7 @@
   --z-dropdown: 100;  /* dropdowns must beat all map/table layers */
 
   /* Layout */
+  --banner-height:   24px;  /* prototype banner across the top, above the header */
   --header-height:   56px;
   --footer-height:   32px;
   --panel-width:     280px;
@@ -118,6 +117,53 @@
   --ctrl-h:    32px;
   --ctrl-h-sm: 26px;
   --row-h:     24px;   /* list rows (filter / column checkboxes): WCAG 2.5.8 floor */
+
+  /* ── Redesign 2026-11 (legend, feature card, Standort detail page) ─────
+     Design: docs/wireframes/261119_Redesign, Popup, Detailansicht.html.
+     Additive – nothing above changes. Use these instead of hardcoded
+     values in new code. */
+  --text-meta:   12px;   /* secondary text: card footers, sub-lines, captions */
+  --text-title:  16px;   /* card, popup and modal-section titles */
+  --text-kpi:    24px;   /* KPI tile values */
+  --text-h1:     30px;   /* detail page title */
+
+  --radius-lg:   8px;    /* cards, popups, floating panels (legend) */
+  --radius-xl:   12px;   /* modals, bottom sheets (top corners) */
+
+  --ctrl-h-md:   36px;   /* card and page actions (primary buttons); grows on touch */
+
+  --shadow-modal: 0 24px 48px rgba(0,0,0,.28);   /* info modal */
+  --shadow-sheet: 0 -4px 16px rgba(0,0,0,.18);   /* bottom sheets (compact) */
+  --z-map-panel: 8;      /* legend card + feature card (inside #map): above its controls, pill and popups */
+  --z-modal:     40;     /* info modal + scrim: above header (30) */
+
+  /* Floating map panels */
+  --map-inset:    var(--sp4);  /* distance of legend / feature card from the map edge */
+  --legend-w:     288px;       /* legend card */
+  --fcard-w:      300px;       /* feature card */
+  --legend-row-h: 34px;        /* legend group row; grows on touch */
+
+  --dl-label-w:      110px;  /* label column of label/value grids (popups, modal) */
+  --dl-label-w-wide: 150px;  /* label column in detail-page Stammdaten */
+  --month-w:         36px;   /* Pflegekalender month cell (base width) */
+
+  /* Semantic map colours – mirror ENTITY_COLORS / report.js; MapLibre paint
+     cannot read CSS vars directly: read them once via getComputedStyle. */
+  --map-selection:  var(--primary);
+  --map-parcel:     #5b2d8e;   /* cadastral parcel outline (AV), dashed */
+  --map-perimeter:  #cc1f1f;   /* Standort marker + Pflegeperimeter */
+  --cal-standard:   var(--success);  /* month stated in the BBL Standard */
+  --cal-estimate:   #dcefdc;         /* hatch background: estimated month */
+  --cal-empty:      var(--grey-100);
+
+  /* Legend pattern inks (previously hardcoded in styles.css .sw-*) */
+  --pattern-ink:        #333;
+  --pattern-ink-grey:   #555;
+  --pattern-ink-ochre:  #856a00;
+  --pattern-ink-brown:  #804000;
+  --pattern-ink-dbrown: #5a3800;
+  --pattern-ink-purple: #9040c0;
+  --pattern-ink-orange: #c05000;
 }
 
 /* Touch input: controls and list rows grow to finger size — 44 px, the
@@ -127,8 +173,10 @@
 @media (pointer: coarse) {
   :root {
     --ctrl-h:    44px;
+    --ctrl-h-md: 44px;
     --ctrl-h-sm: 40px;
     --row-h:     44px;
+    --legend-row-h: 44px;
     --text-sm:   14px;   /* arm's-length reading on phones / tablets */
   }
 }

@@ -11,7 +11,7 @@
 //   data/codelists.json              17 field-domain codelists (decode codes)
 //
 // assembleInventory() does every join + codelist decode ONCE, here, producing
-// the seven entity_type features (site, parcel, area, tree_canopy, tree, point,
+// the six entity_type features (site, parcel, area, tree, point,
 // site_location) the map/table/report consume.  Elements carry their assigned
 // Standort (site_fid) and their located cadastral parcel (parcel_fid); the
 // Standort–parcel relation is derived from the elements, never stored.  No denormalized data is read
@@ -27,9 +27,12 @@
 const DATA_ATTRIBUTION = '© Bundesamt für Bauten und Logistik (BBL) — Bundesgärtnerei';
 const DATA_LICENSE = 'Internal use only';
 
-// LV95 (CH1903+) → WGS84 closed-form approximation (swisstopo "Reframe"),
-// sub-metre inside Switzerland.  Canonical home for this transform — map.js
-// (loaded after data.js) reuses this global instead of redefining it.
+// LV95 (CH1903+) → WGS84: swisstopo's approximate formulas (not the rigorous
+// REFRAME transformation).  Good to about 1 m inside Switzerland — measured
+// against the 2 736 surveyed points of the inventory: 0.6 m on average, 2.6 m
+// at worst.  Enough for the Standort markers and the highlight of identified
+// external features; never use it to derive stored coordinates.  Canonical
+// home for this transform — map.js (loaded after data.js) reuses this global.
 function lv95ToWgs84(E, N) {
   const yp = (E - 2600000) / 1000000;
   const xp = (N - 1200000) / 1000000;
@@ -55,17 +58,19 @@ function _siteAddress(sa) {
 // Per-entity-type display constants (mirror the old conversion's derived fields).
 const _FEATURE_TYPE = {
   site: 'Standort', site_location: 'Standort', parcel: 'Grundstück', area: 'Pflegefläche',
-  tree_canopy: 'Baumkrone', tree: 'Baum', point: 'Punktelement',
+  tree: 'Baum', point: 'Punktelement',
 };
 const _SOURCE_TAG = {
   site: 'GDB:Objekt (Pflegeperimeter)', site_location: 'GDB:Objekt (centroid)',
   parcel: 'AV: Amtliche Vermessung (OpenData-AV, cadastre.ch)',
-  area: 'GDB:Pflegeelement_polygon', tree_canopy: 'GDB:Pflegeelement_polygon (circle)',
+  area: 'GDB:Pflegeelement_polygon',
   tree: 'GDB:Pflegeelement_point', point: 'GDB:Pflegeelement_point',
 };
 
-// Build the FeatureCollection from already-parsed normalized stores.  Pure
-// (no I/O), so it is unit-testable under Node as well as the browser.
+// Build the FeatureCollection from already-parsed normalized stores.  No I/O,
+// so it runs under Node as well as in the browser.  One side effect: it
+// publishes the per-profile style and info indexes as globals (PROFILE_STYLES,
+// PROFILE_INFO) for config.js's profilStyle() and the legend's info dialog.
 function assembleInventory(stores) {
   const { sites, parcels, polygons, points, profiles, codelists } = stores;
 
@@ -87,15 +92,36 @@ function assembleInventory(stores) {
     if (pr.style && styleIndex[pr.code_list]) styleIndex[pr.code_list][pr.code] = pr.style;
   }
   if (typeof globalThis !== 'undefined') globalThis.PROFILE_STYLES = styleIndex;
+  // Descriptive attributes per profile, for the legend's info dialog.
+  // (`description` is not filled in the delivered file yet.)
+  const infoIndex = { idPPy: {}, idPP: {} };
+  for (const pr of profiles) {
+    if (infoIndex[pr.code_list]) {
+      infoIndex[pr.code_list][pr.code] = { description: pr.description || null, category: pr.category || null };
+    }
+  }
+  if (typeof globalThis !== 'undefined') globalThis.PROFILE_INFO = infoIndex;
 
   // Standorte: a FeatureCollection (sites.geojson) — attributes + perimeter.
   const siteFeats = (sites && sites.features) ? sites.features : [];
   const siteById = {};
   const addrBySite = {};                  // computed once per Standort, reused below
+  const legacyIdCount = {};               // legacy_id is not unique (one value appears twice)
   for (const sf of siteFeats) {
     siteById[sf.properties.fid] = sf.properties;
     addrBySite[sf.properties.fid] = _siteAddress(sf.properties);
+    const lid = sf.properties.legacy_id;
+    if (lid != null && lid !== '') legacyIdCount[lid] = (legacyIdCount[lid] || 0) + 1;
   }
+  // Query string that addresses a Standort on the detail page (standort.html)
+  // and in the map (?site=…): the surveyors' Objektnummer where it is unique,
+  // the feature id otherwise.
+  const siteRef = (s) => {
+    const lid = s.legacy_id;
+    return (lid != null && lid !== '' && legacyIdCount[lid] === 1)
+      ? 'id=' + encodeURIComponent(lid)
+      : 'fid=' + encodeURIComponent(s.fid);
+  };
   // Cadastral parcels (land_parcels.geojson) — may be empty when not fetched.
   const parcelFeats = (parcels && parcels.features) ? parcels.features : [];
   const parcelById = {};
@@ -105,13 +131,28 @@ function assembleInventory(stores) {
   const siteCtx = (siteFid) => {
     const s = siteFid == null ? null : siteById[siteFid];
     if (!s) return { site_oid: null, site_name: null, site_objektnummer: null,
-                     site_adresse: null, site_lose: null };
+                     site_adresse: null, site_lose: null, site_ref: null };
     return {
       site_oid: s.fid,
       site_name: s.name ?? null,
       site_objektnummer: s.legacy_id ?? null,
       site_adresse: addrBySite[s.fid] ?? null,
       site_lose: s.district ?? null,
+      site_ref: siteRef(s),
+    };
+  };
+  // Care context of an element.  Pflegeklasse and Pflegeverantwortung are
+  // surveyed per Standort; an element shows the EFFECTIVE value: its own
+  // where the delivery carries one (code ≠ 0), else its Standort's.  (The
+  // per-entity files deliver neither on elements today, so both are inherited.)
+  const set = (v) => v != null && v !== 0;
+  const careCtx = (g) => {
+    const s = g.site_fid == null ? null : siteById[g.site_fid];
+    const pk = set(g.maintenance_class) ? g.maintenance_class : (s ? s.maintenance_class : null);
+    const pv = set(g.responsible_actor_fid) ? g.responsible_actor_fid : (s ? s.responsible_actor_fid : null);
+    return {
+      pflegeklasse: decode('idPk', pk), fk_pflegeklasse_raw: pk ?? null,
+      pflegeverantwortung: decode('idPv', pv), fk_pflegeverantwortung_raw: pv ?? null,
     };
   };
   // Cadastral context of an element, through its LOCATED parcel_fid.
@@ -137,10 +178,13 @@ function assembleInventory(stores) {
     const s = sf.properties;
     const addr = addrBySite[s.fid];
     const base = {
-      objectid: s.fid, site_oid: s.fid,
+      objectid: s.fid, site_oid: s.fid, site_ref: siteRef(s),
       objektnummer: s.legacy_id ?? null, site_objektnummer: s.legacy_id ?? null,
       name: s.name ?? null, site_name: s.name ?? null,
       adresse: addr, site_adresse: addr,
+      // Parsed address parts where the survey has them (the detail page's
+      // Stammdaten fall back to the located parcels otherwise).
+      plz: s.address_postal_code ?? null, region: s.address_region ?? null, land: s.address_country ?? null,
       parzelle: s.legacy_parcel_numbers ?? null,
       lose: s.district ?? null, site_lose: s.district ?? null,
       erstellungsjahr: s.created_year ?? null,
@@ -182,18 +226,26 @@ function assembleInventory(stores) {
     if (siteFid != null) agg.bySite[siteFid] = (agg.bySite[siteFid] || 0) + 1;
   };
 
-  // ── Maintenance polygons → area | tree_canopy ──────────────────────────────
+  // ── Maintenance polygons → area ────────────────────────────────────────────
+  // Every polygon is a Pflegefläche with a care profile.  The 268 circular
+  // ones (drawn in the survey with a radius: round beds, tree pits, fountains
+  // — profiles such as Staudenmischpflanzung, Gehölzrabatte, Brunnen) used to
+  // be typed `tree_canopy` and shown as «Baumkrone» in one crown colour; they
+  // are areas like the others and are drawn, grouped and described by their
+  // profile.  The radius stays on the feature as a plain measure.
   const areaProfileCodes = new Set();
   const elementFeatures = [];
-  for (const f of polygons.features) {
+  for (const f of (polygons && polygons.features) || []) {
     const g = f.properties;
-    const et = g.crown_radius != null ? 'tree_canopy' : 'area';
+    const et = 'area';
     const pr = g.care_profile_fid != null ? profById[g.care_profile_fid] : null;
     if (pr) areaProfileCodes.add(pr.code);
     noteParcel(g.parcel_fid, g.site_fid);
     const props = {
+      fid: g.fid ?? null,
       ...siteCtx(g.site_fid),
       ...parcelCtx(g.parcel_fid),
+      ...careCtx(g),
       straddles_parcels: g.straddles_parcels ?? null,
       fk_profil: pr ? pr.code : null, profil_label: pr ? pr.label : null,
       aufwandsfaktor: g.effort_factor ?? null,
@@ -205,7 +257,7 @@ function assembleInventory(stores) {
       crown_radius_m: g.crown_radius ?? null, crown_diameter_m: g.crown_diameter ?? null,
       area_m2: g.area_m2 ?? null,
       entity_type: et,
-      category: et === 'tree_canopy' ? 'tree_canopy' : (pr ? 'profil_' + pr.code : 'profil_unknown'),
+      category: pr ? 'profil_' + pr.code : 'profil_unknown',
       feature_type: _FEATURE_TYPE[et],
       subtype: pr ? pr.label : null,
       source: _SOURCE_TAG[et],
@@ -215,27 +267,32 @@ function assembleInventory(stores) {
   }
 
   // ── Maintenance points → tree | point ──────────────────────────────────────
-  for (const f of points.features) {
+  for (const f of (points && points.features) || []) {
     const g = f.properties;
     const isTree = (g.species_text != null && g.species_text !== '') || g.species_code != null;
     const et = isTree ? 'tree' : 'point';
+    // Species: the free-text name, else the coded one (idBa).
+    const species = (g.species_text != null && g.species_text !== '')
+      ? g.species_text : decode('idBa', g.species_code);
     const pr = g.care_profile_fid != null ? profById[g.care_profile_fid] : null;
     noteParcel(g.parcel_fid, g.site_fid);
     const props = {
+      fid: g.fid ?? null,
       ...siteCtx(g.site_fid),
       ...parcelCtx(g.parcel_fid),
+      ...careCtx(g),
       fk_profil: pr ? pr.code : null, profil_label: pr ? pr.label : null,
       aufwandsfaktor: g.effort_factor ?? null,
       bewaesserung: g.irrigation ?? null, bewaesserung_label: decode('idBw', g.irrigation),
       lauben: g.leaf_clearing ?? null, max_hoehe_m: g.max_height ?? null,
       ausmass: g.count ?? null, bemerkung: g.remarks ?? null,
       lv95_east: g.lv95_east ?? null, lv95_north: g.lv95_north ?? null,
-      baumart: g.species_text ?? null, fk_baumart: g.species_code ?? null,
+      baumart: species, fk_baumart: g.species_code ?? null,
       baumnummer: g.tree_number ?? null,
       entity_type: et,
       category: isTree ? 'tree' : 'point_other',
       feature_type: _FEATURE_TYPE[et],
-      subtype: isTree ? (g.species_text ?? null) : (pr ? pr.label : null),
+      subtype: isTree ? species : (pr ? pr.label : null),
       source: _SOURCE_TAG[et],
     };
     if (g._link_status) props._link_status = g._link_status;
@@ -307,6 +364,9 @@ function assembleInventory(stores) {
       license: DATA_LICENSE,
       out_crs: 'EPSG:4326 (WGS84, RFC 7946)',
       codelists,
+      // Date the survey GDB was extracted (carried by the pipeline into
+      // sites.geojson) — the "Datenstand" of the inventory layers.
+      source_extracted_at: (sites && sites.metadata && sites.metadata.source_extracted_at) || null,
       fk_profil_values: [...areaProfileCodes].sort((a, b) => a - b),
       parcels: { count: parcelFeats.length, source: parcelMeta.source || null,
                  attribution: parcelMeta.attribution || null, fetched_at: parcelMeta.fetched_at || null,

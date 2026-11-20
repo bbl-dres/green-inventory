@@ -1,6 +1,7 @@
 {
  "generated_from": "data/data.geojson + data/land_parcels.geojson",
  "model": "docs/DATAMODEL.md",
+ "source_extracted_at": "2026-05-08T06:20:24Z",
  "files": {
   "sites.geojson": 73,
   "land_parcels.geojson": 153,

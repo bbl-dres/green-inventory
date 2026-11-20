@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// CONFIG — legend groups, palette, expressions, table columns
+// CONFIG — design tokens, legend groups, palette, expressions, table columns
+// Loaded by index.html (map app) and standort.html (Standort detail page).
 //
 // The FeatureCollection js/data.js assembles from the per-entity files in
 // data/ (docs/DATAMODEL.md) contains seven entity_types:
@@ -7,7 +8,6 @@
 //   site_location   - 73 centroid dots (one per Standort, useful zoomed out)
 //   parcel          - cadastral parcels (Amtliche Vermessung, EGRID) hosting elements
 //   area            - polygon vegetation/surface (coloured by fk_profil hash)
-//   tree_canopy     - circle polygons (tree crowns)
 //   tree            - point trees with baumart
 //   point           - other points (Kleinstrukturen, lamps, etc.)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25,6 +25,31 @@ const LAYOUT_MQ = {
 function isCompactLayout() { return LAYOUT_MQ.compact.matches; }
 // Both side panels docked at once only fits on wide screens.
 function allowsTwoPanels() { return !LAYOUT_MQ.medium.matches && !LAYOUT_MQ.compact.matches; }
+
+// ── Design tokens for JS consumers ───────────────────────────────────────
+// MapLibre paint properties, canvas patterns and jsPDF cannot read CSS custom
+// properties, so the tokens they need are read once from css/tokens.css
+// (already parsed: the stylesheets sit in <head>, this script at the end of
+// <body>).  cssToken() resolves var() references and caches the result; a
+// neutral grey stands in when a token is missing so MapLibre never receives
+// an empty colour.
+const _tokenCache = {};
+function cssToken(name) {
+  if (name in _tokenCache) return _tokenCache[name];
+  let v = '';
+  if (typeof document !== 'undefined' && typeof getComputedStyle === 'function') {
+    v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  return (_tokenCache[name] = v || 'grey');
+}
+const TOKENS = {
+  primary:      cssToken('--primary'),
+  red:          cssToken('--red'),
+  white:        cssToken('--white'),
+  mapSelection: cssToken('--map-selection'),
+  mapParcel:    cssToken('--map-parcel'),
+  mapPerimeter: cssToken('--map-perimeter'),
+};
 
 // ── Number formatting (Swiss style: 1'000.0) ─────────────────────────────
 function fmtNum(v, decimals) {
@@ -47,12 +72,15 @@ function fmtNum(v, decimals) {
 // Sourced from the original Grünflächenpflege PDF legend (1602.GR_Mühlestrasse
 // 2-6).  Codes: idPPy = polygon profiles, idPP = point profiles.  swatchClass
 // refers to a CSS pattern class (sw-dots, sw-pstripe, ...) defined in styles.css.
+// Two profiles never share both colour and pattern: the pattern is drawn in
+// the legend (CSS) and on the map (fill-pattern, see PATTERN_DEFS below), so
+// each profile stays recognisable on its own.
 const AREA_PROFILE_STYLE = {
   // ── Rasen ──
   1:  { fill: '#97e600' },                                // Gebrauchsrasen kleinflächig
   2:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Gebrauchsrasen grossflächig (extrapolated)
-  3:  { fill: '#97e600' },                                // Strapazierrasen / Sportrasen kleinflächig (extrapolated)
-  4:  { fill: '#97e600', swatchClass: 'sw-pstripe' },     // Strapazierrasen / Sportrasen grossflächig (extrapolated)
+  3:  { fill: '#97e600', swatchClass: 'sw-xhatch' },      // Strapazierrasen / Sportrasen kleinflächig (extrapolated)
+  4:  { fill: '#97e600', swatchClass: 'sw-ostripe' },     // Strapazierrasen / Sportrasen grossflächig (extrapolated)
   5:  { fill: '#97e600', swatchClass: 'sw-dots' },        // Blumenrasen
   // ── Wiesen ──
   6:  { fill: '#c6eeab' },                                // Blumenwiese kleinflächig
@@ -65,12 +93,12 @@ const AREA_PROFILE_STYLE = {
   10: { fill: '#ff73df' },                                // Grab (extrapolated)
   11: { fill: '#ff5500' },                                // Beetrosen
   12: { fill: '#5c45a8' },                                // Moorbeet
-  13: { fill: '#df73ff' },                                // Staudenmischpflanzung, extensiv
+  13: { fill: '#df73ff', swatchClass: 'sw-dots' },        // Staudenmischpflanzung, extensiv
   14: { fill: '#df73ff', swatchClass: 'sw-pstripe' },     // Staudenmischpflanzung, intensiv
   15: { fill: '#ffaa00', swatchClass: 'sw-ostripe' },     // Ruderalfläche
   // ── Hecken ──
   16: { fill: '#a86f00' },                                // Formhecke, Höhe unter 1.5 m
-  17: { fill: '#a86f00', swatchClass: 'sw-hstripe' },     // Formhecke, Höhe über 1.5 m
+  17: { fill: '#a86f00', swatchClass: 'sw-xhatch' },      // Formhecke, Höhe über 1.5 m
   18: { fill: '#d9d89e' },                                // Wildhecke
   // ── Gehölzflächen ──
   19: { fill: '#718844', swatchClass: 'sw-gdots' },       // Gehölzrabatte
@@ -88,14 +116,14 @@ const AREA_PROFILE_STYLE = {
   25: { fill: '#686868' },                                // Asphaltbelag
   26: { fill: '#9c9c9c' },                                // Betonplatten, Verbund-, Natursteine
   27: { fill: '#cd8866' },                                // Chaussierung
-  28: { fill: '#e8d4a0' },                                // Sand (extrapolated)
+  28: { fill: '#e8d4a0', swatchClass: 'sw-vdots' },       // Sand (extrapolated)
   29: { fill: '#6fa800', swatchClass: 'sw-xhatch' },      // Rasengittersteine
   30: { fill: '#a83800', swatchClass: 'sw-xhatch' },      // Holzhäckselbelag
   31: { fill: '#7a7a7a' },                                // Fallschutzplatten / -beläge (extrapolated)
   32: { fill: '#5a5a5a' },                                // Kunststoff- / Sportbelag (extrapolated)
   33: { fill: '#7fc858' },                                // Kunstrasen (extrapolated)
   37: { fill: '#4e4e4e', swatchClass: 'sw-gdots' },       // Geröllstreifen und Bollensteine
-  42: { fill: '#9c9c9c' },                                // Naturstein-Pflästerung
+  42: { fill: '#9c9c9c', swatchClass: 'sw-xhatch' },      // Naturstein-Pflästerung
   // ── Wasserflächen ──
   34: { fill: '#006fff' },                                // Gewässer, ruhend, naturnah
   35: { fill: '#00a9e6' },                                // Brunnen
@@ -135,16 +163,31 @@ const POINT_PROFILE_STYLE = {
   23: { fill: '#5fa84a', swatchClass: 'sw-circ' },        // Solitärstrauch
 };
 
+// Pattern classes → what to draw.  The legend paints them in CSS (.sw-* in
+// styles.css); the map paints the same kind and ink as a MapLibre
+// fill-pattern image generated on a canvas (js/mapkit.js).  `ink` names the
+// design token that holds the pattern colour, `size` the tile edge in CSS px.
+const PATTERN_DEFS = {
+  'sw-dots':    { kind: 'dots',    ink: '--pattern-ink',        size: 6 },
+  'sw-vdots':   { kind: 'dots',    ink: '--pattern-ink-ochre',  size: 6 },
+  'sw-odots':   { kind: 'dots',    ink: '--pattern-ink-brown',  size: 9 },
+  'sw-gdots':   { kind: 'dots',    ink: '--pattern-ink-grey',   size: 6 },
+  'sw-pstripe': { kind: 'stripes', ink: '--pattern-ink-purple', size: 7 },
+  'sw-ostripe': { kind: 'stripes', ink: '--pattern-ink-orange', size: 7 },
+  'sw-hstripe': { kind: 'stripes', ink: '--pattern-ink-dbrown', size: 7 },
+  'sw-xhatch':  { kind: 'xhatch',  ink: '--pattern-ink',        size: 7 },
+};
+
 // HSL-hash cache for profile codes outside the curated catalog above.
 const _profileColorCache = {};
 
 // Look up the style for a profile code.  Returns {fill, swatchClass} object.
 // Reads the runtime PROFILE_STYLES index (built by data.js from
 // care_profiles.json) first, then the seed catalogue, then an HSL hash.
-// entity_type picks the domain: area/tree_canopy = idPPy, tree/point = idPP.
+// entity_type picks the domain: area = idPPy, tree/point = idPP.
 function profilStyle(entity_type, code) {
   if (code == null) return { fill: '#bbbbbb' };
-  const domain = (entity_type === 'area' || entity_type === 'tree_canopy') ? 'idPPy' : 'idPP';
+  const domain = profileDomain(entity_type);
   const idx = (typeof PROFILE_STYLES !== 'undefined' && PROFILE_STYLES) ? PROFILE_STYLES[domain] : null;
   if (idx && idx[code]) return idx[code];
   const map = domain === 'idPPy' ? AREA_PROFILE_STYLE : POINT_PROFILE_STYLE;
@@ -359,23 +402,24 @@ const CARE_CATALOG_POINT = {
   ]},
 };
 
-// Look up the care-catalog entry for a feature.  AREA/idPPy covers `area` and
-// `tree_canopy`; POINT/idPP covers `tree` and `point`.  Returns null for
+// Look up the care-catalog entry for a feature.  AREA/idPPy covers `area`;
+// POINT/idPP covers `tree` and `point`.  Returns null for
 // profiles with no Standard chapter (report.js renders a generic fallback).
 function careProfile(entity_type, code) {
   if (code == null) return null;
-  const isArea = entity_type === 'area' || entity_type === 'tree_canopy';
-  const map = isArea ? CARE_CATALOG_AREA : CARE_CATALOG_POINT;
+  const map = profileDomain(entity_type) === 'idPPy' ? CARE_CATALOG_AREA : CARE_CATALOG_POINT;
   return map[code] || null;
 }
 
 // ── Entity-type palette ──────────────────────────────────────────────────
+// Standort marker / Pflegeperimeter and the cadastral parcels take their
+// colour from the design tokens (--map-perimeter, --map-parcel), so the map,
+// the legend, the detail page and the PDF report agree.
 const ENTITY_COLORS = {
-  site:          { fill: '#7d8a9c', stroke: '#3d4757' },
-  site_location: { fill: '#cc1f1f', stroke: '#7a0d0d' },
-  parcel:        { fill: '#5b2d8e', stroke: '#5b2d8e' },   // cadastral parcel (AV)
+  site:          { fill: '#7d8a9c', stroke: TOKENS.mapPerimeter },   // Pflegeperimeter: red outline
+  site_location: { fill: TOKENS.mapPerimeter, stroke: TOKENS.white },
+  parcel:        { fill: TOKENS.mapParcel, stroke: TOKENS.mapParcel },   // cadastral parcel (AV)
   area:          { fill: '#bdbdbd', stroke: 'rgba(0,0,0,0.32)' }, // overridden by profile hash
-  tree_canopy:   { fill: '#5fa84a', stroke: '#2f6d20' },
   tree:          { fill: '#2d8000', stroke: '#0e3f00' },
   point:         { fill: '#e08a1c', stroke: '#7a4a06' },
 };
@@ -408,84 +452,123 @@ const ENTITY_COLORS = {
 //   12-13,15-16  Möbel/Ausstattung   Abfalleimer, Sitzbank, Spielgerät, Ausstattung
 //   17     Anderes (Punkt)
 //   18-22  Kleinstrukturen Asthaufen, Baumstamm, Steinhaufen, Wildbienenhotel, Nistkasten
+// A group lists its members as `parts`, each bound to one entity_type:
+//   { entity_type, profileCodes }   one legend row per profile code (label,
+//                                   colour and pattern come from the profile)
+//   { entity_type, label, swatch }  one fixed row for a layer without profiles
+// `singular` is the type label of a single feature of the group (popup title
+// of an area, type line of a point).  The array stays a pure literal:
+// scripts/split_entities.mjs evaluates it to derive each profile's category.
 const LEGEND_GROUPS = [
-  // ── Top of stack: Standort markers ──────────────────────────────────
-  {
-    id: 'site_location', label: 'Standort-Markierungen', entity_type: 'site_location',
-    items: [
-      { label: 'Standort (ein Punkt pro Parzelle)', fill: '#cc1f1f', swatchClass: 'sw-circ' },
-    ]
-  },
+  // ── Standort and cadastre: the frame the elements sit in ─────────────
+  // The drawn Pflegeperimeter is a plan frame from the tender plans, not a
+  // boundary and not a maintained area (docs/DATAMODEL.md §3.1); the parcel
+  // (Amtliche Vermessung, keyed by EGRID) is the legal unit of ground (§3.2).
+  { id: 'standort', label: 'Standort / Grundstück', parts: [
+    { entity_type: 'site_location', label: 'Standort-Markierung', swatch: 'marker',
+      info: 'Ein Punkt pro Standort (repräsentativer Punkt im Pflegeperimeter). Ein Klick wählt den Standort aus.' },
+    { entity_type: 'site', label: 'Pflegeperimeter', swatch: 'line',
+      info: 'Für die Ausschreibungspläne gezeichneter Umriss des Standorts. Dient nur der Darstellung: keine rechtliche Grenze und keine Pflegefläche.' },
+    { entity_type: 'parcel', label: 'Grundstück AV', swatch: 'dash',
+      info: 'Grundstücke aus der amtlichen Vermessung, auf denen Pflegeelemente stehen, verknüpft über den EGRID; ab Zoomstufe 16 beschriftet.' },
+  ] },
 
-  // ── Baum (Laub + Strasse + Nadel + Obst all in one group, matching
-  //    the PDF Grünflächenpflege legend) ─────────────────────────────
-  // Items auto-populated by buildLegend from profileCodes + idPP labels;
-  // colours and swatches come from POINT_PROFILE_STYLE so the legend's
-  // Strassenbäume read teal while regular Laub-/Nadelbäume read green,
-  // matching the printed plan.
-  { id: 'tree', label: 'Baum', entity_type: 'tree',
-    profileCodes: [1, 2, 3, 4, 5, 6, 7, 8] },
+  // ── Bäume: Laub-, Strassen-, Nadel- und Obstbäume wie in der PDF-Legende ──
+  { id: 'baum', label: 'Bäume', singular: 'Baum', parts: [
+    { entity_type: 'tree', profileCodes: [1, 2, 3, 4, 5, 6, 7, 8] },
+  ] },
 
-  // ── Tree canopies ──
-  {
-    id: 'tree_canopy', label: 'Baumkronen', entity_type: 'tree_canopy',
-    items: [
-      { label: 'Kronenfläche (Kreis)', fill: 'rgba(95,168,74,0.45)' },
-    ]
-  },
+  // ── Flächen — BBL Standard Grünflächenunterhalt ──────────────────────
+  { id: 'rasen',    label: 'Rasen',         singular: 'Rasen',        parts: [{ entity_type: 'area', profileCodes: [1, 2, 3, 4, 5] }] },
+  { id: 'wiesen',   label: 'Wiesen',        singular: 'Wiese',        parts: [{ entity_type: 'area', profileCodes: [6, 7, 8, 43, 44] }] },
+  { id: 'rabatten', label: 'Rabatten',      singular: 'Rabatte',      parts: [{ entity_type: 'area', profileCodes: [9, 10, 11, 12, 13, 14, 15] }] },
+  { id: 'hecken',   label: 'Hecken',        singular: 'Hecke',        parts: [{ entity_type: 'area', profileCodes: [16, 17, 18] }] },
+  { id: 'gehoelze', label: 'Gehölzflächen', singular: 'Gehölzfläche', parts: [{ entity_type: 'area', profileCodes: [19, 20, 21, 22, 23] }] },
+  { id: 'special_planting', label: 'Spezielle Bepflanzungsformen', singular: 'Spezielle Bepflanzungsform', parts: [
+    { entity_type: 'area',  profileCodes: [24, 38, 39, 40, 41] },
+    { entity_type: 'point', profileCodes: [9, 10, 11, 23] },
+  ] },
+  { id: 'belag',    label: 'Beläge',        singular: 'Belag',        parts: [{ entity_type: 'area', profileCodes: [25, 26, 27, 28, 29, 30, 31, 32, 33, 37, 42] }] },
+  { id: 'wasser',   label: 'Wasserflächen', singular: 'Wasserfläche', parts: [{ entity_type: 'area', profileCodes: [34, 35] }] },
 
-  // ── Spezielle Bepflanzungsformen (Punkt) — exactly as PDF ──
-  { id: 'pt_special',  label: 'Spezielle Bepflanzungsformen (Punkt)',
-    entity_type: 'point', profileCodes: [9, 10, 11] },
-
-  // ── Kleinstrukturen — Asthaufen / Baumstamm / Steinhaufen / etc. ──
-  { id: 'pt_kleinstr', label: 'Kleinstrukturen',
-    entity_type: 'point', profileCodes: [18, 19, 20, 21, 22] },
-
-  // ── Möbel / Ausstattung — extension for codes the PDF doesn't show
-  //    (the source plan was a single garden, our dataset has more) ──
-  { id: 'pt_moebel',   label: 'Möbel / Ausstattung',
-    entity_type: 'point', profileCodes: [12, 13, 15, 16] },
-
-  // ── Solitärsträucher + point-Anderes (rare codes, kept separate so the
-  //    main groups remain clean) ────────────────────────────────────
-  { id: 'pt_solitaer', label: 'Solitärsträucher',
-    entity_type: 'point', profileCodes: [23] },
-  { id: 'pt_anderes',  label: 'Anderes (Punkt)',
-    entity_type: 'point', profileCodes: [17] },
-
-  // ── AREAS — BBL Standard Grünflächenunterhalt – profile grouping ────────────────────────────
-  // (the user-visible feature these legend changes brought back)
-  { id: 'rasen',         label: 'Rasen',                  entity_type: 'area', profileCodes: [1, 2, 3, 4, 5] },
-  { id: 'wiesen',        label: 'Wiesen',                 entity_type: 'area', profileCodes: [6, 7, 8, 43, 44] },
-  { id: 'rabatten',      label: 'Rabatten',               entity_type: 'area', profileCodes: [9, 10, 11, 12, 13, 14, 15] },
-  { id: 'hecken',        label: 'Hecken',                 entity_type: 'area', profileCodes: [16, 17, 18] },
-  { id: 'gehoelze',      label: 'Gehölzflächen',          entity_type: 'area', profileCodes: [19, 20, 21, 22, 23] },
-  { id: 'special_planting', label: 'Spezielle Bepflanzungsformen', entity_type: 'area', profileCodes: [24, 38, 39, 40, 41] },
-  { id: 'belag',         label: 'Beläge',                 entity_type: 'area', profileCodes: [25, 26, 27, 28, 29, 30, 31, 32, 33, 37, 42] },
-  { id: 'wasser',        label: 'Wasserflächen',          entity_type: 'area', profileCodes: [34, 35] },
-  { id: 'anderes',       label: 'Anderes',                entity_type: 'area', profileCodes: [36] },
-
-  // ── Standort perimeters.  The drawn Pflegeperimeter is a plan frame from
-  //    the tender plans, not a boundary and not a maintained area
-  //    (docs/DATAMODEL.md §3.1).  Shown by default; the legend eye hides it
-  //    (set defaultHidden: true to start with it off).
-  {
-    id: 'site', label: 'Standorte (Pflegeperimeter)', entity_type: 'site',
-    items: [
-      { label: 'Pflegeperimeter (Ausschreibung)', fill: 'rgba(125,138,156,0.22)' },
-    ]
-  },
-
-  // ── Cadastral parcels (bottom of stack) — Amtliche Vermessung, keyed by
-  //    EGRID: the legal unit of ground (docs/DATAMODEL.md §3.2) ──────────
-  {
-    id: 'parcel', label: 'Grundstücke (Amtliche Vermessung)', entity_type: 'parcel',
-    items: [
-      { label: 'Grundstücksgrenze (AV, cadastre.ch)', fill: 'rgba(91,45,142,0.10)' },
-    ]
-  },
+  // ── Punktelemente ────────────────────────────────────────────────────
+  { id: 'pt_kleinstr', label: 'Kleinstrukturen',     singular: 'Kleinstruktur', parts: [{ entity_type: 'point', profileCodes: [18, 19, 20, 21, 22] }] },
+  { id: 'pt_moebel',   label: 'Möbel / Ausstattung', singular: 'Ausstattung',   parts: [{ entity_type: 'point', profileCodes: [12, 13, 15, 16] }] },
+  { id: 'anderes',     label: 'Anderes',             singular: 'Anderes', parts: [
+    { entity_type: 'area',  profileCodes: [36] },
+    { entity_type: 'point', profileCodes: [17] },
+  ] },
 ];
+
+// Profile code lists: polygons (area) use idPPy, points (tree, point) use
+// idPP.  The two share integers — never compare codes across them.
+function profileDomain(entity_type) {
+  return entity_type === 'area' ? 'idPPy' : 'idPP';
+}
+
+// Index of every legend row: 'idPPy:6' / 'idPP:1' / '<entity_type>' → { group, part, key }.
+// `key` is the row's visibility key, also used in the URL (?hide=area:6,tree:1,parcel).
+const _legendIndex = (() => {
+  const idx = {};
+  for (const group of LEGEND_GROUPS) {
+    for (const part of group.parts) {
+      if (part.profileCodes) {
+        const dom = profileDomain(part.entity_type);
+        for (const code of part.profileCodes) idx[dom + ':' + code] = { group, part, key: part.entity_type + ':' + code };
+      } else {
+        idx[part.entity_type] = { group, part, key: part.entity_type };
+      }
+    }
+  }
+  return idx;
+})();
+
+// Legend row of a feature (null when it has none, e.g. an area without profile).
+function legendEntryFor(entity_type, code) {
+  if (entity_type === 'site' || entity_type === 'site_location' ||
+      entity_type === 'parcel') return _legendIndex[entity_type] || null;
+  if (code == null) return null;
+  return _legendIndex[profileDomain(entity_type) + ':' + code] || null;
+}
+function legendKeyFor(entity_type, code) {
+  const e = legendEntryFor(entity_type, code);
+  return e ? e.key : null;
+}
+// Legend group of a profile.
+function legendGroupOfProfile(entity_type, code) {
+  if (code == null) return null;
+  const e = _legendIndex[profileDomain(entity_type) + ':' + code];
+  return e ? e.group : null;
+}
+
+// Canton abbreviations (as delivered by the cadastral survey) → names, for
+// «Region / Kanton» on the Standort detail page.
+const CANTON_NAMES = {
+  AG: 'Aargau', AI: 'Appenzell Innerrhoden', AR: 'Appenzell Ausserrhoden', BE: 'Bern',
+  BL: 'Basel-Landschaft', BS: 'Basel-Stadt', FR: 'Freiburg', GE: 'Genf', GL: 'Glarus',
+  GR: 'Graubünden', JU: 'Jura', LU: 'Luzern', NE: 'Neuenburg', NW: 'Nidwalden',
+  OW: 'Obwalden', SG: 'St. Gallen', SH: 'Schaffhausen', SO: 'Solothurn', SZ: 'Schwyz',
+  TG: 'Thurgau', TI: 'Tessin', UR: 'Uri', VD: 'Waadt', VS: 'Wallis', ZG: 'Zug', ZH: 'Zürich',
+};
+
+// ── Layer metadata for the legend's info dialog ──────────────────────────
+// The six rows follow the geocat.ch profile (ISO 19115 / GM03 core elements).
+// `url: null` = link not provided yet; the row then shows plain text.  The
+// Datenstand is read from the loaded data (data.js metadata), never fixed here.
+const LAYER_METADATA = {
+  inventory: {
+    quelle: 'Bundesgärtnerei BBL – Erfassung Grünflächenunterhalt (FileGDB)',
+    metadaten:  { label: 'Link zu geocat.ch',   url: 'https://www.geocat.ch' },
+    datenbezug: { label: 'Link für Datenbezug', url: null },
+    geoportal:  { label: 'Link zum Fachportal', url: null },
+  },
+  av: {
+    quelle: 'Amtliche Vermessung via OpenData-AV',
+    metadaten:  { label: 'Link zu geocat.ch',   url: 'https://www.geocat.ch' },
+    datenbezug: { label: 'Link für Datenbezug', url: 'https://www.geodienste.ch/services/av' },
+    geoportal:  { label: 'Link zum Fachportal', url: 'https://www.cadastre.ch/de' },
+  },
+};
 
 // ── Map paint expressions ────────────────────────────────────────────────
 // Areas: pick fill colour by hashing fk_profil at runtime.  Built once after
@@ -515,16 +598,16 @@ const DATA_FILES = {
 // ── Basemap definitions ──────────────────────────────────────────────────
 const BASEMAPS = [
   { id: 'positron',    label: 'Hell',   bg: '#f2f0ec',
-    thumb: 'https://a.basemaps.cartocdn.com/light_all/7/66/45.png',
+    thumb: 'assets/basemaps/positron.svg',
     url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json' },
   { id: 'dark-matter', label: 'Dunkel', bg: '#1c1c24',
-    thumb: 'https://a.basemaps.cartocdn.com/dark_all/7/66/45.png',
+    thumb: 'assets/basemaps/dark-matter.svg',
     url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' },
   { id: 'voyager',     label: 'Reise',  bg: '#e8dfd0',
-    thumb: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/7/66/45.png',
+    thumb: 'assets/basemaps/voyager.svg',
     url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json' },
   { id: 'swisstopo',   label: 'Luftbild', bg: '#2a3a2a',
-    thumb: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/8/133/91.jpeg',
+    thumb: 'assets/basemaps/swisstopo.svg',
     url: 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json' },
 ];
 
@@ -564,7 +647,7 @@ const TABLE_COLS = [
   { key: 'profil_label',          label: 'Profil',           visible: true  },
   { key: 'pflegeklasse',          label: 'Pflegeklasse',     visible: false },
   { key: 'eigentuemer',           label: 'Eigentümer',       visible: false },
-  { key: 'pflegeverantwortung',   label: 'Pflegeverantw.',   visible: false },
+  { key: 'pflegeverantwortung',   label: 'Verantwortlich',   visible: false },
   { key: 'winterdienst',          label: 'Winterdienst',     visible: false },
   { key: 'bewaesserung_label',    label: 'Bewässerung',      visible: false },
   { key: 'kontrolle',             label: 'Kontrolle',        visible: false },
@@ -578,8 +661,8 @@ const TABLE_COLS = [
   { key: 'lauben',                label: 'Lauben',           visible: false },
   { key: 'max_hoehe_m',           label: 'Max. Höhe m',      visible: false },
   { key: 'ausmass',               label: 'Ausmass',          visible: false },
-  { key: 'crown_diameter_m',      label: 'Krone Ø m',        visible: false },
-  { key: 'crown_radius_m',        label: 'Krone Radius m',   visible: false },
+  { key: 'crown_diameter_m',      label: 'Kreis Ø m',        visible: false },
+  { key: 'crown_radius_m',        label: 'Kreis Radius m',   visible: false },
 
   // ── Geometry ───────────────────────────────────────────────────────
   { key: 'area_m2',               label: 'Fläche m²',        visible: true,
@@ -651,18 +734,17 @@ const TABLE_COL_DEFAULTS_COMPACT = {
   parcels: ['parcel_number', 'municipality_name', 'site_name', 'area_m2'],
 };
 
-// Filter dropdown columns - which columns get a checkbox-list filter,
-// AND in what order they appear in the dropdown.  Order matters: surveyors
-// almost always start by narrowing to a specific Standort, then refine by
-// what kind of green-area feature they're after.  Putting Standort first
-// matches the workflow.
+// Filter sidebar columns - which columns get a checkbox-list filter, AND in
+// what order they appear.  The filter narrows by ATTRIBUTES only; what is
+// drawn (groups and single profiles) is switched in the legend, so Profil and
+// Typ are deliberately not offered here.  Order: surveyors start with a
+// Standort, then refine by organisation, then by place and species.
 const FILTER_COLS_DEFAULT = [
-  'site_name',          // Standort (most common entry point)
-  'profil_label',       // Profil (44 polygon + 23 point names)
-  'baumart',            // Tree species (430 entries, but searchable)
-  'entity_type',        // Typ (broad bucket: site/parcel/area/tree/...)
-  'municipality_name',  // Gemeinde (parcels and the located parcel of elements)
-  'site_lose',          // Los (DLZ district)
-  'pflegeklasse',       // Pflegeklasse (PK 1/2/3)
-  'eigentuemer',        // Eigentümer (Bund/Dritte)
+  'site_name',            // Standort (most common entry point)
+  'site_lose',            // Los (DLZ district)
+  'pflegeklasse',         // Pflegeklasse (PK 1/2/3; elements inherit their Standort's)
+  'eigentuemer',          // Eigentümer (Bund/Dritte)
+  'pflegeverantwortung',  // Verantwortlich (intern / extern; elements inherit their Standort's)
+  'municipality_name',    // Gemeinde (parcels and the located parcel of elements)
+  'baumart',              // Tree species (430 entries, but searchable)
 ];

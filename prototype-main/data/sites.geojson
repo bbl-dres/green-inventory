@@ -3,6 +3,7 @@
  "metadata": {
   "entity": "Standort (docs/DATAMODEL.md §3.1)",
   "source": "survey GDB layer Objekt via data.geojson",
+  "source_extracted_at": "2026-05-08T06:20:24Z",
   "geometry": "Pflegeperimeter drawn for the tender plans — display only, not a legal boundary, not a maintained area"
  },
  "features": [

@@ -30,6 +30,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const data = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'data.geojson'), 'utf8'));
 const codelists = data.metadata.codelists;
+const sourceExtractedAt = data.metadata.extracted_at || null;
 const F = data.features;
 
 // Cadastral parcels (Land Parcel) — produced by fetch_parcels.mjs.  Without the
@@ -85,11 +86,15 @@ function styleFor(domain, code) {
 }
 
 // profile code -> category label, by domain (area = idPPy, point = idPP)
+// A legend group lists its members as `parts`, each bound to one entity_type;
+// only parts with profileCodes name profiles (the others are fixed layers).
 const catByCode = { area: {}, point: {} };
 for (const g of LEGEND) {
-  if (!g.profileCodes) continue;
-  const dom = g.entity_type === 'area' ? 'area' : 'point';
-  for (const c of g.profileCodes) catByCode[dom][c] = g.label;
+  for (const part of g.parts || []) {
+    if (!part.profileCodes) continue;
+    const dom = part.entity_type === 'area' ? 'area' : 'point';
+    for (const c of part.profileCodes) catByCode[dom][c] = g.label;
+  }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -237,6 +242,9 @@ for (const f of F) {
 write('sites.geojson', fc(sites, {
   entity: 'Standort (docs/DATAMODEL.md §3.1)',
   source: 'survey GDB layer Objekt via data.geojson',
+  // When the survey GDB was extracted (gdb_to_geojson.py) — the app shows it
+  // as the "Datenstand" of the inventory layers.
+  source_extracted_at: sourceExtractedAt,
   geometry: 'Pflegeperimeter drawn for the tender plans — display only, not a legal boundary, not a maintained area',
 }));
 write('maintenance_polygons.geojson', fc(polygons));
@@ -250,6 +258,7 @@ if (fs.existsSync(legacySites)) { fs.rmSync(legacySites); console.log('removed s
 const unassigned = [...polygons, ...points].filter(f => f.properties._link_status).length;
 const manifest = {
   generated_from: 'data/data.geojson + data/land_parcels.geojson', model: 'docs/DATAMODEL.md',
+  source_extracted_at: sourceExtractedAt,
   files: {
     'sites.geojson': sites.length, 'land_parcels.geojson': parcels.features.length,
     'maintenance_polygons.geojson': polygons.length, 'maintenance_points.geojson': points.length,

@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // REPORT — per-Standort Pflegebericht (PDF, on demand)
-// Triggered by the ⬇ PDF button in a Standort popup (see popupHTML in map.js).
+// Triggered by «Exportieren → Pflegebericht (PDF)» on the Standort detail
+// page (standort.js).  It needs no map of its own: the features are passed in.
 // Renders a 3-page landscape A4 PDF:
 //   Page 1 — Situationsplan: a vector map over the light basemap showing the
 //            green-area profiles (filled by BBL colour), tree dots, the
@@ -14,17 +15,21 @@
 //            and intervals per profile.
 // Vector map is drawn directly from the GeoJSON (no basemap tiles) so it is
 // crisp and fully offline.
-// Depends on: config.js (careProfile, CARE_CATALOG_*, profilStyle, fmtNum),
-//   map.js (geojsonData, showToast), jsPDF + jspdf-autotable (CDN).
+// Depends on: config.js (careProfile, CARE_CATALOG_*, profilStyle, fmtNum,
+//   TOKENS, BASEMAPS), util.js (siteChildren, parcelsOf, careProfileRows),
+//   maplibregl (basemap capture), jsPDF + jspdf-autotable (CDN).
 // ═══════════════════════════════════════════════════════════════════════════
 
+// jsPDF takes RGB triples; the colours that have a design token are read
+// from it (config.js TOKENS), so the PDF follows the map and the legend.
 // Month-cell fills: solid = stated in the Standard, light = estimated month.
-const RPT_MONTH_SOLID = [0, 94, 168];     // --primary
+const RPT_MONTH_SOLID = rptHexToRgb(TOKENS.primary);
 const RPT_MONTH_GUESS = [180, 205, 230];  // light primary tint
 const RPT_MONTH_LETTERS = ['Ja', 'Fe', 'Mä', 'Ap', 'Ma', 'Jn', 'Jl', 'Au', 'Se', 'Ok', 'No', 'De'];
 
 const RPT_MAP_BG = [228, 228, 228];       // grey "neighbourhood" background
-const RPT_PARCEL_RED = [204, 31, 31];     // parcel boundary
+const RPT_PARCEL_RED = rptHexToRgb(TOKENS.mapPerimeter);   // Pflegeperimeter + position marker
+const RPT_PARCEL_VIOLET = rptHexToRgb(TOKENS.mapParcel);   // cadastral parcels (AV)
 
 // Generic row for profiles with no chapter in the BBL Standard.
 const RPT_FALLBACK_TASK = {
@@ -63,43 +68,31 @@ function rptDeriveCode(label) {
 }
 
 // ── Main entry: build + download the report for a site OBJECTID ────────────
-async function buildStandortReport(siteOid) {
-  if (!geojsonData) return;
+//   opts.features  the assembled inventory features (data.js); required
+//   opts.notify    (message, type) callback for errors; default: none
+// Resolves true when the PDF was saved.
+async function buildStandortReport(siteOid, opts = {}) {
+  const features = opts.features;
+  const notify = typeof opts.notify === 'function' ? opts.notify : () => {};
+  if (!Array.isArray(features)) return false;
   const ns = window.jspdf;
-  if (!ns || !ns.jsPDF) { showToast('PDF-Bibliothek nicht geladen', 'error'); return; }
+  if (!ns || !ns.jsPDF) { notify('PDF-Bibliothek nicht geladen', 'error'); return false; }
 
-  const site = geojsonData.features.find(
+  const site = features.find(
     f => f.properties.entity_type === 'site' && f.properties.objectid === siteOid);
-  if (!site) { showToast('Standort nicht gefunden', 'error'); return; }
+  if (!site) { notify('Standort nicht gefunden', 'error'); return false; }
   const sp = site.properties;
 
-  // Children of this site (its green features), excluding the centroid marker.
-  const children = geojsonData.features.filter(f => {
-    const p = f.properties;
-    return p.site_oid === siteOid &&
-           p.entity_type !== 'site' && p.entity_type !== 'site_location' &&
-           p.entity_type !== 'parcel';   // parcels carry the primary Standort, not children
-  });
+  // Children of this site (its maintenance elements) and the cadastral
+  // parcels they stand on (the parcel carries its primary Standort only).
+  const children = siteChildren(features, siteOid);
+  const parcels = parcelsOf(features, children);
   // Cadastral credit on the map pages when the children have located parcels.
-  const parcelCredit = children.some(f => f.properties.parcel_fid != null)
-    ? ' · Grundstücke: AV (cadastre.ch)' : '';
+  const parcelCredit = parcels.length ? ' · Grundstücke: AV (cadastre.ch)' : '';
 
-  // ── Profil-Übersicht: group by entity_type + fk_profil ──
-  const groups = {};
-  for (const f of children) {
-    const p = f.properties;
-    const key = p.entity_type + ':' + p.fk_profil;
-    if (!groups[key]) {
-      groups[key] = {
-        entity_type: p.entity_type, code: p.fk_profil,
-        label: p.profil_label || p.subtype || ('Profil ' + p.fk_profil),
-        count: 0, area: 0,
-      };
-    }
-    groups[key].count += 1;
-    groups[key].area += Number(p.area_m2) || 0;
-  }
-  const groupList = Object.values(groups).sort((a, b) => b.area - a.area);
+  // ── Profil-Übersicht: one row per care profile (util.js), the same rows
+  //    as the Pflegekalender of the detail page ──
+  const groupList = careProfileRows(children);
   const totalArea = groupList.reduce((s, g) => s + g.area, 0);
   const nTree = children.filter(f => f.properties.entity_type === 'tree').length;
   const pkNum = (sp.pflegeklasse && String(sp.pflegeklasse).match(/\d+/))
@@ -149,7 +142,7 @@ async function buildStandortReport(siteOid) {
   const mapBox1 = { x: M, y: headBottom + 4, w: W - 2 * M, h: (H - 12) - (headBottom + 4) };
   const view1 = await rptRenderMapPage(doc, site, children, groupList, sp, mapBox1,
     rptBasemapUrl('positron', 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'),
-    { fillOpacity: 1, label: parcelLabel, geoUrl, credit: 'Quelle: CARTO · OpenStreetMap' + parcelCredit });
+    { fillOpacity: 1, label: parcelLabel, geoUrl, parcels, credit: 'Quelle: CARTO · OpenStreetMap' + parcelCredit });
 
   // ═══ PAGE 2 — Luftbild (aerial basemap, photo-forward overlay) ═══
   doc.addPage();
@@ -162,7 +155,7 @@ async function buildStandortReport(siteOid) {
   const mapBox2 = { x: M, y: ya + 6, w: W - 2 * M, h: (H - 12) - (ya + 6) };
   await rptRenderMapPage(doc, site, children, groupList, sp, mapBox2,
     rptBasemapUrl('swisstopo', 'https://vectortiles.geo.admin.ch/styles/ch.swisstopo.imagerybasemap.vt/style.json'),
-    { polyOutline: true, label: parcelLabel, fixedView: view1, geoUrl, credit: 'Quelle: swisstopo (swissimage)' + parcelCredit });
+    { polyOutline: true, label: parcelLabel, fixedView: view1, geoUrl, parcels, credit: 'Quelle: swisstopo (swissimage)' + parcelCredit });
 
   // ═══ PAGE 3 — Pflegeübersicht (combined table) ═══
   doc.addPage();
@@ -291,6 +284,7 @@ async function buildStandortReport(siteOid) {
 
   const safe = String(sp.objektnummer || sp.name || siteOid).replace(/[^\w.-]+/g, '_');
   doc.save('Pflegebericht_' + safe + '.pdf');
+  return true;
 }
 
 // ── Render one map page: basemap capture + vector overlay ───────────────────
@@ -322,13 +316,58 @@ async function rptRenderMapPage(doc, site, children, groupList, sp, box, styleUr
 // basemap image is underneath, hasBasemap=true) or from our local fit.
 function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMeter, hasBasemap, opts) {
   opts = opts || {};
-  const fillOpacity = opts.fillOpacity == null ? 1 : opts.fillOpacity;
 
   // 1. Flat grey background only when there is no basemap behind it.
   if (!hasBasemap) {
     doc.setFillColor(RPT_MAP_BG[0], RPT_MAP_BG[1], RPT_MAP_BG[2]);
     doc.rect(box.x, box.y, box.w, box.h, 'F');
   }
+
+  // 2.–4. The features, clipped to the map box: the parcels the elements
+  //       stand on (a street, a railway line) reach far beyond the view, and
+  //       the basemap image underneath does not cut vector drawing off.
+  rptClipToBox(doc, box, () => rptDrawMapFeatures(doc, site, children, proj, opts));
+
+  // 5. Position marker + parcel-ID chip at the pole of inaccessibility.
+  const ring = rptLargestRingProjected(site.geometry, proj);
+  if (ring && ring.length > 2) {
+    const [lx, ly] = rptPolylabel([ring]);
+    rptPositionMarker(doc, lx, ly, opts.label || '');
+  }
+
+  // 6. Frame around the map.
+  doc.setDrawColor(150); doc.setLineWidth(0.3);
+  doc.rect(box.x, box.y, box.w, box.h, 'S');
+
+  // 7. Legend + scale bar, bottom-left.
+  const scaleBottom = box.y + box.h - 4;
+  rptScaleBar(doc, box.x + 5, scaleBottom, mmPerMeter);
+  rptMapLegend(doc, box.x + 5, scaleBottom - 13, groupList);
+
+  // 8. North arrow (top-right), geo.admin.ch link (top-left), credit (bottom-right).
+  rptNorthArrow(doc, box);
+  rptMapLink(doc, box, opts.geoUrl);
+  rptMapCredit(doc, box, opts.credit);
+}
+
+// Runs `draw` with the drawing area limited to `box` (mm).  The graphics
+// state is restored afterwards, so whatever follows sets its own colours and
+// line widths.  Without clip support the overlay is drawn unclipped.
+function rptClipToBox(doc, box, draw) {
+  const canClip = typeof doc.saveGraphicsState === 'function' &&
+    typeof doc.clip === 'function' && typeof doc.discardPath === 'function';
+  if (!canClip) { draw(); return; }
+  doc.saveGraphicsState();
+  doc.rect(box.x, box.y, box.w, box.h, null);   // style null: path only, no paint
+  doc.clip();
+  doc.discardPath();
+  try { draw(); } finally { doc.restoreGraphicsState(); }
+}
+
+// Steps 2–4 of the map overlay: maintenance elements, cadastral parcels and
+// the Pflegeperimeter.
+function rptDrawMapFeatures(doc, site, children, proj, opts) {
+  const fillOpacity = opts.fillOpacity == null ? 1 : opts.fillOpacity;
 
   // 2. Profile polygons (BBL profile colour): filled on the plan, or drawn as
   //    coloured outlines over the aerial so the photo reads through.
@@ -337,7 +376,7 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
   if (!outline && fillOpacity < 1) setOpacity(fillOpacity);
   const polyKids = children.filter(f =>
     f.geometry && (f.geometry.type === 'MultiPolygon' || f.geometry.type === 'Polygon') &&
-    (f.properties.entity_type === 'area' || f.properties.entity_type === 'tree_canopy'));
+    f.properties.entity_type === 'area');
   for (const f of polyKids) {
     const c = rptGroupColor(f.properties.entity_type, f.properties.fk_profil);
     if (outline) {
@@ -372,15 +411,11 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
 
   // 3b. Cadastral parcels the children stand on (Amtliche Vermessung): thin
   //     dashed violet outlines beneath the red Pflegeperimeter.
-  const parcelFids = new Set(children.map(f => f.properties.parcel_fid).filter(v => v != null));
-  if (parcelFids.size && typeof geojsonData !== 'undefined' && geojsonData) {
-    doc.setDrawColor(91, 45, 142); doc.setLineWidth(0.35);
+  const parcels = opts.parcels || [];
+  if (parcels.length) {
+    doc.setDrawColor(RPT_PARCEL_VIOLET[0], RPT_PARCEL_VIOLET[1], RPT_PARCEL_VIOLET[2]); doc.setLineWidth(0.35);
     try { doc.setLineDashPattern([1.2, 0.8], 0); } catch (_) {}
-    for (const f of geojsonData.features) {
-      if (f.properties.entity_type === 'parcel' && parcelFids.has(f.properties.parcel_fid)) {
-        rptDrawMultiPoly(doc, f.geometry, proj, 'S');
-      }
-    }
+    for (const f of parcels) rptDrawMultiPoly(doc, f.geometry, proj, 'S');
     try { doc.setLineDashPattern([], 0); } catch (_) {}
   }
 
@@ -388,27 +423,6 @@ function rptDrawMapVector(doc, site, children, groupList, sp, box, proj, mmPerMe
   doc.setDrawColor(RPT_PARCEL_RED[0], RPT_PARCEL_RED[1], RPT_PARCEL_RED[2]);
   doc.setLineWidth(0.8);
   rptDrawMultiPoly(doc, site.geometry, proj, 'S');
-
-  // 5. Position marker + parcel-ID chip at the pole of inaccessibility.
-  const ring = rptLargestRingProjected(site.geometry, proj);
-  if (ring && ring.length > 2) {
-    const [lx, ly] = rptPolylabel([ring]);
-    rptPositionMarker(doc, lx, ly, opts.label || '');
-  }
-
-  // 6. Frame around the map.
-  doc.setDrawColor(150); doc.setLineWidth(0.3);
-  doc.rect(box.x, box.y, box.w, box.h, 'S');
-
-  // 7. Legend + scale bar, bottom-left.
-  const scaleBottom = box.y + box.h - 4;
-  rptScaleBar(doc, box.x + 5, scaleBottom, mmPerMeter);
-  rptMapLegend(doc, box.x + 5, scaleBottom - 13, groupList);
-
-  // 8. North arrow (top-right), geo.admin.ch link (top-left), credit (bottom-right).
-  rptNorthArrow(doc, box);
-  rptMapLink(doc, box, opts.geoUrl);
-  rptMapCredit(doc, box, opts.credit);
 }
 
 // Returns a function that sets fill opacity via jsPDF GState, or a no-op if the
@@ -469,15 +483,19 @@ function rptAttrTable(doc, sp, startY, x, width) {
   return doc.lastAutoTable.finalY;
 }
 
-// geo.admin.ch deep link to the parcel on the cadastral-survey layer (amtliche
-// Vermessung), with a marker at the site centroid. center/crosshair are LV95.
+// geo.admin.ch deep link to the Standort: the default swisstopo map (national
+// map, colour) with a marker at the site's representative point.  No thematic
+// layer — the cadastral survey (AV) is not available everywhere, and with it
+// on an empty background the link opened a blank map.  `layers=` is given
+// empty on purpose: without it the viewer adds its topic's default layers.
+// z=10 is about 1 m per pixel, the scale the 1:10 000 map is drawn for.
+// center / crosshair are LV95.
 function rptGeoAdminUrl(sp) {
   const E = sp.lv95_east_centroid, N = sp.lv95_north_centroid;
   if (E == null || N == null) return null;
   const c = (Math.round(E * 100) / 100) + ',' + (Math.round(N * 100) / 100);
   return 'https://map.geo.admin.ch/#/map?lang=de&center=' + c +
-         '&z=13&topic=ech&layers=ch.swisstopo-vd.amtliche-vermessung' +
-         '&bgLayer=void&crosshair=marker,' + c;
+         '&z=10&topic=ech&layers=&bgLayer=ch.swisstopo.pixelkarte-farbe&crosshair=marker,' + c;
 }
 
 // Fetch switzerland.svg, restyle to canton + country OUTLINES ONLY (fills off,
@@ -555,7 +573,7 @@ async function rptSwissLocator(doc, box, sp) {
     const dx = imgX + bx * imgW, dy = imgY + by * imgH;
     doc.setFillColor(255, 255, 255); doc.circle(dx, dy, 1.5, 'F');
     doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.3);
-    doc.setFillColor(204, 31, 31); doc.circle(dx, dy, 1.0, 'FD');
+    doc.setFillColor(RPT_PARCEL_RED[0], RPT_PARCEL_RED[1], RPT_PARCEL_RED[2]); doc.circle(dx, dy, 1.0, 'FD');
   }
   return imgY + imgH;
 }
@@ -931,29 +949,3 @@ function rptCalLegend(doc, x, y) {
   doc.text('*  Profil ohne Standard-Kapitel (Pflege geschätzt)', cx, y);
 }
 
-// ── Delegated click handler for the popup's ⬇ PDF button ───────────────────
-// The popup HTML is injected via setHTML(), so we can't bind a closure to the
-// button at render time — listen on document and match the button class.
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest && e.target.closest('.pu-report-btn');
-  if (!btn) return;
-  e.stopPropagation();
-  const oid = Number(btn.dataset.oid);
-  if (isNaN(oid) || btn.dataset.busy === '1') return;
-
-  // Generation is async (basemap capture); guard against double-clicks and
-  // give visual feedback while it runs.
-  btn.dataset.busy = '1';
-  const prev = btn.textContent;
-  btn.textContent = '…';
-  btn.style.pointerEvents = 'none';
-  try {
-    await buildStandortReport(oid);
-  } catch (err) {
-    if (typeof showToast === 'function') showToast('Bericht konnte nicht erstellt werden', 'error');
-  } finally {
-    btn.dataset.busy = '';
-    btn.textContent = prev;
-    btn.style.pointerEvents = '';
-  }
-});

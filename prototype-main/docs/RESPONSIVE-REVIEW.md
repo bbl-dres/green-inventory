@@ -2,6 +2,7 @@
 
 > Scope: `prototype-main`, the app the repository root opens · Review date: 2026-09-24
 > Method: 18 device profiles × 10 UI states, measured with Playwright ([`tools/responsive-audit`](../tools/responsive-audit/README.md))
+> Since then: legend, feature card and detail page were redesigned — see [Update 2026-11-19](#update-2026-11-19-legend-feature-card-and-detail-page-redesigned) at the end.
 
 ## Summary
 
@@ -463,3 +464,46 @@ The popup is fully visible on every one.
 | `js/table.js` | Tier-aware filter panel, compact columns, table state class, reset visibility, `aria-expanded` |
 | `README.md` | “Responsive layout” section; long-press menu; links to this review and the harness |
 | `tools/responsive-audit/` | The measurement harness used for this review |
+
+## Update 2026-11-19: legend, feature card and detail page redesigned
+
+The review above describes the app as of 2026-09-24. On 2026-11-19 the legend, the
+feature popup and the path to a Standort were redesigned
+([`docs/wireframes/`](wireframes/)). The three tiers and the orthogonal layers (touch,
+hover, container queries, safe areas) are unchanged. What differs from the sections
+above:
+
+| Was | Now |
+|---|---|
+| Legend = docked left panel (wide / medium), drawer (compact) | Legend = card floating over the map's top-left corner, collapsing to a pill; bottom sheet on phones. The map always has the full width |
+| Feature popup = MapLibre popup docked top-right, scrolling body | Feature card = own element docked top-right, sized to fit its facts; bottom sheet on phones |
+| Selecting a feature opened the table (wide / medium) | The table is never opened by a selection; the card is the place for details |
+| “Prototyp” pill at the top of the map | A red banner across the top of both pages, above the header, in every tier (24 px; it takes the top safe-area inset) |
+| Medium tier: one docked panel at a time | Medium tier: legend starts as a pill; the legend card and the docked filter are open one at a time |
+| Compact tier: two drawers | Compact tier: filter drawer, and three bottom sheets (legend, feature card, table), one at a time |
+
+The harness was adapted to the new markup (`#legend`, `#feature-card`) and re-run on all
+18 profiles × 10 states:
+
+- Header overflow: **0 px** on every profile.
+- Feature card after a tap: **100 % visible** on every profile. It needs no scrollbar on
+  14 of 18; on the four shortest screens (960 × 472 at 200 % zoom, 375 × 553, 320 × 460
+  and the phone in landscape, 844 × 340) the card's body scrolls.
+- Map width: the full viewport on every profile (1280 × 585: 1280 px, was 1000 px with the
+  legend docked).
+- Touch targets: none under 24 px in the redesigned parts, and none under 44 px on touch
+  devices. What the harness still lists are elements the redesign did not touch: the
+  header search's clear button (20 px, pointer devices), the header search field (42 px
+  on touch) and, on tablets, the three footer links.
+
+Measured, but not caused by the redesign:
+
+- The table's tab strip overflows its toolbar by 3–33 px on phones up to 390 px wide.
+  This dates from the third tab (Grundstücke).
+- The attribution overlaps the «Tabelle» pill, and on phones the scale bar and the
+  basemap button, until the first map interaction collapses it. It grew with the
+  cadastral credit.
+
+The new Standort detail page (`standort.html`) is a scrolling document, not part of the
+map shell: one column below about 900 px, the Pflegekalender without its month grid
+below 900 px card width, no horizontal scrolling at 390 px.

@@ -80,13 +80,14 @@ module.exports = function collectMetrics(opts) {
   const tr = R(tp);
   const hdr = R(document.getElementById('header'));
   const ftr = R(document.getElementById('footer'));
-  const sb = document.getElementById('sidebar'), fsb = document.getElementById('filter-sidebar');
+  const sb = document.getElementById('legend'), fsb = document.getElementById('filter-sidebar');
   out.layout = {
     header: rnd(hdr.height), footer: rnd(ftr.height), footerVisible: isShown(document.getElementById('footer')),
     map: { w: rnd(mr.width), h: rnd(mr.height) },
     mapShareOfViewport: rnd(100 * (mr.width * Math.max(0, mr.height)) / (vw * vh)),
     table: { h: rnd(tr.height), open: !tp.classList.contains('collapsed') },
-    legend: { w: rnd(R(sb).width), shown: isShown(sb), overlay: getComputedStyle(sb).position === 'fixed' },
+    // The legend floats over the map on every tier (card; bottom sheet on phones).
+    legend: { w: rnd(R(sb).width), shown: isShown(sb), overlay: true },
     filter: { w: rnd(R(fsb).width), shown: isShown(fsb), overlay: getComputedStyle(fsb).position === 'fixed' },
     resizeHandle: (() => { const h = document.getElementById('tbl-resize-handle'); return isShown(h) ? rnd(R(h).height) : 0; })(),
   };
@@ -143,10 +144,13 @@ module.exports = function collectMetrics(opts) {
 
   // Floating map controls: visibility + pairwise overlaps
   const floats = {
-    legendBtn: '#legend-toggle', banner: '#map-prototype-banner', ctrlTR: '.maplibregl-ctrl-top-right',
+    legendBtn: '#legend-toggle', legend: '#legend', ctrlTR: '.maplibregl-ctrl-top-right',
     basemap: '#basemap-switcher', tblToggle: '#tbl-toggle', scale: '.maplibregl-ctrl-scale',
-    attrib: '.maplibregl-ctrl-attrib', measure: '.measure-distance-display', popup: '.maplibregl-popup',
+    attrib: '.maplibregl-ctrl-attrib', measure: '.measure-distance-display', popup: '#feature-card',
   };
+  // The feature card and the legend are panels: on phones they are bottom
+  // sheets that cover map chrome by design, so they are not counted as overlaps.
+  const isPanel = (k) => k === 'popup' || k === 'legend';
   const fr = {};
   for (const [k, sel] of Object.entries(floats)) {
     const el = document.querySelector(sel);
@@ -162,17 +166,17 @@ module.exports = function collectMetrics(opts) {
     const a = fr[ks[i]], b = fr[ks[j]];
     const ix = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
     const iy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-    if (ix > 1 && iy > 1 && ks[i] !== 'popup' && ks[j] !== 'popup') overlaps.push(ks[i] + '×' + ks[j] + ' (' + rnd(ix) + '×' + rnd(iy) + ')');
+    if (ix > 1 && iy > 1 && !isPanel(ks[i]) && !isPanel(ks[j])) overlaps.push(ks[i] + '×' + ks[j] + ' (' + rnd(ix) + '×' + rnd(iy) + ')');
   }
   out.floatOverlaps = overlaps;
   // Floats covered by the table panel (map chrome hidden behind the table)
   if (!tp.classList.contains('collapsed')) {
-    out.floatsUnderTable = ks.filter(k => fr[k].y + fr[k].h > tr.top + 1 && k !== 'popup');
+    out.floatsUnderTable = ks.filter(k => fr[k].y + fr[k].h > tr.top + 1 && !isPanel(k));
   }
 
-  // Popup: how much of it is actually visible (not under the table/header, inside viewport)
-  const pu = document.querySelector('.maplibregl-popup');
-  if (pu) {
+  // Feature card: how much of it is actually visible (not under the table/header, inside viewport)
+  const pu = document.getElementById('feature-card');
+  if (pu && isShown(pu)) {
     const r = R(pu);
     const top = Math.max(r.top, mr.top), bottom = Math.min(r.bottom, tp.classList.contains('collapsed') ? mr.bottom : tr.top, vh);
     const left = Math.max(r.left, 0), right = Math.min(r.right, vw);
@@ -180,7 +184,7 @@ module.exports = function collectMetrics(opts) {
     out.popup = { w: rnd(r.width), h: rnd(r.height), visiblePct: rnd(100 * visA / (r.width * r.height)) };
     const tip = pu.querySelector('.maplibregl-popup-tip');
     if (tip) { const t = R(tip); out.popup.anchorVisible = t.top >= mr.top && t.bottom <= (tp.classList.contains('collapsed') ? mr.bottom : tr.top); }
-    const body = pu.querySelector('.pu-body');
+    const body = pu.querySelector('.fcard-body');
     if (body) out.popup.bodyScrollable = body.scrollHeight > body.clientHeight + 1;
   }
 
@@ -244,7 +248,7 @@ module.exports = function collectMetrics(opts) {
   if (cm) { const r = R(cm); out.contextMenu = { w: rnd(r.width), h: rnd(r.height), offscreen: r.right > vw || r.bottom > vh || r.left < 0 || r.top < 0 }; }
   // Drawer occlusion: is anything painted on top of an open drawer?
   out.drawerOcclusion = [];
-  for (const id of ['sidebar', 'filter-sidebar']) {
+  for (const id of ['filter-sidebar']) {   // the legend is a card / sheet inside #map now, not a drawer
     const d = document.getElementById(id);
     if (!isShown(d) || getComputedStyle(d).position !== 'fixed') continue;
     const r = R(d);

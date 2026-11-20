@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Standort – Grünflächen Inventar</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- PDF report (Pflegebericht): jsPDF + autoTable for vector PDF tables -->
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/standort.css">
+</head>
+<body class="page-standort">
+
+<!-- ── Prototype banner: the permanent disclaimer, on every page ────────── -->
+<div class="proto-banner" role="note">Prototyp – nur zur Demonstration</div>
+
+<!-- ── Header ───────────────────────────────────────────────────────────── -->
+<header class="pg-header">
+  <div class="pg-wrap pg-header-row">
+    <div class="header-title">
+      <span class="header-agency">Bundesamt für Bauten und Logistik</span>
+      <span class="header-app">Grünflächen Inventar</span>
+    </div>
+    <a class="btn" id="back-to-map" href="index.html">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Zur Karte
+    </a>
+  </div>
+</header>
+
+<!-- ── Loading / not found / error ──────────────────────────────────────── -->
+<div id="site-state" class="pg-state" role="status" aria-live="polite">
+  <div class="map-loading-spinner" aria-hidden="true"></div>
+  <span>Daten werden geladen…</span>
+</div>
+
+<!-- ── Title block: name only — ID and address are in the Stammdaten ────── -->
+<section class="pg-titlebar" id="site-titlebar" hidden>
+  <div class="pg-wrap pg-title-row">
+    <h1 class="pg-h1" id="site-title"></h1>
+    <div class="pg-actions">
+      <button type="button" class="btn" id="share-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Teilen
+      </button>
+      <div class="menu-wrap" id="export-wrap">
+        <button type="button" class="btn btn-primary" id="export-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="export-menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportieren
+          <svg class="menu-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="menu" id="export-menu" role="menu" aria-label="Export" hidden>
+          <button type="button" class="menu-item" role="menuitem" data-export="pdf">Pflegebericht (PDF)</button>
+          <button type="button" class="menu-item" role="menuitem" data-export="xlsx">Excel (XLSX)</button>
+          <button type="button" class="menu-item" role="menuitem" data-export="geojson">GeoJSON</button>
+          <div class="menu-divider" role="separator"></div>
+          <button type="button" class="menu-item" role="menuitem" data-export="print">Drucken</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="pg-wrap pg-main" id="site-main" hidden>
+
+  <!-- KPI tiles: label + value, nothing else -->
+  <div class="kpi-grid" id="kpis"></div>
+
+  <!-- Situationsplan: a live map of this Standort across the full page width,
+       with the main map's controls, legend and feature card. -->
+  <section class="card card-map" aria-labelledby="map-title">
+    <div class="card-head">
+      <h2 class="card-title" id="map-title">Situationsplan</h2>
+      <a class="card-link" id="geoadmin-link" target="_blank" rel="noopener" hidden>geo.admin.ch ↗</a>
+    </div>
+    <div id="map">
+      <!-- Legend: a floating card in the map's top-left corner, collapsed to
+           the pill until asked for.  (Phones and print: the key below the map.) -->
+      <div class="legend-bar">
+        <button type="button" id="legend-toggle" class="legend-pill" aria-controls="legend" aria-expanded="false">
+          <span class="lg-minis" id="legend-pill-minis" aria-hidden="true"></span>
+          <span>Legende</span>
+          <span class="legend-pill-note" id="legend-pill-note"></span>
+        </button>
+      </div>
+      <section id="legend" class="legend" aria-label="Legende" hidden>
+        <div class="legend-head">
+          <div class="legend-head-text">
+            <h3 class="panel-title">Legende</h3>
+            <div class="legend-sub" id="legend-sub" hidden>
+              <span id="legend-sub-text"></span> · <button type="button" class="link-btn" id="legend-show-all">Alle einblenden</button>
+            </div>
+          </div>
+          <button type="button" id="legend-close" class="icon-ghost" aria-label="Legende einklappen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        </div>
+        <div id="legend-scroll" class="legend-scroll"></div>
+      </section>
+
+      <!-- Feature card: the selected object, docked top-right next to the map
+           controls.  Phones: moved below the map (standort.js). -->
+      <article id="feature-card" class="fcard" aria-label="Ausgewähltes Objekt" hidden></article>
+
+      <div id="basemap-switcher">
+        <div class="bm-panel" id="bm-panel"></div>
+        <button type="button" class="bm-btn" id="bm-btn" title="Hintergrund wechseln" aria-label="Hintergrund wechseln">
+          <img id="bm-current-thumb" alt="">
+          <span>Hintergrund</span>
+        </button>
+      </div>
+      <!-- Context menu (right-click; long-press on touch): the clicked point,
+           one row per notation, a click copies it. -->
+      <div id="map-context-menu" class="map-context-menu" aria-label="Koordinaten">
+        <button type="button" class="context-menu-item context-menu-coord" title="Klicken zum Kopieren">
+          <span class="ctx-coord-label">LV95</span>
+          <span class="ctx-coord-value" id="context-menu-lv95-text"></span>
+        </button>
+        <button type="button" class="context-menu-item context-menu-coord" title="Klicken zum Kopieren">
+          <span class="ctx-coord-label">WGS 84</span>
+          <span class="ctx-coord-value" id="context-menu-wgs84-text"></span>
+        </button>
+      </div>
+    </div>
+    <!-- Below the map — phones: the feature card and the legend as a plain
+         key that opens on demand; print: the key in full. -->
+    <div class="plan-below">
+      <div id="plan-card-slot"></div>
+      <div class="plan-key">
+        <button type="button" class="plan-key-toggle" id="plan-key-toggle" aria-expanded="false" aria-controls="plan-key-body">
+          <span class="plan-key-title">Legende</span>
+          <span class="plan-key-count" id="plan-key-count"></span>
+          <svg class="plan-key-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="plan-key-body" id="plan-key-body" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stammdaten: two cards of equal width — identification left,
+       responsibility / care and survey right.  Filled by standort.js. -->
+  <div class="stamm-grid">
+    <section class="card card-stamm" id="stamm-left" aria-label="Stammdaten: Identifikation"></section>
+    <section class="card card-stamm" id="stamm-right" aria-label="Stammdaten: Zuständigkeit, Pflege und Erfassung"></section>
+  </div>
+
+  <!-- Pflegekalender: one row per profile, expandable to its care tasks -->
+  <section class="card card-cal" aria-labelledby="cal-title">
+    <h2 class="card-title" id="cal-title">Pflegekalender</h2>
+    <div class="cal-wrap">
+      <table class="cal" id="cal"></table>
+    </div>
+    <div class="card-foot">
+      <span>Pflege gemäss BBL Standard Grünflächenunterhalt 2020, nicht pflegeklassenspezifisch.</span>
+      <div class="cal-legend" aria-hidden="true">
+        <span class="cal-legend-item"><span class="cal-cell s2"></span>Monat gemäss Standard</span>
+        <span class="cal-legend-item"><span class="cal-cell s1"></span>Monat geschätzt</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Footer: the map app's footer (its links; no coordinate read-out) ─── -->
+<footer id="footer">
+  <div id="footer-links">
+    <a href="https://github.com/bbl-dres/green-inventory" target="_blank" rel="noopener">Quellcode</a>
+    <a href="https://www.admin.ch/gov/de/start/rechtliches.html" target="_blank" rel="noopener">Rechtliches</a>
+    <a href="https://www.bbl.admin.ch/de/kontakt" target="_blank" rel="noopener">Kontakt</a>
+  </div>
+</footer>
+
+<div id="toast-container"></div>
+
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/util.js"></script>
+<script src="js/mapkit.js"></script>
+<script src="js/mappanels.js"></script>
+<script src="js/report.js"></script>
+<script src="js/standort.js"></script>
+</body>
+</html>

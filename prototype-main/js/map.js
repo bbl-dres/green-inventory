@@ -1,166 +1,68 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// MAP — MapLibre init, layers, legend, basemap switcher, edit mode, selection
-// Depends on: config.js (LEGEND_GROUPS, ENTITY_COLORS, profilColor,
-//              installAreaFillExpr, AREA_FILL_EXPR, DATA_FILES, BASEMAPS),
-//              data.js (loadInventory)
+// MAP — MapLibre init, legend, feature card, selection, external layers,
+//       identify, context menu + measure, header search
+// Depends on: config.js (LEGEND_GROUPS + lookups, ENTITY_COLORS, TOKENS,
+//               installAreaFillExpr, DATA_FILES, LAYER_METADATA, careProfile),
+//             data.js (loadInventory, lv95ToWgs84),
+//             util.js (escapeHtml, icon, swatches, dialog, toasts, geomBbox, …),
+//             mapkit.js (inventory layers + filters, selection, hit-testing,
+//               patterns, 3D, controls, basemaps),
+//             mappanels.js (legend list, feature card)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ── MapLibre paint expression: per-profile fill colour for points ─────────
-// Builds a `match` expression on fk_profil from a list of codes via
-// profilStyle (config.js → care_profiles.json styles), so tree-circle and
-// point-circle layers match the legend, popup and PDF exactly.
-function pointProfileColorExpr(codes, defaultColor) {
-  const stops = [];
-  for (const c of codes) {
-    const style = profilStyle('point', c);
-    if (style && style.fill) stops.push(c, style.fill);
-  }
-  if (stops.length === 0) return defaultColor;
-  return ['match', ['get', 'fk_profil'], ...stops, defaultColor];
-}
+// ── Legend visibility state ────────────────────────────────────────────────
+// The legend decides WHAT is drawn.  Every legend row — a profile, or a layer
+// without profiles — has a key ('area:6', 'tree:1', 'point:9', 'site',
+// 'parcel', …) and `hidden` holds the keys that are switched off.  A group's
+// eye is derived from its rows (all on / some on / all off).  Attribute
+// filters live in the filter sidebar (table.js) and are independent of this.
+const legendState = {
+  hidden: new Set(),      // row keys switched off; in the URL as ?hide=area:6,tree:1
+  open: null,             // id of the expanded group (accordion: one at a time)
+  inView: null,           // Set of row keys with features in the map view (null = not known yet)
+  groupCounts: {},        // features in the map view per group id (phone quick chips)
+  infoKey: null,          // row whose info dialog is open
+};
+// Resolved legend, built once the data is loaded (buildLegendModel):
+// [{ id, label, items: [{ key, entity_type, code, domain, label, style | swatch, info, group }] }]
+let LEGEND = [];
+const _legendItemByKey = {};
 
-// ── HTML escape for safe interpolation into popup/legend innerHTML ─────────
-// GDB attribute strings (Bemerkung, names, ...) are internal but a single
-// '<' silently breaks popup layout.  Use this for every property value that
-// gets templated into a string + assigned via innerHTML / setHTML.
-const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-function escapeHtml(v) {
-  if (v == null) return '';
-  return String(v).replace(/[&<>"']/g, ch => _ESC_MAP[ch]);
-}
-
-// ── Group visibility state ─────────────────────────────────────────────────
-// Groups flagged defaultHidden in config.js start switched off; the legend
-// eye turns them on.  (None at present.)
-const vis = {};
-for (const g of LEGEND_GROUPS) vis[g.id] = !g.defaultHidden;
-
-// Entity types where ALL legend groups are hidden (no profileCodes-aware
-// groups that are still visible).  Used as the "fully hide this layer"
-// shortcut.
-function hiddenEntityTypes() {
-  const byEntity = {};   // entity_type -> { total, hidden }
-  for (const g of LEGEND_GROUPS) {
-    if (!g.entity_type) continue;
-    const e = g.entity_type;
-    if (!byEntity[e]) byEntity[e] = { total: 0, hidden: 0 };
-    byEntity[e].total += 1;
-    if (!vis[g.id]) byEntity[e].hidden += 1;
-  }
-  return Object.entries(byEntity)
-    .filter(([, b]) => b.total > 0 && b.hidden === b.total)
-    .map(([e]) => e);
-}
-
-// Map of entity_type -> Set of profile codes whose group is hidden.
-// Only considers groups WITH profileCodes (sub-grouped types).
-function hiddenProfileCodesByEntity() {
-  const out = {};
-  for (const g of LEGEND_GROUPS) {
-    if (!g.entity_type || !g.profileCodes) continue;
-    if (vis[g.id]) continue;
-    if (!out[g.entity_type]) out[g.entity_type] = new Set();
-    for (const c of g.profileCodes) out[g.entity_type].add(c);
-  }
-  return out;
-}
 
 let tblActiveIds = null; // null = no table filter; array of feature indices
 let selectedId   = null; // currently selected feature index (null = none)
 
-// All map layers we add - kept in one place so filters/visibility/cleanup are simple.
-const MAP_LAYERS = {
-  polygons: ['parcel-fill', 'parcel-line', 'site-fill', 'site-line', 'area-fill', 'area-line', 'canopy-fill'],
-  points:   ['tree-circle', 'point-circle', 'site-location-circle', 'site-location-label'],
-  labels:   ['parcel-label'],   // separate point source: label anchors precomputed in the pipeline
-  selection:['selection-fill', 'selection-line', 'selection-circle'],
-  hover:    ['hover-line', 'hover-circle'],
-};
-const ALL_LAYERS = [...MAP_LAYERS.polygons, ...MAP_LAYERS.points, ...MAP_LAYERS.labels];
-
-// Source / layer ID enumeration used by transformStyle when a basemap
-// swap happens — every ID returned here is preserved across the swap,
-// everything else (basemap layers) comes from the new style.
+// Source / layer ID enumeration used when a basemap swap happens — every ID
+// returned here is preserved across the swap, everything else (basemap
+// layers) comes from the new style.
 function collectOurSourceIds() {
-  const ids = new Set([
-    'features',         // local GeoJSON (sites / areas / trees / …)
-    'parcel-labels',    // parcel label anchors (pole of inaccessibility)
-    'osm-buildings-3d', // OpenFreeMap tiles for 3D extrusions
-    'tree-3d',          // generated cylinders for trees in 3D mode
-    'ext-highlight',    // identify-highlight feature
-  ]);
+  const ids = [...INVENTORY_SOURCE_IDS, 'ext-highlight', 'measure-line-src'];
   // External-layer sources added via the header search (one per active
   // swisstopo layer).  Keys live in the externalLayers state object.
-  for (const bodId of Object.keys(externalLayers)) {
-    ids.add(extSourceId(bodId));
-  }
+  for (const bodId of Object.keys(externalLayers)) ids.push(extSourceId(bodId));
   return ids;
 }
 
 function collectOurLayerIds() {
-  const ids = new Set([
-    ...MAP_LAYERS.polygons,
-    ...MAP_LAYERS.points,
-    ...MAP_LAYERS.labels,
-    ...MAP_LAYERS.selection,
-    ...MAP_LAYERS.hover,
-    'osm-buildings-3d',
-    'tree-3d',
-    'ext-highlight-fill',
-    'ext-highlight-line',
-    'ext-highlight-circle',
-  ]);
-  for (const bodId of Object.keys(externalLayers)) {
-    ids.add(extLayerId(bodId));
-  }
+  const ids = [...inventoryLayerIds(),
+    'ext-highlight-fill', 'ext-highlight-line', 'ext-highlight-circle', 'measure-line'];
+  for (const bodId of Object.keys(externalLayers)) ids.push(extLayerId(bodId));
   return ids;
 }
 
+// Apply what the legend (profiles / layers switched off) and the table
+// (search + attribute filters) allow to be drawn (applyInventoryFilters,
+// mapkit.js).
 function applyMapFilters() {
-  const hidden = hiddenEntityTypes();
-  const hiddenCodes = hiddenProfileCodesByEntity();
-  const tableConstrained = tblActiveIds !== null;
-  const tableIdFilter = !tableConstrained
+  const tableIdFilter = tblActiveIds === null
     ? null
     : (tblActiveIds.length === 0
         ? ['literal', false]
         : ['in', ['id'], ['literal', tblActiveIds]]);
-
-  // Per layer: combine entity_type match + (optional) hidden-profile-codes
-  // exclusion + (optional) table-id filter.  Each layer's base filter
-  // restricts to a single entity_type so we only need to AND in the
-  // additional constraints here.
-  const baseEntityFilters = {
-    'parcel-fill':          ['==', ['get', 'entity_type'], 'parcel'],
-    'parcel-line':          ['==', ['get', 'entity_type'], 'parcel'],
-    'site-fill':            ['==', ['get', 'entity_type'], 'site'],
-    'site-line':            ['==', ['get', 'entity_type'], 'site'],
-    'area-fill':            ['==', ['get', 'entity_type'], 'area'],
-    'area-line':            ['==', ['get', 'entity_type'], 'area'],
-    'canopy-fill':          ['==', ['get', 'entity_type'], 'tree_canopy'],
-    'tree-circle':          ['==', ['get', 'entity_type'], 'tree'],
-    'point-circle':         ['==', ['get', 'entity_type'], 'point'],
-    'site-location-circle': ['==', ['get', 'entity_type'], 'site_location'],
-    'site-location-label':  ['==', ['get', 'entity_type'], 'site_location'],
-    'parcel-label':         ['==', ['get', 'entity_type'], 'parcel'],
-  };
-
-  for (const id of ALL_LAYERS) {
-    if (!map.getLayer(id)) continue;
-    const entFilter = baseEntityFilters[id];
-    const ent = entFilter[2];
-    if (hidden.includes(ent)) {
-      map.setFilter(id, ['==', ['literal', '0'], ['literal', '1']]); // hide layer
-      continue;
-    }
-    const parts = ['all', entFilter];
-    if (hiddenCodes[ent] && hiddenCodes[ent].size) {
-      // Exclude features whose fk_profil falls in any hidden sub-group.
-      parts.push(['!', ['in', ['get', 'fk_profil'], ['literal', [...hiddenCodes[ent]]]]]);
-    }
-    if (tableIdFilter) parts.push(tableIdFilter);
-    map.setFilter(id, parts);
-  }
+  applyInventoryFilters(map, legendState.hidden,
+    legendHiddenCodes(legendState.hidden, _legendItemByKey), tableIdFilter);
+  // What is drawn changed, so which legend rows have something in view may too.
+  scheduleInViewUpdate();
 }
 
 // ── Data fetch starts immediately ──────────────────────────────────────────
@@ -211,204 +113,72 @@ map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 map.once('load', () => requestAnimationFrame(() => map.resize()));
 
 // ── State ──────────────────────────────────────────────────────────────────
-let offsetDeltaLon = 0, offsetDeltaLat = 0;
-let editMode = false;
-let editStartLngLat = null;
-let originalCenter = null;
+let editMode = false;       // «Bearbeiten» placeholder: suspends selection and hover
 let geojsonData = null;
 
-// ── Popup instance ─────────────────────────────────────────────────────────
-// Popups are DOCKED: the `docked` class pins the card to the map's top-right
-// corner (css/styles.css) instead of hanging it off the clicked point, so the
-// selected geometry stays visible.  The lngLat is still set (MapLibre needs
-// one) but no longer determines where the card is drawn.
-const DOCKED_POPUPS = true;
-const selPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '320px', className: 'docked' });
-let _suppressPopupClose = false;
-selPopup.on('close', () => {
-  if (_suppressPopupClose || selectedId === null) return;
-  selectedId = null;
-  applySelectedFilter();
-  updateSelectionUrl();
-  renderTable();
+// ── Feature card ───────────────────────────────────────────────────────────
+// The selected feature is described in a card docked in the map's top-right
+// corner (a bottom sheet on phones): a few facts in a fixed order and one
+// primary action that leads to the Standort detail page.  Completeness lives
+// on the detail page; the card stays compact.  When a click hits several
+// features the card pages through them.  Contents and behaviour:
+// createFeatureCard (mappanels.js) — the Situationsplan uses the same card.
+const cardEl = document.getElementById('feature-card');
+const featureCard = createFeatureCard({
+  el: cardEl,
+  mapEl: document.getElementById('map'),
+  feature: (idx) => geojsonData.features[idx],
+  // Primary action: the Standort detail page.  A new tab on desktop / tablet
+  // (the map keeps its state); the same tab on phones, where the page links
+  // back to the map as it was.
+  detailLink: (p) => {
+    const href = standortUrl(p.site_ref);
+    return href ? { href, sameTab: isCompactLayout() } : null;
+  },
+  onPage: (idx, stack) => selectFeature(idx, { stack }),
+  onClose: () => clearSelection(),
+  onZoom: (idx) => zoomToFeature(idx),
+  // Phones open the detail page in this tab: remember the map as it is, so
+  // «Zur Karte» there can come back to it.
+  onDetailClick: () => {
+    if (!isCompactLayout()) return;
+    try { sessionStorage.setItem('gi.mapUrl', location.href); } catch (_) { /* private mode */ }
+  },
 });
 
-// ── Popup HTML — shows all defined fields for the feature ─────────────────
-function popupHTML(p) {
-  // Pick a swatch color matching the rendered map style.
-  let swatch = '#aaa';
-  switch (p.entity_type) {
-    case 'site':          swatch = ENTITY_COLORS.site.fill; break;
-    case 'site_location': swatch = ENTITY_COLORS.site_location.fill; break;
-    case 'parcel':        swatch = ENTITY_COLORS.parcel.stroke; break;
-    case 'tree':          swatch = ENTITY_COLORS.tree.fill; break;
-    case 'tree_canopy':   swatch = ENTITY_COLORS.tree_canopy.fill; break;
-    case 'point':         swatch = ENTITY_COLORS.point.fill; break;
-    case 'area':          swatch = profilColor(p.fk_profil); break;
+// Padding for camera moves, so a feature is framed in the part of the map
+// that the floating legend and the card leave free.
+function viewPadding(base = 60) {
+  const box = map.getContainer();
+  const w = box.clientWidth, h = box.clientHeight;
+  if (isCompactLayout()) {
+    const sheet = cardEl.hidden ? 0 : cardEl.offsetHeight;
+    return { top: Math.min(base, h / 5), left: 24, right: 24, bottom: Math.min(sheet + 24, h * 0.6) };
   }
+  // Only when the map is wide enough for both panels plus something to see.
+  const roomy = w >= 900;
+  const pad = Math.min(base, Math.floor(h / 5));
+  return {
+    top: pad, bottom: pad,
+    left:  roomy && legendPanel.isOpen() ? document.getElementById('legend').offsetWidth + 36 : pad,
+    right: roomy && !cardEl.hidden ? cardEl.offsetWidth + 80 : pad,
+  };
+}
 
-  // Combine the LV95 coordinate pair into a single "LV95" row ("<Ost>, <Nord>").
-  // Sites carry the centroid pair (…_centroid); trees/points the direct pair.
-  const _lv95E = p.lv95_east != null ? p.lv95_east : p.lv95_east_centroid;
-  const _lv95N = p.lv95_north != null ? p.lv95_north : p.lv95_north_centroid;
-  const d = { ...p };
-  d.lv95 = (_lv95E != null && _lv95N != null)
-    ? fmtNum(_lv95E, 0) + ', ' + fmtNum(_lv95N, 0)
-    : null;
-
-  // Field order: identity → site → measurements → care attributes → free-form.
-  // Hide fields that are null/empty/zero-only-placeholder.
-  const FIELD_GROUPS = [
-    {
-      title: 'Standort',
-      keys: [
-        ['site_name',         'Name'],
-        ['site_objektnummer', 'Objekt-Nr.'],
-        ['site_adresse',      'Adresse'],
-        ['site_lose',         'Los'],
-        // For Standort entities themselves, properties.name etc. are populated
-        // (the same site_* key family is empty since it's the site itself):
-        ['name',              'Name'],
-        ['objektnummer',      'Objekt-Nr.'],
-        ['adresse',           'Adresse'],
-        ['lose',              'Los'],
-        ['parzelle',          'Parzelle (erfasst)'],
-        ['erstellungsjahr',   'Baujahr'],
-        ['erfassungsdatum',   'Erfasst'],
-      ],
-    },
-    {
-      // Cadastral parcel (Amtliche Vermessung): the parcel itself, or the
-      // located parcel of an element.  Standort perimeters have none.
-      title: 'Grundstück',
-      keys: [
-        ['egrid',             'EGRID'],
-        ['parcel_number',     'Parzelle'],
-        ['municipality_name', 'Gemeinde'],
-        ['canton',            'Kanton'],
-        ['numbering_area',    'Nummerierungsbereich'],
-        ['erp_id',            'ERP-Nr.'],
-        ['erp_name',          'ERP-Bezeichnung'],
-        ['erp_alternatives',  'ERP weitere Objekte'],
-        ['erp_historic_garden', 'Hist. Garten (ERP)'],
-        ['site_names',        'Standorte'],
-        ['element_count',     'Pflegeelemente'],
-      ],
-    },
-    {
-      title: 'Klassifikation',
-      // Prefer decoded labels (from GDB field domains) over raw fk_* codes;
-      // raw codes are kept in the data for power-user access via the table
-      // column toggle.
-      keys: [
-        ['baumart',             'Baumart'],
-        ['baumnummer',          'Baum-Nr.'],
-        ['profil_label',        'Profil'],
-        ['aufwandsfaktor',      'Aufwandsfaktor'],
-        ['pflegeklasse',        'Pflegeklasse'],
-        ['eigentuemer',         'Eigentümer'],
-        ['pflegeverantwortung', 'Pflegeverantw.'],
-        ['winterdienst',        'Winterdienst'],
-        ['bewaesserung_label',  'Bewässerung'],
-        ['lauben',              'Lauben'],
-        ['ausmass',             'Ausmass'],
-        ['kontrolle',           'Kontrolle'],
-        ['reinigung',           'Reinigung'],
-      ],
-    },
-    {
-      title: 'Geometrie',
-      keys: [
-        ['area_m2',           'Fläche m²',     v => fmtNum(v, 1)],
-        ['shape_length_m',    'Umfang m',      v => fmtNum(v, 1)],
-        ['crown_diameter_m',  'Kronen-Ø m'],
-        ['crown_radius_m',    'Kronen-Radius m'],
-        ['max_hoehe_m',       'Max. Höhe m'],
-        ['hoehe',             'Höhe'],
-        ['lv95',              'LV95'],   // combined "<Ost>, <Nord>" (see above)
-      ],
-    },
-    {
-      title: 'Anderes',
-      keys: [
-        ['bemerkung',            'Bemerkung'],
-        ['letzte_aenderung',     'Letzte Änderung'],
-        ['source',               'Quelle'],
-      ],
-    },
-  ];
-
-  function isEmpty(v) {
-    if (v === null || v === undefined) return true;
-    if (v === '') return true;
-    if (typeof v === 'string' && v.trim() === '') return true;
-    if (typeof v === 'string' && v.trim() === '0') return true;
-    if (v === 0) return true;
-    return false;
-  }
-
-  let body = '';
-  for (const grp of FIELD_GROUPS) {
-    // Standort features carry every value twice (name / site_name, …) so
-    // one column serves all entity types in the table; show each
-    // label + value once here.
-    const seen = new Set();
-    const rows = grp.keys
-      .filter(([k]) => !isEmpty(d[k]))
-      .map(([k, lbl, fmt]) => {
-        // Formatters may return numeric/string already-formatted; escape
-        // the result either way since the Bemerkung field is free text.
-        const v = fmt ? fmt(d[k]) : d[k];
-        const dedupe = lbl + '\u0000' + v;
-        if (seen.has(dedupe)) return '';
-        seen.add(dedupe);
-        return `<div class="pu-row"><span>${escapeHtml(lbl)}</span><strong>${escapeHtml(v)}</strong></div>`;
-      })
-      .filter(Boolean);
-    if (rows.length === 0) continue;
-    body += `<div class="pu-section">${escapeHtml(grp.title)}</div>` + rows.join('');
-  }
-
-  // Standort popups get a "PDF" button (top-right, clearing the × close
-  // button) that downloads the per-Standort Pflegebericht.  Wired via a
-  // delegated click handler in report.js (popup HTML is injected, not bound).
-  const reportBtn = p.entity_type === 'site'
-    ? `<button class="pu-report-btn" data-oid="${escapeHtml(p.objectid)}" title="Pflegebericht als PDF herunterladen" aria-label="Pflegebericht herunterladen">
-         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-         </svg>PDF
-       </button>`
-    : '';
-
-  return `
-    <div class="pu-header">
-      <div class="pu-swatch" style="background:${swatch}"></div>
-      <div class="pu-titles">
-        <div class="pu-type">${escapeHtml(p.feature_type || p.entity_type || '–')}</div>
-        <div class="pu-sub">${escapeHtml(p.subtype || '')}</div>
-      </div>
-      ${reportBtn}
-    </div>
-    <div class="pu-body">${body}</div>
-  `;
+// Frame a feature: the card's zoom button, and a link that opens the map on
+// a Standort (?site=).  Selecting — on the map, in the table, from the
+// search — never moves the map by itself.
+// geomBbox() pads a point to a small box, so one fitBounds serves all types.
+function zoomToFeature(idx, opts = {}) {
+  const feat = geojsonData && geojsonData.features[idx];
+  if (!feat || !feat.geometry) return;
+  map.fitBounds(geomBbox(feat.geometry), {
+    padding: viewPadding(), maxZoom: ZOOM_TO_MAX, ...opts,
+  });
 }
 
 // ── Selection helpers ──────────────────────────────────────────────────────
-function applySelectedFilter() {
-  // selection-circle is a `circle` layer.  In MapLibre, circle layers paint
-  // at *every* coordinate of *every* matching feature regardless of
-  // geometry type - so an id-only filter would draw a ring at every vertex
-  // of a selected polygon (looks like edit handles).  Restrict it to Point
-  // geometry so polygon selection shows only the fill+line affordance.
-  const idMatch = selectedId !== null
-    ? ['==', ['id'], selectedId]
-    : ['==', ['literal', '0'], ['literal', '1']];
-  const pointOnly = ['all', idMatch, ['==', ['geometry-type'], 'Point']];
-  for (const id of MAP_LAYERS.selection) {
-    if (!map.getLayer(id)) continue;
-    map.setFilter(id, id === 'selection-circle' ? pointOnly : idMatch);
-  }
-}
+function applySelectedFilter() { setSelectionFilter(map, selectedId); }
 
 function updateSelectionUrl() {
   try {
@@ -460,54 +230,62 @@ function applyViewFromUrl() {
   }
 }
 
-function selectFeature(idx, lngLat) {
-  // ── 1. Resolve site_location → underlying site polygon ───────────────
-  // The dot is a map-only shortcut for the site.  The table tab only
-  // knows about real entity types — redirect now so all downstream state
-  // (selection, popup, URL, table scroll) lines up.
-  let f = geojsonData.features[idx];
+// The Standort marker (site_location) is a map-only shortcut for its
+// Standort: selections always land on the real `site` feature, so selection,
+// card, URL and table line up.
+function resolveSelectable(idx) {
+  const f = geojsonData.features[idx];
   if (f && f.properties.entity_type === 'site_location') {
     const siteOid = f.properties.site_oid;
-    const siteFeature = geojsonData.features.find(
-      g => g.properties.entity_type === 'site' && g.properties.objectid === siteOid
-    );
-    if (siteFeature && siteFeature.id != null) {
-      idx = siteFeature.id;
-      f = siteFeature;
-    }
+    const site = geojsonData.features.find(
+      g => g.properties.entity_type === 'site' && g.properties.objectid === siteOid);
+    if (site && site.id != null) return Number(site.id);
   }
+  return Number(idx);
+}
 
-  selectedId = Number(idx);
+// Select a feature: highlight it, show its card, sync the URL and the table.
+//   opts.stack   feature indices under the click, to page through in the card
+//                (default: just this feature)
+function selectFeature(idx, opts = {}) {
+  idx = resolveSelectable(idx);
+  const f = geojsonData.features[idx];
+  if (!f) return;
+
+  selectedId = idx;
   applySelectedFilter();
   updateSelectionUrl();
-  _suppressPopupClose = true;
-  selPopup.setLngLat(lngLat).setHTML(popupHTML(f.properties)).addTo(map);
-  _suppressPopupClose = false;
 
-  // Desktop: open the table so the selected row shows up.  Compact layout
-  // (phones): keep it closed — the table would take half the screen and
-  // bury the feature the user just tapped; the row is still selected when
-  // they open the table.  Either way the popup is then panned into view
-  // (the tbl-toggle handler reveals it once the map has resized).
-  if (!tableOpen && !isCompactLayout()) document.getElementById('tbl-toggle').click();
-  else revealPopup(selPopup);
+  // The identify card of the external layers docks in the same corner.
+  if (identifyPopup.isOpen()) identifyPopup.remove();
+  // Phones show one bottom sheet at a time; on a narrow map the legend card
+  // and the feature card would overlap — the legend steps aside (not stored).
+  if (legendPanel.isOpen() &&
+      (isCompactLayout() || map.getContainer().clientWidth < 700)) {
+    legendPanel.close({ persist: false });
+  }
+  featureCard.show(idx, opts.stack);
+  syncTableToSelection(idx);
+}
 
-  // ── 2. Switch to the tab this feature belongs to ─────────────────────
-  // `sites` ← entity_type === 'site'; everything else → `green`.
+// Keep the table on the selected feature: switch to its tab, page to its row
+// and scroll it into view.  The table is not opened for this — the card is
+// the place for details; the row is waiting when the user opens the table.
+function syncTableToSelection(idx) {
+  const f = geojsonData.features[idx];
+  // `sites` ← 'site', `parcels` ← 'parcel'; everything else → `green`.
   // setScope() is a no-op when target === current; otherwise it rebuilds
-  // the filter sidebar / col dropdown / pagination state and renders once.
-  const _et = f.properties.entity_type;
-  const targetScope = _et === 'site' ? 'sites' : _et === 'parcel' ? 'parcels' : 'green';
+  // the column dropdown / pagination state and renders once.
+  const et = f.properties.entity_type;
+  const targetScope = et === 'site' ? 'sites' : et === 'parcel' ? 'parcels' : 'green';
   if (typeof setScope === 'function' && targetScope !== tblScope) {
     setScope(targetScope);
   }
 
-  // ── 3. Page to the row + scroll it into view ─────────────────────────
   // Use the SCOPED row set — `tblPage` paginates the scoped+filtered list
   // in renderTable(), so the row-to-page math must operate on the same
   // basis or we land on the wrong page.
-  const scoped = tableRows.filter(r => inScope(r, tblScope));
-  let sorted = getSortedRows(getFilteredRows(scoped));
+  let sorted = getSortedRows(getScopedRows());
   if (sorted.findIndex(r => r._idx === idx) === -1) {
     // Row is hidden by search / sidebar filters — clear them so the
     // selection becomes visible in the table.
@@ -515,8 +293,9 @@ function selectFeature(idx, lngLat) {
     const sx = document.getElementById('tbl-search-x');
     if (si && si.value) { si.value = ''; tblSearch = ''; if (sx) sx.style.display = 'none'; }
     for (const key of Object.keys(tblFilterAttrs)) tblFilterAttrs[key].clear();
+    buildFilterSidebar();
     onFilterChange({ zoom: false });
-    sorted = getSortedRows(getFilteredRows(scoped));
+    sorted = getSortedRows(getScopedRows());
   }
 
   const rowIdx = sorted.findIndex(r => r._idx === idx);
@@ -530,321 +309,21 @@ function selectFeature(idx, lngLat) {
   }, 0);
 }
 
-// ── Keep an open popup fully visible ──────────────────────────────────────
-// MapLibre anchors a popup to its feature but never moves the map for it.
-// When the table opens (map shrinks) or the map is short (laptops at 150%
-// scaling, phones, landscape) the popup ended up under the table panel or
-// above the map's top edge — 1–17 % of it visible on most screens below
-// ~900 px height.  Pan just enough to bring it inside the map, preferring
-// the popup's top (title + first rows; the body scrolls).  Waits for any
-// running camera animation (fitBounds / flyTo) to finish first.
-function revealPopup(popup = selPopup) {
-  if (DOCKED_POPUPS) return;          // a docked card is always inside the map
-  if (!popup || !popup.isOpen()) return;
-  if (map.isMoving()) { map.once('moveend', () => revealPopup(popup)); return; }
-  requestAnimationFrame(() => {
-    if (!popup.isOpen()) return;
-    // A fitBounds / flyTo may have started right after the selection
-    // (table row click, search result): reveal once it settles.
-    if (map.isMoving()) { map.once('moveend', () => revealPopup(popup)); return; }
-    const el = popup.getElement();
-    if (!el) return;
-    const m = map.getContainer().getBoundingClientRect();
-    const r = el.getBoundingClientRect();
-    // Margins clear the prototype pill (top) and the "Tabelle" pill / scale
-    // row (bottom); .pu-body's height cap in styles.css leaves room for both.
-    const PAD = 8, TOP = 40, BOTTOM = 52;
-    let dx = 0, dy = 0;
-    if (r.left < m.left + PAD) dx = r.left - (m.left + PAD);
-    else if (r.right > m.right - PAD) dx = Math.min(r.right - (m.right - PAD), r.left - (m.left + PAD));
-    if (r.top < m.top + TOP) dy = r.top - (m.top + TOP);
-    else if (r.bottom > m.bottom - BOTTOM) dy = Math.min(r.bottom - (m.bottom - BOTTOM), r.top - (m.top + TOP));
-    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) map.panBy([dx, dy], { duration: 300 });
-  });
-}
-
 function clearSelection() {
   if (selectedId === null) return;
   selectedId = null;
   applySelectedFilter();
   updateSelectionUrl();
-  selPopup.remove();
+  featureCard.hide();
   renderTable();
 }
 
-// ── Add GeoJSON source + layers ────────────────────────────────────────────
+// ── Add the inventory source + layers (definitions: mapkit.js) ─────────────
 function addLayers() {
   if (!geojsonData || map.getSource('features')) return;
-  // tolerance / maxzoom: the GeoJSON source's defaults (0.375, 18) over-
-  // simplify our data, leaving angular corners visible against high-
-  // contrast aerial imagery at z19+.
-  //   tolerance: 0    (no tile-level Douglas-Peucker.  At maxzoom 22 the
-  //                    default 0.375 px ≈ 2 mm — already invisible — but
-  //                    on a HiDPI screen at z21 with low data density it
-  //                    can produce subtle pixel snapping.  Setting 0 makes
-  //                    the rendered geometry exactly match the source.)
-  //   maxzoom: 22     (re-tile right up to the map's maxZoom so detail
-  //                    is preserved past z18 instead of being stretched)
-  map.addSource('features', {
-    type: 'geojson',
-    data: geojsonData,
-    tolerance: 0,
-    maxzoom: 22,
-    attribution: (geojsonData.metadata && geojsonData.metadata.attribution_html) || undefined,
-  });
-
-  // Cadastral parcels (Amtliche Vermessung) — the legal unit of ground and
-  // the bottom of the stack: a faint fill so empty parcel ground is clickable,
-  // the dashed outline is added above the area fills further down.
-  map.addLayer({
-    id: 'parcel-fill', type: 'fill', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'parcel'],
-    paint: { 'fill-color': ENTITY_COLORS.parcel.fill, 'fill-opacity': 0.06 },
-  });
-
-  // Standort perimeters (Pflegeperimeter) — subtle fill, visible stroke;
-  // the legend eye hides them.
-  map.addLayer({
-    id: 'site-fill', type: 'fill', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'site'],
-    paint: { 'fill-color': ENTITY_COLORS.site.fill, 'fill-opacity': 0.10 },
-  });
-  map.addLayer({
-    id: 'site-line', type: 'line', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'site'],
-    paint: {
-      'line-color': ENTITY_COLORS.site.stroke,
-      'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.4, 16, 0.8, 20, 1.2],
-      'line-opacity': 0.55,
-    },
-  });
-
-  // Pflegeflächen (areas) — coloured by hashed fk_profil.
-  map.addLayer({
-    id: 'area-fill', type: 'fill', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'area'],
-    paint: { 'fill-color': AREA_FILL_EXPR, 'fill-opacity': 0.62 },
-  });
-  map.addLayer({
-    id: 'area-line', type: 'line', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'area'],
-    paint: { 'line-color': 'rgba(0,0,0,0.35)', 'line-width': 0.5 },
-  });
-
-  // Parcel boundaries above the area fills so they stay legible where
-  // maintained polygons cover the parcel; dashed, the cadastral convention.
-  map.addLayer({
-    id: 'parcel-line', type: 'line', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'parcel'],
-    paint: {
-      'line-color': ENTITY_COLORS.parcel.stroke,
-      'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 1.2, 20, 2],
-      'line-opacity': 0.85,
-      'line-dasharray': [3, 1.5],
-    },
-  });
-
-  // Tree-canopy circles.  No outline stroke - the outline made small
-  // canopies on a feature edge look like polygon vertex handles.
-  map.addLayer({
-    id: 'canopy-fill', type: 'fill', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'tree_canopy'],
-    paint: { 'fill-color': ENTITY_COLORS.tree_canopy.fill, 'fill-opacity': 0.45 },
-  });
-
-  // Tree points - colour by fk_profil so the map matches the legend
-  // (Laubbäume green, Strassenbäume teal, Nadelb. dark green, etc.).
-  map.addLayer({
-    id: 'tree-circle', type: 'circle', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'tree'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.5, 16, 3.5, 20, 6],
-      'circle-color': pointProfileColorExpr([1, 2, 3, 4, 5, 6, 7, 8],
-                                            ENTITY_COLORS.tree.fill),
-      'circle-stroke-color': ENTITY_COLORS.tree.stroke,
-      'circle-stroke-width': 0.8,
-      'circle-opacity': 0.9,
-    },
-  });
-
-  // Other points - colour by fk_profil through the same point catalog
-  // (Pflanzgefäss Wechselflor magenta, Spielgerät orange, ...).
-  map.addLayer({
-    id: 'point-circle', type: 'circle', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'point'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 16, 3, 20, 5],
-      'circle-color': pointProfileColorExpr([9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23],
-                                            ENTITY_COLORS.point.fill),
-      'circle-stroke-color': ENTITY_COLORS.point.stroke,
-      'circle-stroke-width': 0.8,
-      'circle-opacity': 0.9,
-    },
-  });
-
-  // Standort dots — large at low zoom, smaller as you zoom in (feature-level
-  // detail takes over).  Always visible — these are the "where are the
-  // parcels?" markers the user asked for.
-  map.addLayer({
-    id: 'site-location-circle', type: 'circle', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'site_location'],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 6, 13, 7, 17, 5, 20, 3],
-      'circle-color': ENTITY_COLORS.site_location.fill,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-      'circle-opacity': 0.95,
-    },
-  });
-  map.addLayer({
-    id: 'site-location-label', type: 'symbol', source: 'features',
-    filter: ['==', ['get', 'entity_type'], 'site_location'],
-    layout: {
-      'text-field': ['get', 'name'],
-      'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 16, 13],
-      'text-anchor': 'top',
-      'text-offset': [0, 0.9],
-      'text-allow-overlap': false,
-      'text-optional': true,
-    },
-    paint: {
-      'text-color': '#3a1010',
-      'text-halo-color': 'rgba(255,255,255,0.92)',
-      'text-halo-width': 1.2,
-    },
-    minzoom: 13,
-  });
-
-  // Parcel labels: EGRID, and the ERP key on a second line where one is
-  // matched.  Anchored at the pole of inaccessibility stored on each parcel
-  // (label_lon / label_lat) instead of MapLibre's per-tile placement, which
-  // shifts and duplicates labels on parcels that span tile boundaries.  The
-  // label points carry the parcel's feature id and entity_type so the legend
-  // eye and the table filter (applyMapFilters) apply to them unchanged.
-  if (!map.getSource('parcel-labels')) {
-    const labelFeatures = [];
-    geojsonData.features.forEach((f, i) => {
-      const p = f.properties;
-      if (p.entity_type !== 'parcel' || p.label_lon == null || p.label_lat == null) return;
-      const props = { entity_type: 'parcel', egrid: p.egrid || '',
-                      label: p.erp_id ? p.egrid + '\n' + p.erp_id : (p.egrid || '') };
-      labelFeatures.push({ type: 'Feature', id: f.id != null ? f.id : i,
-        geometry: { type: 'Point', coordinates: [p.label_lon, p.label_lat] }, properties: props });
-    });
-    map.addSource('parcel-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
-  }
-  map.addLayer({
-    id: 'parcel-label', type: 'symbol', source: 'parcel-labels',
-    filter: ['==', ['get', 'entity_type'], 'parcel'],
-    minzoom: 16,
-    layout: {
-      'text-field': ['get', 'label'],
-      'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 16, 10, 19, 12],
-      'text-line-height': 1.15,
-      'text-justify': 'center',
-      'text-anchor': 'center',
-      'text-allow-overlap': false,
-      'text-optional': true,
-    },
-    paint: {
-      'text-color': ENTITY_COLORS.parcel.stroke,
-      'text-halo-color': 'rgba(255,255,255,0.9)',
-      'text-halo-width': 1.2,
-    },
-  });
-
-  // ── Selection overlays ───────────────────────────────────────────────
-  map.addLayer({
-    id: 'selection-fill', type: 'fill', source: 'features',
-    filter: ['==', ['literal', '0'], ['literal', '1']],
-    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.25 },
-  });
-  map.addLayer({
-    id: 'selection-line', type: 'line', source: 'features',
-    filter: ['==', ['literal', '0'], ['literal', '1']],
-    paint: { 'line-color': '#005ea8', 'line-width': 3 },
-  });
-  map.addLayer({
-    id: 'selection-circle', type: 'circle', source: 'features',
-    filter: ['==', ['literal', '0'], ['literal', '1']],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 5, 18, 9],
-      'circle-color': 'rgba(0,0,0,0)',
-      'circle-stroke-color': '#005ea8',
-      'circle-stroke-width': 3,
-    },
-  });
-
-  // ── Hover overlays ───────────────────────────────────────────────────
-  map.addLayer({
-    id: 'hover-line', type: 'line', source: 'features',
-    filter: ['==', ['id'], -1],
-    paint: { 'line-color': '#005ea8', 'line-width': 2.4 },
-  });
-  map.addLayer({
-    id: 'hover-circle', type: 'circle', source: 'features',
-    filter: ['==', ['id'], -1],
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 4, 18, 7],
-      'circle-color': 'rgba(0,0,0,0)',
-      'circle-stroke-color': '#005ea8',
-      'circle-stroke-width': 2.4,
-    },
-  });
-
+  addInventoryLayers(map, geojsonData);
   applySelectedFilter();
   applyMapFilters();
-}
-
-// All map layers that should be hit-tested for click / hover.  Order matters:
-// MapLibre fires the per-layer click handlers in registration order and the
-// last selectFeature() wins, so later entries take priority (a tree over the
-// area under it, an area over the parcel under it).
-const INTERACTIVE_LAYERS = ['parcel-fill', 'site-fill', 'area-fill', 'canopy-fill',
-                             'tree-circle', 'point-circle', 'site-location-circle'];
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CUSTOM MAP CONTROLS (Home + 2D/3D toggle)
-// ───────────────────────────────────────────────────────────────────────────
-// IconCtrl is a thin reusable wrapper that produces a single-button MapLibre
-// IControl matching the visual style of the built-in zoom / compass buttons.
-// ═══════════════════════════════════════════════════════════════════════════
-// Single MapLibre IControl that hosts one or more buttons in a shared
-// `.maplibregl-ctrl-group` div.  Grouping is purely cosmetic — multiple
-// buttons in one group render as a single rounded card with one stack of
-// shadows, instead of N cards with N shadows.  Each button can be looked
-// up by its `key` for later state updates.
-class IconCtrl {
-  constructor(spec) {
-    // Backwards-compat: a single `{ title, html, onClick }` makes one
-    // button; passing `{ buttons: [...] }` makes a group.
-    this._specs = Array.isArray(spec.buttons) ? spec.buttons : [spec];
-    this._byKey = {};
-  }
-  onAdd(map) {
-    this._map = map;
-    this._container = document.createElement('div');
-    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
-    for (const s of this._specs) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.title = s.title || '';
-      b.setAttribute('aria-label', s.title || '');
-      b.innerHTML = s.html;
-      b.addEventListener('click', (e) => s.onClick(e, b));
-      this._container.appendChild(b);
-      if (s.key) this._byKey[s.key] = b;
-    }
-    return this._container;
-  }
-  onRemove() {
-    this._container.parentNode.removeChild(this._container);
-    this._map = undefined;
-  }
-  // Lookup helper for state updates after the control is mounted.
-  getButton(key) { return this._byKey[key] || null; }
 }
 
 const ICON_HOME = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -887,184 +366,33 @@ map.addControl(mapCtrls, 'top-right');
 // ═══════════════════════════════════════════════════════════════════════════
 // 2D / 3D TOGGLE
 // ───────────────────────────────────────────────────────────────────────────
-// 3D mode adds:
-//   - osm-buildings-3d   : OSM building footprints extruded by render_height
-//                          (OpenFreeMap, free, no API key; OSM attribution
-//                          declared on the source).  Buildings without
-//                          height info fall back to BUILDING_DEFAULT_M.
-//   - tree-3d            : per-tree cylinder built from each tree Point as a
-//                          12-gon polygon at TREE_RADIUS_M, extruded to the
-//                          tree's max_hoehe_m or TREE_DEFAULT_M.
-// And hides our flat tree/canopy markers so they don't ghost-render at
-// ground level beneath the cylinders.
+// 3D mode tilts the camera and adds extruded OSM buildings and one cylinder
+// per tree; the layers themselves are defined in mapkit.js (the detail page's
+// Situationsplan uses the same ones).
 // ═══════════════════════════════════════════════════════════════════════════
-const BUILDING_DEFAULT_M = 8;       // single-storey + roof, conservative European default
-const TREE_DEFAULT_M     = 8;       // urban shade tree height when no measurement exists
-const TREE_RADIUS_M      = 1.2;     // crown radius for the cylinder approximation
-const D3_PITCH           = 60;      // camera tilt in 3D mode
-
 let is3D = false;
 let _treeExtrusionData = null;
 
-function buildTreeExtrusionData() {
-  // Generated once and cached.  1620 trees × 13 coords each = ~21k coords -
-  // negligible payload, no need to keep in the conversion script output.
-  if (_treeExtrusionData) return _treeExtrusionData;
-  const features = [];
-  const trees = geojsonData
-    ? geojsonData.features.filter(f =>
-        f.properties.entity_type === 'tree' &&
-        f.geometry && f.geometry.type === 'Point')
-    : [];
-  const N_SIDES = 12;
-  for (const t of trees) {
-    const [lng, lat] = t.geometry.coordinates;
-    // Convert metric radius to lat/lng degrees at this latitude.
-    const dLat = TREE_RADIUS_M / 111320;
-    const dLng = TREE_RADIUS_M / (111320 * Math.cos(lat * Math.PI / 180));
-    const ring = [];
-    for (let i = 0; i < N_SIDES; i++) {
-      const a = (i / N_SIDES) * Math.PI * 2;
-      ring.push([
-        +(lng + Math.cos(a) * dLng).toFixed(7),
-        +(lat + Math.sin(a) * dLat).toFixed(7),
-      ]);
-    }
-    ring.push(ring[0]);
-    features.push({
-      type: 'Feature',
-      geometry: { type: 'Polygon', coordinates: [ring] },
-      properties: {
-        height: t.properties.max_hoehe_m || TREE_DEFAULT_M,
-        baumart: t.properties.baumart || null,
-      },
-    });
+// Generated once and cached.
+function treeExtrusionData() {
+  if (!_treeExtrusionData) {
+    _treeExtrusionData = buildTreeExtrusionData(geojsonData ? geojsonData.features : []);
   }
-  _treeExtrusionData = { type: 'FeatureCollection', features };
   return _treeExtrusionData;
-}
-
-function add3DLayers() {
-  // ── Z-order for 3D mode ──────────────────────────────────────────
-  //   1. ground fills (site-fill, area-fill, canopy-fill, site-line, area-line)
-  //   2. fill-extrusion layers (osm-buildings-3d, tree-3d)   ← inserted here
-  //   3. point markers (tree-circle, point-circle, site-location-*)
-  //   4. selection / hover overlays
-  //
-  // Inserting extrusions *before* tree-circle puts them above every flat
-  // fill but below the point markers.  Buildings then occlude any
-  // overlapping area-fill (instead of area-fill bleeding onto the
-  // building roof), and point markers + labels stay on top for clarity.
-  //
-  // fill-extrusion layers depth-test against each other via the WebGL
-  // depth buffer (with opacity 1.0), so tree-3d and osm-buildings-3d
-  // sort correctly regardless of which is declared first within this
-  // group.
-  const extrusionBeforeId = map.getLayer('tree-circle') ? 'tree-circle' : undefined;
-
-  // OSM buildings.
-  if (!map.getSource('osm-buildings-3d')) {
-    map.addSource('osm-buildings-3d', {
-      type: 'vector',
-      url: 'https://tiles.openfreemap.org/planet',
-      attribution: '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> · ' +
-                   '© <a href="https://openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-    });
-  }
-  if (!map.getLayer('osm-buildings-3d')) {
-    const beforeId = extrusionBeforeId;
-    map.addLayer({
-      id: 'osm-buildings-3d',
-      source: 'osm-buildings-3d',
-      'source-layer': 'building',
-      type: 'fill-extrusion',
-      minzoom: 14,
-      paint: {
-        'fill-extrusion-color': ['coalesce', ['get', 'colour'], '#cdc4b0'],
-        // Smooth grow-in between z14 and z15 to avoid visual pop-up.
-        'fill-extrusion-height': [
-          'interpolate', ['linear'], ['zoom'],
-          14, 0,
-          15, ['coalesce', ['get', 'render_height'], BUILDING_DEFAULT_M],
-        ],
-        // Push the wall base 0.5 m BELOW ground.  This eliminates the
-        // z-fight at the ground line where the building wall (z=0) meets
-        // the semi-transparent area-fill polygons (also z=0) — without
-        // the offset, MapLibre's translucent pass paints fills over the
-        // building's lower wall pixels, and you see the green-area
-        // polygons bleeding onto the building.  Rooftop annexes (with
-        // an explicit `render_min_height`) shift down by the same 0.5 m;
-        // visually invisible at typical zoom levels.
-        'fill-extrusion-base': ['-', ['coalesce', ['get', 'render_min_height'], 0], 0.5],
-        // Opaque buildings — translucency makes the 3D view read as a
-        // ghost-render and users can't tell where the building actually is.
-        // The ground polygons below get correctly occluded at the
-        // footprint, which matches real-world expectation.
-        'fill-extrusion-opacity': 1.0,
-      },
-    }, beforeId);
-  }
-
-  // Tree cylinders.  Same slot as the buildings - both are fill-extrusion
-  // layers and depth-sort against each other.
-  if (!map.getSource('tree-3d')) {
-    map.addSource('tree-3d', { type: 'geojson', data: buildTreeExtrusionData() });
-  }
-  if (!map.getLayer('tree-3d')) {
-    const beforeId = extrusionBeforeId;
-    map.addLayer({
-      id: 'tree-3d',
-      source: 'tree-3d',
-      type: 'fill-extrusion',
-      minzoom: 15,
-      paint: {
-        'fill-extrusion-color': '#4a7c2a',
-        'fill-extrusion-height': ['coalesce', ['get', 'height'], TREE_DEFAULT_M],
-        'fill-extrusion-base': 0,
-        'fill-extrusion-opacity': 1.0,
-      },
-    }, beforeId);
-  }
-
-  // Hide flat tree/canopy markers so they don't ghost-render through the
-  // cylinders at ground level when the camera is tilted.
-  for (const id of ['tree-circle', 'canopy-fill']) {
-    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
-  }
-}
-
-function remove3DLayers() {
-  for (const id of ['tree-3d', 'osm-buildings-3d']) {
-    if (map.getLayer(id)) map.removeLayer(id);
-  }
-  // Sources retained so re-toggling 3D doesn't refetch tiles or rebuild
-  // the tree polygon geometry.
-  for (const id of ['tree-circle', 'canopy-fill']) {
-    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
-  }
 }
 
 function set3D(on) {
   is3D = on;
-  // Update the 3D button visual + label.  Button shows the *destination*
-  // mode (Mapbox / Cesium convention): in 2D it reads "3D" (tap to enter
-  // 3D), in 3D it reads "2D".
-  const btn = mapCtrls.getButton('3d');
-  if (btn) {
-    btn.classList.toggle('ctrl-active', on);
-    btn.innerHTML = on ? '2D' : '3D';
-    btn.title = on ? 'Zur 2D-Ansicht wechseln' : 'Zur 3D-Ansicht wechseln';
-    btn.setAttribute('aria-label', btn.title);
-  }
+  set3DButtonState(mapCtrls.getButton('3d'), on);
   if (on) {
     map.easeTo({ pitch: D3_PITCH, duration: 500 });
-    add3DLayers();
+    add3DLayers(map, treeExtrusionData());
+    applyMapFilters();          // tree cylinders follow the legend
   } else {
     map.easeTo({ pitch: 0, duration: 500 });
-    remove3DLayers();
+    remove3DLayers(map);
   }
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // EXTERNAL LAYERS  (swisstopo / federal data via search → add to map)
 // ───────────────────────────────────────────────────────────────────────────
@@ -1135,12 +463,12 @@ function _addExtLayerToMap(bodId) {
     map.addSource(srcId, src);
   }
   if (!map.getLayer(lyrId)) {
-    const beforeId = map.getLayer('site-fill') ? 'site-fill' : undefined;
+    const beforeId = map.getLayer('parcel-fill') ? 'parcel-fill' : undefined;
     if (ext.config.type === 'geojson') {
       // Render GeoJSON layers as a thin outlined fill.
       map.addLayer({
         id: lyrId, type: 'fill', source: srcId,
-        paint: { 'fill-color': '#005ea8', 'fill-opacity': ext.opacity * 0.4 },
+        paint: { 'fill-color': TOKENS.primary, 'fill-opacity': ext.opacity * 0.4 },
         layout: { visibility: ext.visible ? 'visible' : 'none' },
       }, beforeId);
     } else {
@@ -1170,7 +498,7 @@ async function addExternalLayer(bodId) {
     opacity: cfg.opacity != null ? cfg.opacity : 1.0,
   };
   _addExtLayerToMap(bodId);
-  buildLegend(geojsonData ? geojsonData.features : []);
+  renderLegend();
   syncExternalLayersUrl();
 }
 
@@ -1180,7 +508,7 @@ function removeExternalLayer(bodId) {
   if (map.getLayer(lyrId)) map.removeLayer(lyrId);
   if (map.getSource(srcId)) map.removeSource(srcId);
   delete externalLayers[bodId];
-  buildLegend(geojsonData ? geojsonData.features : []);
+  renderLegend();
   syncExternalLayersUrl();
 }
 
@@ -1241,24 +569,13 @@ async function restoreExternalLayersFromUrl() {
 // layer (not just tooltip:true ones) - "tooltip" in layersConfig is the
 // vendor's UI hint, not a contract.  Some layers without tooltip still
 // return useful identify results.
+// The identify card docks in the map's top-right corner like the feature
+// card (css: .maplibregl-popup.docked); only one of the two is open at a time.
 const identifyPopup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '380px', className: 'identify-popup docked' });
 let _suppressIdentifyClose = false;
 identifyPopup.on('close', () => {
   if (_suppressIdentifyClose) return;
   clearIdentifyHighlight();
-});
-
-// Whenever the map changes size (table opening / being dragged, a side
-// panel docking, rotation), keep an open popup in view once it settles.
-// Timers alone can't know when: the table's height transition runs late
-// while the table re-renders.
-let _revealAfterResize = null;
-map.on('resize', () => {
-  clearTimeout(_revealAfterResize);
-  _revealAfterResize = setTimeout(() => {
-    if (selPopup.isOpen()) revealPopup(selPopup);
-    else if (identifyPopup.isOpen()) revealPopup(identifyPopup);
-  }, 200);
 });
 
 let _identifyAbort = null;
@@ -1269,33 +586,9 @@ function visibleIdentifyTargets() {
     .map(([bodId]) => bodId);
 }
 
-// WGS84 <-> LV95 (CH1903+) closed-form approximation, swisstopo "Reframe".
-// Sub-metre accurate inside Switzerland, which is all we care about for an
-// identify call - the request fails outside Switzerland anyway because the
-// layers have no data there.  Keeping these inline avoids a 30 KB proj4js
-// dependency for two conversions.
-function wgs84ToLv95(lon, lat) {
-  const phiSec = lat * 3600;
-  const lamSec = lon * 3600;
-  const phip = (phiSec - 169028.66) / 10000;
-  const lamp = (lamSec - 26782.5) / 10000;
-  const E = 2600072.37
-    + 211455.93 * lamp
-    - 10938.51 * lamp * phip
-    -     0.36 * lamp * phip * phip
-    -    44.54 * Math.pow(lamp, 3);
-  const N = 1200147.07
-    + 308807.95 * phip
-    +   3745.25 * Math.pow(lamp, 2)
-    +     76.63 * Math.pow(phip, 2)
-    -    194.56 * Math.pow(lamp, 2) * phip
-    +    119.79 * Math.pow(phip, 3);
-  return [E, N];
-}
-
-// lv95ToWgs84() is the inverse of wgs84ToLv95() above; it lives in js/data.js
-// (loaded before this file) so the data layer and the identify call share one
-// definition.  Used here by runIdentify to reproject swisstopo LV95 results.
+// wgs84ToLv95() lives in js/util.js, its inverse lv95ToWgs84() in js/data.js
+// (both loaded before this file).  runIdentify queries swisstopo in LV95 and
+// reprojects the returned geometry for the highlight.
 
 // Walk a GeoJSON coordinates tree and transform every (x, y) leaf with fn.
 function transformGeomCoords(geom, fn) {
@@ -1396,7 +689,8 @@ async function runIdentify(lngLat) {
     `<div class="ext-popup">${blocks.join('')}</div>`
   ).addTo(map);
   _suppressIdentifyClose = false;
-  revealPopup(identifyPopup);
+  // The identify card takes the corner the feature card docks in.
+  clearSelection();
 
   // Response geometry is in LV95 because we queried in sr=2056.  Convert
   // back to WGS84 before feeding the highlight source - MapLibre's GeoJSON
@@ -1420,21 +714,21 @@ function showIdentifyHighlight(geom) {
   map.addLayer({
     id: 'ext-highlight-fill', type: 'fill', source: 'ext-highlight',
     filter: ['in', '$type', 'Polygon'],
-    paint: { 'fill-color': '#005ea8', 'fill-opacity': 0.18 },
+    paint: { 'fill-color': TOKENS.mapSelection, 'fill-opacity': 0.18 },
   });
   // Stroke (polygon + linestring)
   map.addLayer({
     id: 'ext-highlight-line', type: 'line', source: 'ext-highlight',
     filter: ['in', '$type', 'Polygon', 'LineString'],
-    paint: { 'line-color': '#005ea8', 'line-width': 3 },
+    paint: { 'line-color': TOKENS.mapSelection, 'line-width': 3 },
   });
   // Marker (point)
   map.addLayer({
     id: 'ext-highlight-circle', type: 'circle', source: 'ext-highlight',
     filter: ['==', '$type', 'Point'],
     paint: {
-      'circle-radius': 8, 'circle-color': '#005ea8',
-      'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2,
+      'circle-radius': 8, 'circle-color': TOKENS.mapSelection,
+      'circle-stroke-color': TOKENS.white, 'circle-stroke-width': 2,
     },
   });
 }
@@ -1448,68 +742,89 @@ function clearIdentifyHighlight() {
 
 // MapLibre delegated (layer-scoped) listeners are keyed by layer-ID string and
 // are NOT dropped by setStyle() — and our data layers are preserved across
-// basemap swaps by transformStyle anyway.  So the click/hover handlers below
-// are bound exactly once (see attachInteractionHandlers); re-binding them on
-// every style change used to stack duplicate handlers, which made a feature
-// click select-then-clear after the first basemap switch.
-let _hovId = null;
-function setHover(id) {
-  _hovId = id;
-  const idMatch = id != null ? ['==', ['id'], id] : ['==', ['id'], -1];
-  // Same reason as applySelectedFilter: don't paint a ring at every vertex
-  // of a hovered polygon.  Hover ring is a Point-only affordance.
-  const pointOnly = ['all', idMatch, ['==', ['geometry-type'], 'Point']];
-  if (map.getLayer('hover-line'))   map.setFilter('hover-line', idMatch);
-  if (map.getLayer('hover-circle')) map.setFilter('hover-circle', pointOnly);
-}
+// basemap swaps anyway.  So the hover / click handlers below are bound exactly
+// once (see attachInteractionHandlers); re-binding them on every style change
+// used to stack duplicate handlers, which made a feature click
+// select-then-clear after the first basemap switch.
+// Hover outline — from the map (bindFeatureHover) and from the table rows.
+function setHover(id) { setHoverFilter(map, id); }
 
-let _emptyClickBound = false;
-let _layerHandlersBound = false;
+let _handlersBound = false;
 function attachInteractionHandlers() {
-  // Bind the per-layer hover/click handlers exactly once.  They're keyed by
-  // layer-ID string, so they survive setStyle() and keep working even if a
-  // layer is later removed and re-added — re-binding on every basemap change
-  // (as this used to) stacked duplicate handlers and broke selection.
-  if (!_layerHandlersBound) {
-    for (const lyr of INTERACTIVE_LAYERS) {
-      map.on('mousemove', lyr, (e) => {
-        if (editMode) return;
-        if (!e.features.length) return;
-        map.getCanvas().style.cursor = 'pointer';
-        const f = e.features[0];
-        if (_hovId !== f.id) setHover(f.id);
-      });
-      map.on('mouseleave', lyr, () => {
-        if (editMode) return;
-        map.getCanvas().style.cursor = '';
-        setHover(null);
-      });
-      map.on('click', lyr, (e) => {
-        if (editMode || measureActive) return;
-        const fid = Number(e.features[0].id);
-        if (fid === selectedId) { clearSelection(); return; }
-        selectFeature(fid, e.lngLat);
-      });
+  if (_handlersBound) return;
+  _handlersBound = true;
+  // Hover: pointer cursor + outline.
+  bindFeatureHover(map, setHover, () => editMode);
+  // One click handler for the whole map: everything of ours under the
+  // pointer goes into the card's stack (featureStackAt, mapkit.js); an empty
+  // spot asks the visible external layers (identify); nothing at all clears
+  // the selection.
+  map.on('click', async (e) => {
+    if (editMode || measureActive) return;
+    const stack = featureStackAt(map, e.point, geojsonData.features, resolveSelectable);
+    if (stack.length) {
+      // A second click on the selected feature deselects it.
+      if (stack[0] === selectedId) { clearSelection(); return; }
+      // Selecting never moves the map; the card's zoom button does.
+      selectFeature(stack[0], { stack });
+      return;
     }
-    _layerHandlersBound = true;
-  }
-  // Background click → clear selection.  Bind exactly once - this listener
-  // is global, not layer-scoped, so style changes don't drop it.
-  if (!_emptyClickBound) {
-    map.on('click', async (e) => {
-      if (editMode || measureActive) return;
-      const layers = INTERACTIVE_LAYERS.filter(l => map.getLayer(l));
-      const hits = map.queryRenderedFeatures(e.point, { layers });
-      if (hits.length) return;       // local feature click takes priority
-      // Try identify on visible external layers; only clear selection if
-      // there's nothing to show.
-      const handled = await runIdentify(e.lngLat);
-      if (!handled) clearSelection();
-    });
-    _emptyClickBound = true;
-  }
+    const handled = await runIdentify(e.lngLat);
+    if (!handled) clearSelection();
+  });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGEND MODEL
+// ═══════════════════════════════════════════════════════════════════════════
+// Resolve LEGEND_GROUPS (config.js) against the loaded data: profile rows get
+// their label from the codelists and their style from care_profiles.json;
+// rows without a single feature are left out.  The order is the curated one
+// from config.js (the printed plan's), not a count ranking.
+function buildLegendModel(gj) {
+  LEGEND = buildLegendGroups(gj.features, gj.metadata && gj.metadata.codelists);
+  Object.assign(_legendItemByKey, legendItemsByKey(LEGEND));
+}
+
+// ── "ausserhalb": which legend rows have something in the map view ────────
+// Tested against the data (one bounding box per feature), not against the
+// rendered tiles: a row that is switched off, or a tree hidden by the 3D
+// mode, still counts as being in view.  ~6 000 box tests per settled view.
+let _featBoxes = null;   // per feature index: [minLng, minLat, maxLng, maxLat, legendKey] | null
+function indexFeatureBoxes() {
+  _featBoxes = geojsonData.features.map((f) => {
+    const key = legendKeyFor(f.properties.entity_type, f.properties.fk_profil);
+    if (!key || !f.geometry) return null;
+    const b = geomBbox(f.geometry);
+    return [b[0][0], b[0][1], b[1][0], b[1][1], key];
+  });
+}
+function updateInView() {
+  if (!_featBoxes || !LEGEND.length) return;
+  const b = map.getBounds();
+  const w = b.getWest(), s = b.getSouth(), e = b.getEast(), n = b.getNorth();
+  // Features removed by the table's search / attribute filters are not drawn.
+  const active = tblActiveIds === null ? null : new Set(tblActiveIds);
+  const seen = new Set();
+  const counts = {};
+  for (let i = 0; i < _featBoxes.length; i++) {
+    const fb = _featBoxes[i];
+    if (!fb || fb[2] < w || fb[0] > e || fb[3] < s || fb[1] > n) continue;
+    if (active && !active.has(i)) continue;
+    seen.add(fb[4]);
+    const it = _legendItemByKey[fb[4]];
+    if (it) counts[it.group.id] = (counts[it.group.id] || 0) + 1;
+  }
+  legendState.inView = seen;
+  legendState.groupCounts = counts;
+  markLegendInView();
+  renderLegendChips();
+}
+let _inViewTimer = null;
+function scheduleInViewUpdate() {
+  clearTimeout(_inViewTimer);
+  _inViewTimer = setTimeout(updateInView, 200);
+}
 map.on('load', async () => {
   let gj;
   try {
@@ -1531,41 +846,12 @@ map.on('load', async () => {
     [...new Set(gj.features.map(f => f.properties.fk_profil).filter(p => p != null))];
   installAreaFillExpr(profileCodes);
 
-  // Populate items for every legend group that uses profileCodes.  Looks
-  // up labels via the embedded codelists (idPPy for area, idPP for
-  // tree/point) and counts via a single pass over the features.  Items
-  // appear in profileCodes order so a curator can decide the visual
-  // order via config.js, not data ordering.
-  const idPPy = (gj.metadata && gj.metadata.codelists && gj.metadata.codelists.idPPy) || {};
-  const idPP  = (gj.metadata && gj.metadata.codelists && gj.metadata.codelists.idPP)  || {};
-  const counts = {};   // entity_type -> { profile_code: count }
-  for (const f of gj.features) {
-    const e = f.properties.entity_type;
-    const c = f.properties.fk_profil;
-    if (e == null || c == null) continue;
-    if (!counts[e]) counts[e] = {};
-    counts[e][c] = (counts[e][c] || 0) + 1;
-  }
-  for (const grp of LEGEND_GROUPS) {
-    if (!grp.profileCodes) continue;
-    const cl = grp.entity_type === 'area' ? idPPy : idPP;
-    const ct = counts[grp.entity_type] || {};
-    grp.items = grp.profileCodes
-      .map(code => ({ code, label: cl[code] || cl[String(code)] || ('Profil ' + code), n: ct[code] || 0 }))
-      .filter(x => x.n > 0)         // drop entries with zero features
-      // Keep PDF order (the order in profileCodes) instead of count-sorting,
-      // so Laubbäume always come before Strassenbäume etc. - surveyors
-      // expect the printed-plan ordering.
-      .map(x => {
-        const style = profilStyle(grp.entity_type, x.code);
-        return {
-          label: x.label,
-          fill: style.fill,
-          swatchClass: style.swatchClass,
-        };
-      });
-  }
+  // Legend first: its visibility state (?hide=…) is part of the layer filters.
+  buildLegendModel(gj);
+  indexFeatureBoxes();
+  restoreLegendStateFromUrl();
 
+  installPatternImages(map);
   addLayers();
   attachInteractionHandlers();
   buildTable();
@@ -1573,114 +859,131 @@ map.on('load', async () => {
   // legend section appears together with everything else.
   await restoreExternalLayersFromUrl();
 
-  // ── View: prefer ?center & ?zoom; otherwise fit to data ────────────────
-  // A shared link like /?center=7.45,46.95&zoom=14&sel=42 should land the
-  // user where the sender was looking, not on the data-bbox fit.
-  const viewFromUrl = applyViewFromUrl();
-  if (!viewFromUrl) {
-    // Use the FeatureCollection-level bbox (RFC 7946 §5) the conversion
-    // script writes into the GeoJSON.  Falls back to walking every
-    // coordinate of every feature if missing — a couple hundred ms saved
-    // on cold load.
-    if (Array.isArray(gj.bbox) && gj.bbox.length === 4) {
-      map.fitBounds([[gj.bbox[0], gj.bbox[1]], [gj.bbox[2], gj.bbox[3]]],
-                    { padding: 60, maxZoom: 14 });
-    } else {
-      let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-      function scanCoords(c) {
-        if (typeof c[0] === 'number') {
-          if (c[0] < minLon) minLon = c[0]; if (c[0] > maxLon) maxLon = c[0];
-          if (c[1] < minLat) minLat = c[1]; if (c[1] > maxLat) maxLat = c[1];
-        } else { c.forEach(scanCoords); }
-      }
-      gj.features.forEach(f => { if (f.geometry) scanCoords(f.geometry.coordinates); });
-      if (isFinite(minLon)) map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 60, maxZoom: 14 });
-    }
+  // ── View ─────────────────────────────────────────────────────────────────
+  // ?site=<Objektnummer> / ?site_fid=<fid> (links from the detail page) open
+  // the map on that Standort.  Otherwise prefer ?center & ?zoom — a shared
+  // link should land where the sender was looking — and fall back to the
+  // whole inventory (the FeatureCollection bbox, RFC 7946 §5).
+  const params = new URLSearchParams(location.search);
+  const linkedSite = (params.has('site') || params.has('site_fid'))
+    ? findSiteFeature(gj.features, params) : null;
+  if (!linkedSite && !applyViewFromUrl()) {
+    const bb = Array.isArray(gj.bbox) && gj.bbox.length === 4
+      ? [[gj.bbox[0], gj.bbox[1]], [gj.bbox[2], gj.bbox[3]]]
+      : featuresBbox(gj.features);
+    if (bb) map.fitBounds(bb, { padding: 60, maxZoom: 14 });
   }
 
   // Persist view changes to the URL on every settled view (debounced via rAF
   // inside syncViewUrl).  'moveend' covers pan, zoom, fly, fit.
   map.on('moveend', syncViewUrl);
+  map.on('moveend', scheduleInViewUpdate);
 
-  buildLegend(gj.features);
+  renderLegend();
+  updateInView();
   clearTimeout(_slowLoadTimer);
   setLoadState('ready');
 
-  // Restore selection from URL (?sel=<idx>)
-  const urlSel = parseInt(new URLSearchParams(location.search).get('sel'));
-  if (!isNaN(urlSel) && urlSel >= 0 && urlSel < gj.features.length) {
-    const feat = gj.features[urlSel];
-    const bbox = geomBbox(feat.geometry);
-    const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
-    selectFeature(urlSel, center);
+  if (linkedSite) {
+    selectFeature(linkedSite.id);
+    zoomToFeature(linkedSite.id, { duration: 0 });
+    // From here on the selection is carried by ?sel= like any other.
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('site');
+      url.searchParams.delete('site_fid');
+      history.replaceState(null, '', url);
+    } catch (_) { /* file:// or sandboxed */ }
+    return;
   }
+  // Restore selection from URL (?sel=<idx>)
+  const urlSel = parseInt(params.get('sel'));
+  if (!isNaN(urlSel) && urlSel >= 0 && urlSel < gj.features.length) selectFeature(urlSel);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SIDEBAR (LEGEND) TOGGLE
+// LEGEND PANEL — floating card ⇄ pill (phones: bottom sheet)
+// ───────────────────────────────────────────────────────────────────────────
+// The legend floats over the map's top-left corner, so the map always uses
+// the full width.  Collapsed it is a pill.  State: the tier default (open on
+// wide screens, closed below — map first), overridden by ?lg=1 / ?lg=0, which
+// is written whenever the user's choice differs from that default.  Phones
+// open it as a bottom sheet; that is never stored.
 // ═══════════════════════════════════════════════════════════════════════════
-(function initSidebarToggle() {
-  const sidebar     = document.getElementById('sidebar');
-  const closeBtn    = document.getElementById('sidebar-close');
-  const legendBtn   = document.getElementById('legend-toggle');
-  // Layout tiers come from LAYOUT_MQ (config.js).  matchMedia is more
-  // reliable than a one-shot innerWidth check (handles device rotation,
-  // browser zoom, DevTools-driven viewport changes).
+const legendPanel = (() => {
+  const mapEl = document.getElementById('map');
+  const card = document.getElementById('legend');
+  const pill = document.getElementById('legend-toggle');
+  let expanded = false;
 
-  function openSidebar() {
-    sidebar.classList.remove('collapsed');
-    legendBtn.style.display = 'none';
-    // Medium / compact: one side panel at a time — two docked 280 px panels
-    // left a 260 px map on a tablet in portrait; two drawers would stack.
+  const tierDefault = () => allowsTwoPanels();
+  function urlPreference() {
+    try {
+      const v = new URLSearchParams(location.search).get('lg');
+      return v === '1' ? true : v === '0' ? false : null;
+    } catch (_) { return null; }
+  }
+  function syncUrl() {
+    try {
+      const url = new URL(location.href);
+      if (expanded === tierDefault()) url.searchParams.delete('lg');
+      else url.searchParams.set('lg', expanded ? '1' : '0');
+      history.replaceState(null, '', url);
+    } catch (_) { /* file:// or sandboxed */ }
+  }
+  function apply(v) {
+    expanded = v;
+    card.hidden = !v;
+    mapEl.classList.toggle('legend-open', v);
+    pill.setAttribute('aria-expanded', String(v));
+  }
+  // opts.persist === false: a transient change the URL should not remember.
+  function open(opts = {}) {
+    if (isCompactLayout()) {
+      // Phones: one bottom sheet at a time (table, feature card, legend).
+      if (typeof tableOpen !== 'undefined' && tableOpen) document.getElementById('tbl-toggle').click();
+      clearSelection();
+    }
+    // Medium / compact: the docked filter panel and the legend card do not
+    // fit side by side on the remaining map.
     if (!allowsTwoPanels() && window.filterPanel && window.filterPanel.isOpen()) window.filterPanel.close();
-    // In the compact layout the sidebar is a drawer over the map, so the
-    // canvas size doesn't change and no map.resize() is needed.
-    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
+    apply(true);
+    if (opts.persist !== false && !isCompactLayout()) syncUrl();
+    if (opts.focus) document.getElementById('legend-close').focus();
   }
-  function closeSidebar() {
-    sidebar.classList.add('collapsed');
-    legendBtn.style.display = 'flex';
-    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
+  function close(opts = {}) {
+    apply(false);
+    if (opts.persist !== false && !isCompactLayout()) syncUrl();
+    if (opts.focus) pill.focus();
   }
-  window.legendPanel = {
-    open: openSidebar, close: closeSidebar,
-    isOpen: () => !sidebar.classList.contains('collapsed'),
-  };
 
-  closeBtn.addEventListener('click', closeSidebar);
-  legendBtn.addEventListener('click', openSidebar);
+  pill.addEventListener('click', () => { if (expanded) close(); else open({ focus: true }); });
+  document.getElementById('legend-close').addEventListener('click', () => close({ focus: true }));
 
-  // Map first below the wide tier: phones and tablets in portrait start with
-  // the legend closed so the map gets the full width.  Done synchronously
-  // before first paint to avoid a flash of an open drawer on load.
-  if (!allowsTwoPanels()) closeSidebar();
+  // Initial state, set synchronously before first paint.
+  const pref = urlPreference();
+  apply(isCompactLayout() ? false : (pref !== null ? pref : tierDefault()));
 
   // Re-evaluate on rotation / window resize across a tier boundary.
   function onTierChange() {
-    if (isCompactLayout()) closeSidebar();
-    else if (allowsTwoPanels()) openSidebar();
-    else if (window.filterPanel && window.filterPanel.isOpen()) closeSidebar();
+    const p = urlPreference();
+    apply(isCompactLayout() ? false : (p !== null ? p : tierDefault()));
+    renderLegendChips();
+    featureCard.refresh();                   // link target differs per tier
   }
   LAYOUT_MQ.compact.addEventListener('change', onTierChange);
   LAYOUT_MQ.medium.addEventListener('change', onTierChange);
 
-  // Tap the scrim to close.  The scrim is a CSS ::before pseudo-element on
-  // #body, so it's not addressable from JS.  Instead: when a compact-layout
-  // drawer is open, any click on the map canvas should close it.  We
-  // listen on #main-content so the click on the table area closes it too.
-  document.getElementById('main-content').addEventListener('click', () => {
-    if (isCompactLayout() && !sidebar.classList.contains('collapsed')) {
-      closeSidebar();
-    }
-  }, { capture: true });
-  // A tap on the scrim itself targets #body (pseudo-elements aren't event
-  // targets), so the #main-content listener above never sees it.
-  document.getElementById('body').addEventListener('click', (e) => {
-    if (e.target !== e.currentTarget || !isCompactLayout()) return;
-    closeSidebar();
-    if (window.filterPanel) window.filterPanel.close();
-  });
+  return { open, close, isOpen: () => expanded };
 })();
+window.legendPanel = legendPanel;
+
+// A tap on the drawer scrim closes the filter drawer (phones).  The scrim is
+// a CSS pseudo-element of #body, so the event targets #body itself.
+document.getElementById('body').addEventListener('click', (e) => {
+  if (e.target !== e.currentTarget || !isCompactLayout()) return;
+  if (window.filterPanel) window.filterPanel.close();
+});
 
 // ── Header overflow menu (compact layout) ──────────────────────────────────
 (function initMoreMenu() {
@@ -1706,119 +1009,43 @@ map.on('load', async () => {
 })();
 
 // ── Escape closes the topmost transient UI ────────────────────────────────
+// (An open info dialog handles Esc itself, before this listener — util.js.)
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (window.moreMenu && window.moreMenu.isOpen()) { window.moreMenu.close(); return; }
   if (isCompactLayout()) {
     if (window.filterPanel && window.filterPanel.isOpen()) { window.filterPanel.close(); return; }
-    if (window.legendPanel && window.legendPanel.isOpen()) { window.legendPanel.close(); return; }
+    if (legendPanel.isOpen()) { legendPanel.close({ focus: true }); return; }
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BASEMAP SWITCHER
+// BASEMAP SWITCHER (markup: #basemap-switcher; logic: mapkit.js)
 // ═══════════════════════════════════════════════════════════════════════════
-let currentBasemap = 'positron';
-let bmPanelOpen = false;
-
-(function initBasemapUI() {
-  const panel = document.getElementById('bm-panel');
-  BASEMAPS.forEach(bm => {
-    const btn = document.createElement('button');
-    btn.className = 'bm-option' + (bm.id === currentBasemap ? ' active' : '');
-    btn.dataset.id = bm.id;
-    btn.innerHTML =
-      `<img src="${bm.thumb}" alt="${bm.label}">` +
-      `<span class="bm-opt-label">${bm.label}</span>`;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (bm.id === currentBasemap) { closeBmPanel(); return; }
-      currentBasemap = bm.id;
-      updateBmBtn();
-      // ── Preserve OUR sources + layers across the basemap swap ─────
-      // Without this, setStyle() drops the `features` GeoJSON source
-      // and MapLibre has to re-tile all 6 164 features in its worker
-      // before they render at the proper zoom.  During the wait, lower-
-      // zoom tiles get stretched (overzoomed) into the view — visible
-      // as angular geometry, especially on the swisstopo aerial basemap
-      // where high-contrast imagery makes the millimetre offsets pop.
-      //
-      // transformStyle merges OUR sources/layers into the incoming
-      // style so the swap only changes the basemap underneath.  Layer-
-      // bound event listeners survive the preservation, so click /
-      // hover handlers don't need re-attaching.  Side benefit: basemap
-      // switches feel instant.
-      map.setStyle(bm.url, {
-        diff: true,
-        transformStyle: (prev, next) => {
-          if (!prev) return next;
-          const ourSourceIds = collectOurSourceIds();
-          const ourLayerIds  = collectOurLayerIds();
-          const preservedSources = {};
-          for (const [id, src] of Object.entries(prev.sources || {})) {
-            if (ourSourceIds.has(id)) preservedSources[id] = src;
-          }
-          const preservedLayers = (prev.layers || []).filter(
-            l => ourLayerIds.has(l.id)
-          );
-          return {
-            ...next,
-            sources: { ...next.sources, ...preservedSources },
-            layers: [...(next.layers || []), ...preservedLayers],
-          };
-        },
-      });
-      // Safety net: if anything failed to preserve (first style change
-      // edge cases, schema-incompatible sources, …), re-add on styledata.
-      // The addLayers / add3DLayers / restoreExternalLayersOnStyle calls
-      // are idempotent — they skip work if our source/layer already
-      // exists.  Same with buildLegend.
-      map.once('styledata', async () => {
-        await restoreExternalLayersOnStyle();
-        addLayers();
-        if (is3D) add3DLayers();
-        attachInteractionHandlers();
-        if (geojsonData) buildLegend(geojsonData.features);
-      });
-      closeBmPanel();
-    });
-    panel.appendChild(btn);
-  });
-  updateBmBtn();
-})();
-
-function updateBmBtn() {
-  const bm = BASEMAPS.find(b => b.id === currentBasemap);
-  document.getElementById('bm-current-thumb').src = bm.thumb;
-  document.querySelectorAll('.bm-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.id === currentBasemap);
-  });
-}
-function closeBmPanel() {
-  bmPanelOpen = false;
-  document.getElementById('bm-panel').classList.remove('open');
-}
-document.getElementById('bm-btn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  bmPanelOpen = !bmPanelOpen;
-  document.getElementById('bm-panel').classList.toggle('open', bmPanelOpen);
+initBasemapSwitcher(map, {
+  initial: 'positron',
+  sourceIds: collectOurSourceIds,
+  layerIds: collectOurLayerIds,
+  // Safety net after a swap: everything below is idempotent — it skips work
+  // when our source / layer / image already exists.
+  onStyleRestored: async () => {
+    ensurePatternImages(map);
+    await restoreExternalLayersOnStyle();
+    addLayers();
+    if (is3D) add3DLayers(map, treeExtrusionData());
+    attachInteractionHandlers();
+    applyMapFilters();
+  },
 });
-document.addEventListener('click', () => { if (bmPanelOpen) closeBmPanel(); });
 
 // ── Coordinate display ─────────────────────────────────────────────────────
 // Show both WGS84 and LV95 — the latter is the canonical Swiss reference
 // surveyors and BBL staff actually work in, so showing it alongside makes
 // the footer useful as a coordinate read-out instead of a curiosity.
 const coordEl = document.getElementById('coordinates');
-function fmtThousand(n) {
-  // Swiss-style thousand separator (apostrophe), no decimals: 2'600'370
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '’');
-}
 map.on('mousemove', e => {
   const { lng, lat } = e.lngLat;
-  // wgs84ToLv95 is defined further down for identify; use it here too.  It's
-  // hoisted because it's a function declaration.
-  const [E, N] = wgs84ToLv95(lng, lat);
+  const [E, N] = wgs84ToLv95(lng, lat);        // util.js
   coordEl.textContent =
     `WGS 84  ${lat.toFixed(5)}, ${lng.toFixed(5)}   |   ` +
     `LV95  ${fmtThousand(E)} / ${fmtThousand(N)}`;
@@ -1826,148 +1053,260 @@ map.on('mousemove', e => {
 map.on('mouseout', () => { coordEl.textContent = 'WGS 84 | LV95 | Koordinaten: --'; });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LEGEND BUILDER
+// LEGEND — rows, visibility, quick chips, info dialog
+// ───────────────────────────────────────────────────────────────────────────
+// Group row:   eye (all on · some on · all off) · up to three mini swatches ·
+//              label · chevron.  One group is open at a time.
+// Profile row: eye · swatch · label (one line) · ⓘ.  No counts anywhere.
+// Rows with nothing in the map view are greyed and tagged «ausserhalb»; the
+// list itself never reorders while the map moves.
 // ═══════════════════════════════════════════════════════════════════════════
-const EYE_OPEN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-  <circle cx="12" cy="12" r="3"/>
-</svg>`;
-const EYE_CLOSED = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-  <line x1="1" y1="1" x2="23" y2="23"/>
-</svg>`;
+function renderLegend() {
+  const root = document.getElementById('legend-scroll');
+  if (!root) return;
+  const active = document.activeElement;
+  const focusKey = active && root.contains(active) ? active.dataset.focus : null;
 
-function buildLegend(features) {
-  // Two-level counts:
-  //   entityCounts[e]            = total features of that entity_type
-  //   profileCounts[e][p]        = features by entity_type + profile code
-  // Sub-grouped legend groups (those with profileCodes) display the SUM of
-  // their codes' counts, not the entity_type total — so "Rasen" reads its
-  // own ~250-feature count rather than the 3014-feature area total.
-  const entityCounts = {};
-  const profileCounts = {};
-  for (const f of features) {
-    const e = f.properties.entity_type;
-    const c = f.properties.fk_profil;
-    if (e == null) continue;
-    entityCounts[e] = (entityCounts[e] || 0) + 1;
-    if (c == null) continue;
-    if (!profileCounts[e]) profileCounts[e] = {};
-    profileCounts[e][c] = (profileCounts[e][c] || 0) + 1;
+  root.innerHTML = legendListHtml(LEGEND, legendState, { info: true, outTag: true });
+  renderExternalLegend(root);
+
+  if (focusKey) {
+    const again = root.querySelector(`[data-focus="${CSS.escape(focusKey)}"]`);
+    if (again) again.focus();
+  }
+  markLegendInView();
+  updateLegendSummary(LEGEND, legendState.hidden, _legendItemByKey);
+  renderLegendChips();
+}
+
+// Grey out the rows (and groups) without features in the map view.  Only
+// classes change here — the DOM order stays put while the user pans.
+function markLegendInView() {
+  const root = document.getElementById('legend-scroll');
+  const seen = legendState.inView;
+  if (!root || !seen) return;
+  root.querySelectorAll('.lg-item[data-key]').forEach(row => {
+    row.classList.toggle('out', !seen.has(row.dataset.key));
+  });
+  for (const g of LEGEND) {
+    const el = root.querySelector(`.lg-group[data-gid="${CSS.escape(g.id)}"]`);
+    if (el) el.classList.toggle('out', !g.items.some(it => seen.has(it.key)));
+  }
+}
+
+// Phones: quick toggles for the three groups with the most features in view.
+function renderLegendChips() {
+  const host = document.getElementById('legend-chips');
+  if (!host) return;
+  if (!isCompactLayout() || !LEGEND.length) { host.innerHTML = ''; return; }
+  const counts = legendState.groupCounts || {};
+  const top = LEGEND
+    .filter(g => g.id !== 'standort' && counts[g.id] > 0)
+    .sort((a, b) => counts[b.id] - counts[a.id])
+    .slice(0, 3);
+  host.innerHTML = top.map(g => {
+    const on = legendGroupState(g, legendState.hidden) !== 'off';
+    const label = escapeHtml(g.label);
+    return `<button type="button" class="lg-chip" data-gid="${escapeHtml(g.id)}" aria-pressed="${on}"
+      aria-label="${on ? 'Ausblenden' : 'Einblenden'}: ${label}">${legendItemSwatch(g.items[0], false)}${label}</button>`;
+  }).join('');
+}
+
+// ── Visibility changes ────────────────────────────────────────────────────
+function _legendChanged() {
+  applyMapFilters();
+  syncLegendUrl();
+  renderLegend();
+}
+// Group eye: anything visible → hide the whole group; all hidden → show all.
+function toggleLegendGroup(gid) {
+  const g = LEGEND.find(x => x.id === gid);
+  if (!g) return;
+  toggleLegendGroupKeys(g, legendState.hidden);
+  _legendChanged();
+}
+// Row eye: one profile.  Showing a row in a fully hidden group shows only
+// that row; hiding the last visible row leaves the group "all hidden".
+function toggleLegendItem(key) {
+  if (!_legendItemByKey[key]) return;
+  if (legendState.hidden.has(key)) legendState.hidden.delete(key); else legendState.hidden.add(key);
+  _legendChanged();
+}
+function showAllLegendItems() {
+  legendState.hidden.clear();
+  _legendChanged();
+}
+
+document.getElementById('legend-scroll').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  switch (btn.dataset.act) {
+    case 'group-eye':  toggleLegendGroup(btn.dataset.gid); break;
+    case 'item-eye':   toggleLegendItem(btn.dataset.key); break;
+    case 'item-info':  openLegendInfo(btn.dataset.key); break;
+    case 'group-open':
+      legendState.open = legendState.open === btn.dataset.gid ? null : btn.dataset.gid;
+      renderLegend();
+      break;
+  }
+});
+document.getElementById('legend-show-all').addEventListener('click', showAllLegendItems);
+document.getElementById('legend-chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.lg-chip');
+  if (chip) toggleLegendGroup(chip.dataset.gid);
+});
+
+// ── URL state: ?hide=area:6,area:7,tree:1,parcel ──────────────────────────
+function syncLegendUrl() {
+  try {
+    const url = new URL(location.href);
+    if (legendState.hidden.size) url.searchParams.set('hide', [...legendState.hidden].join(','));
+    else url.searchParams.delete('hide');
+    history.replaceState(null, '', url);
+  } catch (_) { /* file:// or sandboxed */ }
+}
+// Needs the legend model.  Also reads the former filter parameters ?ent=
+// (entity types to show) and ?pr= (profile codes to show): Typ and Profil
+// used to be attribute filters, old links keep working as legend visibility.
+function restoreLegendStateFromUrl() {
+  let params;
+  try { params = new URLSearchParams(location.search); } catch (_) { return; }
+  const list = (name) => (params.get(name) || '').split(',').map(s => {
+    try { return decodeURIComponent(s.trim()); } catch (_) { return s.trim(); }
+  }).filter(Boolean);
+
+  const hidden = new Set();
+  for (let key of list('hide')) {
+    // 'tree:N' and 'point:N' name the same code list; accept either spelling.
+    if (!_legendItemByKey[key]) {
+      const m = /^(tree|point):(\d+)$/.exec(key);
+      if (m) key = (m[1] === 'tree' ? 'point' : 'tree') + ':' + m[2];
+    }
+    if (_legendItemByKey[key]) hidden.add(key);
   }
 
-  const el = document.getElementById('legend-scroll');
-  el.innerHTML = '';
-
-  for (const grp of LEGEND_GROUPS) {
-    let cnt;
-    if (grp.profileCodes && grp.entity_type) {
-      const ct = profileCounts[grp.entity_type] || {};
-      cnt = grp.profileCodes.reduce((s, c) => s + (ct[c] || 0), 0);
-    } else {
-      cnt = grp.entity_type ? (entityCounts[grp.entity_type] || 0) : 0;
+  const ent = list('ent'), pr = list('pr');
+  if (ent.length || pr.length) {
+    const showEnt = new Set(ent);
+    const showCode = new Set(pr.map(Number));
+    for (const g of LEGEND) {
+      for (const it of g.items) {
+        // A point without species is entity 'point' even with a tree profile.
+        const ets = it.entity_type === 'tree' || it.entity_type === 'point' ? ['tree', 'point'] : [it.entity_type];
+        if (ent.length && !ets.some(e => showEnt.has(e))) hidden.add(it.key);
+        if (pr.length && it.code != null && !showCode.has(it.code)) hidden.add(it.key);
+      }
     }
-    const hasData = cnt > 0;
-
-    const groupEl = document.createElement('div');
-    groupEl.className = 'lg-group';
-    groupEl.dataset.gid = grp.id;
-    if (!vis[grp.id]) groupEl.classList.add('group-hidden');
-
-    const head = document.createElement('div');
-    head.className = 'lg-group-head';
-
-    const eyeBtn = document.createElement('button');
-    eyeBtn.className = 'eye-btn';
-    eyeBtn.title = 'Ebene ein-/ausblenden';
-    eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
-    eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
-    eyeBtn.addEventListener('click', () => {
-      if (!grp.entity_type) return;
-      vis[grp.id] = !vis[grp.id];
-      eyeBtn.innerHTML = vis[grp.id] ? EYE_OPEN : EYE_CLOSED;
-      eyeBtn.classList.toggle('hidden-eye', !vis[grp.id]);
-      groupEl.classList.toggle('group-hidden', !vis[grp.id]);
-      applyMapFilters();
-    });
-    if (!hasData) {
-      eyeBtn.style.opacity = '0.25';
-      eyeBtn.style.cursor = 'default';
-    }
-
-    const title = document.createElement('span');
-    title.className = 'lg-group-title';
-    title.textContent = grp.label;
-
-    head.append(eyeBtn, title);
-    groupEl.appendChild(head);
-
-    const itemsEl = document.createElement('div');
-    itemsEl.className = 'lg-items';
-
-    for (const item of grp.items) {
-      const row = document.createElement('div');
-      row.className = 'lg-item' + (hasData ? '' : ' empty');
-
-      const sw = document.createElement('span');
-      sw.className = 'lg-swatch' + (item.swatchClass ? ' ' + item.swatchClass : '');
-      if (item.fill) sw.style.background = item.fill;
-
-      const lbl = document.createElement('span');
-      lbl.className = 'lg-label';
-      lbl.textContent = item.label;
-
-      row.append(sw, lbl);
-      itemsEl.appendChild(row);
-    }
-
-    groupEl.appendChild(itemsEl);
-    el.appendChild(groupEl);
   }
+  legendState.hidden = hidden;
+  if (ent.length || pr.length) {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.delete('ent');
+      url.searchParams.delete('pr');
+      history.replaceState(null, '', url);
+    } catch (_) { /* file:// or sandboxed */ }
+    syncLegendUrl();
+  }
+}
 
-  // ── External layers (added via header search) ────────────────────────
+// ── Info dialog (ⓘ) ───────────────────────────────────────────────────────
+// What a legend row is, how it is drawn, and where its data comes from: the
+// six metadata rows follow the geocat.ch profile (LAYER_METADATA, config.js).
+// No counts and no care tasks here — those live on the Standort detail page.
+function openLegendInfo(key) {
+  const it = _legendItemByKey[key];
+  const scrim = document.getElementById('info-modal');
+  if (!it || !scrim) return;
+
+  const isAv = it.entity_type === 'parcel';
+  const meta = LAYER_METADATA[isAv ? 'av' : 'inventory'];
+  const md = (geojsonData && geojsonData.metadata) || {};
+  const cat = it.code != null ? careProfile(it.entity_type, it.code) : null;
+  const prof = (it.code != null && typeof PROFILE_INFO !== 'undefined' && PROFILE_INFO[it.domain])
+    ? PROFILE_INFO[it.domain][it.code] : null;
+
+  const subtitle = [cat && cat.code ? 'Profil ' + cat.code : null, it.group.label].filter(Boolean).join(' · ');
+  const desc = [
+    prof && prof.description,
+    it.info,
+    cat && cat.quelle ? 'Profil gemäss BBL Standard Grünflächenunterhalt 2020, ' + cat.quelle + '.' : null,
+  ].filter(Boolean).join(' ');
+
+  const isPoint = it.entity_type === 'tree' || it.entity_type === 'point' || it.entity_type === 'site_location';
+  const stand = fmtDate(isAv ? (md.parcels && md.parcels.fetched_at) : md.source_extracted_at);
+  const link = (l) => l.url
+    ? `<a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`
+    : '<span class="muted">Noch nicht verfügbar</span>';
+  const rows = [
+    ['Quelle', escapeHtml(meta.quelle)],
+    ['Format', 'GeoJSON (' + (isPoint ? 'Punkt' : 'Polygon') + ')'],
+    ['Metadaten', link(meta.metadaten)],
+    ['Datenbezug', link(meta.datenbezug)],
+    ['Thematisches Geoportal', link(meta.geoportal)],
+    ['Datenstand', stand ? escapeHtml(stand) : '–'],
+  ];
+
+  scrim.querySelector('.modal').innerHTML = `
+    <div class="modal-head">
+      <div class="modal-titles">
+        <h2 class="modal-title" id="info-title">${escapeHtml(it.label)}</h2>
+        <div class="modal-sub">${escapeHtml(subtitle)}</div>
+      </div>
+      <button type="button" class="modal-close" data-dialog-close aria-label="Schliessen">${icon('close', 16)}</button>
+    </div>
+    ${desc ? `<div class="modal-desc">${escapeHtml(desc)}</div>` : ''}
+    <h3 class="modal-h3">Legende</h3>
+    <div class="modal-group-label">${escapeHtml(it.group.label)}</div>
+    <div class="modal-legend-row">${legendItemSwatch(it, false)}${escapeHtml(it.label)}</div>
+    <h3 class="modal-h3">Informationen</h3>
+    <dl class="modal-meta">${rows.map(([k, v]) => `<div class="modal-meta-row"><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+
+  legendState.infoKey = key;
+  renderLegend();
+  openDialog(scrim,
+    // The legend re-renders its buttons: look the opener up again on close.
+    () => document.querySelector(`.lg-info[data-key="${CSS.escape(key)}"]`),
+    () => { legendState.infoKey = null; renderLegend(); });
+}
+
+// ── External layers (added via header search) ─────────────────────────────
+function renderExternalLegend(root) {
   const extIds = Object.keys(externalLayers);
   if (extIds.length === 0) return;
 
   const extGroup = document.createElement('div');
-  extGroup.className = 'lg-group lg-group-external';
+  extGroup.className = 'lg-group-external';
   const extHead = document.createElement('div');
-  extHead.className = 'lg-group-head';
-  const extTitle = document.createElement('span');
-  extTitle.className = 'lg-group-title';
-  extTitle.textContent = 'Externe Ebenen';
-  const cnt = document.createElement('span');
-  cnt.style.cssText = 'font-size:var(--text-xs);color:var(--grey-500);margin-left:4px;font-weight:400;text-transform:none;letter-spacing:0';
-  cnt.textContent = extIds.length;
-  extTitle.appendChild(cnt);
-  extHead.append(extTitle);
+  extHead.className = 'lg-ext-head';
+  extHead.textContent = 'Externe Ebenen';
   extGroup.appendChild(extHead);
 
   const extItems = document.createElement('div');
-  // Dedicated class - .lg-items adds 34px left padding which double-indents
-  // the eye icon and breaks alignment with section-header eyes.
   extItems.className = 'lg-ext-items';
   for (const bodId of extIds) {
     const ext = externalLayers[bodId];
     const row = document.createElement('div');
     row.className = 'lg-ext-item';
+    if (!ext.visible) row.classList.add('group-hidden');
+    const labelText = ext.config.label || bodId;
 
     const eye = document.createElement('button');
-    eye.className = 'eye-btn';
-    eye.title = 'Ebene ein-/ausblenden';
-    eye.innerHTML = ext.visible ? EYE_OPEN : EYE_CLOSED;
-    if (!ext.visible) eye.classList.add('hidden-eye');
+    eye.type = 'button';
+    eye.className = 'lg-eye';
+    eye.setAttribute('aria-pressed', String(ext.visible));
+    eye.setAttribute('aria-label', (ext.visible ? 'Ausblenden: ' : 'Einblenden: ') + labelText);
+    eye.innerHTML = icon(ext.visible ? 'eye' : 'eyeOff', 16);
     eye.addEventListener('click', () => {
       setExternalVisibility(bodId, !ext.visible);
-      eye.innerHTML = ext.visible ? EYE_OPEN : EYE_CLOSED;
-      eye.classList.toggle('hidden-eye', !ext.visible);
+      eye.innerHTML = icon(ext.visible ? 'eye' : 'eyeOff', 16);
+      eye.setAttribute('aria-pressed', String(ext.visible));
+      eye.setAttribute('aria-label', (ext.visible ? 'Ausblenden: ' : 'Einblenden: ') + labelText);
       row.classList.toggle('group-hidden', !ext.visible);
     });
 
     const lbl = document.createElement('div');
     lbl.className = 'lg-ext-label';
-    const labelText = ext.config.label || bodId;
     lbl.innerHTML = `<div class="lg-ext-title" title="${escapeHtml(bodId)}">${escapeHtml(labelText)}</div>` +
                     (ext.config.attribution
                       ? `<div class="lg-ext-attr">${escapeHtml(ext.config.attribution)}</div>` : '');
@@ -1977,41 +1316,33 @@ function buildLegend(features) {
     opa.min = 0; opa.max = 1; opa.step = 0.05;
     opa.value = ext.opacity;
     opa.title = 'Deckkraft';
+    opa.setAttribute('aria-label', 'Deckkraft: ' + labelText);
     opa.className = 'lg-ext-opacity';
     opa.addEventListener('input', () => setExternalOpacity(bodId, Number(opa.value)));
 
     const rm = document.createElement('button');
+    rm.type = 'button';
     rm.className = 'lg-ext-remove';
     rm.title = 'Entfernen';
-    rm.innerHTML = '&times;';
+    rm.setAttribute('aria-label', 'Entfernen: ' + labelText);
+    rm.innerHTML = icon('close', 14);
     rm.addEventListener('click', () => removeExternalLayer(bodId));
 
     row.append(eye, lbl, opa, rm);
     extItems.appendChild(row);
   }
   extGroup.appendChild(extItems);
-  el.appendChild(extGroup);
+  root.appendChild(extGroup);
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // EDIT MODE — placeholder
 // ───────────────────────────────────────────────────────────────────────────
-// The previous implementation dragged the whole GeoJSON to apply a coarse
-// georeferencing offset (it was useful when data came from PDF extraction).
-// With proper LV03 source data this is no longer needed.  Keep the toggle
-// button + banner so the UI affordance stays for the upcoming real edit
-// flow (vertex editing, attribute editing, etc.).  The flag itself is still
-// referenced by selection / hover handlers - they short-circuit when
-// editMode is true so accidental clicks don't select features.
+// The toggle and its banner keep the place for the coming edit flow (vertex
+// and attribute editing).  While it is on, selection and hover are suspended
+// (the flag `editMode`), so a click does not select features.
 // ═══════════════════════════════════════════════════════════════════════════
 const editToggleBtn = document.getElementById('edit-toggle');
 const editBanner    = document.getElementById('edit-banner');
-const saveBanner    = document.getElementById('save-banner');
-
-// Override the previous banner copy so it's clear what state the user is in.
-if (editBanner) editBanner.textContent = 'Bearbeitungs-Modus (in Entwicklung) – Funktionen folgen.';
-// Save banner has no purpose without the offset workflow; never shown.
-if (saveBanner) saveBanner.classList.remove('visible');
 
 // ── Header: Share & Print ──────────────────────────────────────────────
 // The current URL is auto-synced via syncViewUrl() (center/zoom on moveend)
@@ -2021,25 +1352,7 @@ if (saveBanner) saveBanner.classList.remove('visible');
 (function initShareButton() {
   const btn = document.getElementById('share-toggle');
   if (!btn) return;
-  btn.addEventListener('click', async () => {
-    const url = location.href;
-    const title = 'Grünflächen Inventar';
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, url });
-        return;                                  // success — system sheet handled it
-      } catch (err) {
-        if (err.name === 'AbortError') return;   // user cancelled the sheet
-        // fall through to clipboard fallback
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link kopiert', 'success');
-    } catch {
-      showToast('Teilen fehlgeschlagen', 'error');
-    }
-  });
+  btn.addEventListener('click', () => shareUrl(location.href, 'Grünflächen Inventar'));
 })();
 
 (function initPrintButton() {
@@ -2064,24 +1377,12 @@ editToggleBtn.addEventListener('click', () => {
 let measureActive = false;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TOAST NOTIFICATIONS
-// ═══════════════════════════════════════════════════════════════════════════
-function showToast(msg, type = '') {
-  const c = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' ' + type : '');
-  el.textContent = msg;
-  c.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // MAP CONTEXT MENU + MEASURE  (unchanged from previous version)
 // ═══════════════════════════════════════════════════════════════════════════
 (() => {
   const menu = document.getElementById('map-context-menu');
-  const coordsItem = document.getElementById('context-menu-coords');
-  const coordsText = document.getElementById('context-menu-coords-text');
+  const lv95Text = document.getElementById('context-menu-lv95-text');
+  const wgs84Text = document.getElementById('context-menu-wgs84-text');
   const measureBtn = document.getElementById('context-menu-measure');
   const measureText = document.getElementById('context-menu-measure-text');
   const measureDisplay = document.getElementById('measure-distance-display');
@@ -2096,90 +1397,37 @@ function showToast(msg, type = '') {
 
   const mapEl = document.getElementById('map');
 
+  // The menu leads with the clicked point in both notations (LV95 and
+  // WGS 84), one row each; a click copies that row.  Coordinates are
+  // therefore not an attribute of the feature card.
   function openContextMenu(point, lngLat) {
     ctxLngLat = lngLat;
-    const [E, N] = wgs84ToLv95(ctxLngLat.lng, ctxLngLat.lat);
-    coordsText.textContent =
-      ctxLngLat.lat.toFixed(5) + ', ' + ctxLngLat.lng.toFixed(5) +
-      '  |  LV95  ' + fmtThousand(E) + ' / ' + fmtThousand(N);
-    coordsItem.classList.remove('copied');
+    const c = coordTexts(lngLat);
+    lv95Text.textContent = c.lv95;
+    wgs84Text.textContent = c.wgs84;
     measureText.textContent = ms.active ? 'Messung löschen' : 'Distanz messen';
     measureBtn.classList.toggle('measure-active', ms.active);
-
-    // Measure the real menu (its width depends on the coordinate text and
-    // the touch-sized rows) and keep it inside the map on every side.
-    menu.style.left = '0px'; menu.style.top = '0px';
-    menu.classList.add('show');
-    const M = 8, W = mapEl.clientWidth, H = mapEl.clientHeight;
-    const mw = menu.offsetWidth, mh = menu.offsetHeight;
-    let x = point.x, y = point.y;
-    if (x + mw > W - M) x -= mw;                      // open to the left
-    if (y + mh > H - M) y -= mh;                      // open upwards
-    menu.style.left = Math.max(M, Math.min(x, W - mw - M)) + 'px';
-    menu.style.top  = Math.max(M, Math.min(y, H - mh - M)) + 'px';
+    placeMenuAt(menu, mapEl, point);
   }
 
   map.on('contextmenu', (e) => {
     e.preventDefault();
     openContextMenu(e.point, e.lngLat);
   });
-
-  // Touch: long-press opens the same menu.  iOS Safari never fires
-  // `contextmenu` for a long-press, so measuring, copying coordinates,
-  // sharing a location and "Problem melden" were unreachable on phones.
-  // (Android Chrome does fire it — opening twice at the same spot is
-  // harmless.)
-  (function initLongPress() {
-    const target = map.getCanvasContainer();
-    const HOLD_MS = 550, SLOP_PX = 10, GHOST_MS = 250;
-    let timer = null, start = null, fired = false, ghostUntil = 0;
-    const cancel = () => { clearTimeout(timer); timer = null; };
-    target.addEventListener('touchstart', (ev) => {
-      cancel();
-      fired = false;
-      if (ev.touches.length !== 1) return;
-      start = { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
-      timer = setTimeout(() => {
-        timer = null;
-        fired = true;
-        const r = mapEl.getBoundingClientRect();
-        const point = new maplibregl.Point(start.x - r.left, start.y - r.top);
-        openContextMenu(point, map.unproject(point));
-      }, HOLD_MS);
-    }, { passive: true });
-    target.addEventListener('touchmove', (ev) => {
-      if (!timer || !start || !ev.touches.length) return;
-      const t = ev.touches[0];
-      if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > SLOP_PX) cancel();
-    }, { passive: true });
-    target.addEventListener('touchend', () => {
-      cancel();
-      if (fired) { fired = false; ghostUntil = Date.now() + GHOST_MS; }
-    }, { passive: true });
-    target.addEventListener('touchcancel', cancel, { passive: true });
-    // Some browsers follow a long-press with a synthetic click as the finger
-    // lifts (it would land on the menu's first item, or select the feature
-    // underneath).  Swallow only that one click — a deliberate tap on a menu
-    // item comes later.
-    mapEl.addEventListener('click', (ev) => {
-      if (Date.now() < ghostUntil) { ghostUntil = 0; ev.stopPropagation(); ev.preventDefault(); }
-    }, { capture: true });
-  })();
+  // Touch: long-press opens the same menu (mapkit.js).
+  attachLongPress(map, mapEl, openContextMenu);
 
   document.addEventListener('click', hideMenu);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { hideMenu(); if (ms.active) clearMeasure(); }
   });
 
-  coordsItem.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const txt = coordsText.textContent;
-    navigator.clipboard.writeText(txt).then(() => {
-      coordsItem.classList.add('copied');
-      showToast('Koordinaten kopiert', 'success');
-      setTimeout(hideMenu, 300);
-    }).catch(() => showToast('Kopieren fehlgeschlagen', 'error'));
-  });
+  for (const textEl of [lv95Text, wgs84Text]) {
+    textEl.closest('.context-menu-coord').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (await copyText(textEl.textContent)) setTimeout(hideMenu, 300);
+    });
+  }
 
   document.getElementById('context-menu-share').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2188,17 +1436,7 @@ function showToast(msg, type = '') {
     const url = new URL(location.href);
     url.searchParams.set('center', ctxLngLat.lng.toFixed(5) + ',' + ctxLngLat.lat.toFixed(5));
     url.searchParams.set('zoom', Math.round(map.getZoom()));
-    const shareUrl = url.toString();
-
-    if (navigator.share) {
-      navigator.share({ title: 'Grünflächen Inventar – Standort', url: shareUrl })
-        .catch(err => {
-          if (err.name !== 'AbortError')
-            navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert', 'success'));
-        });
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert', 'success'));
-    }
+    shareUrl(url.toString(), 'Grünflächen Inventar – Standort');
   });
 
   document.getElementById('context-menu-print').addEventListener('click', () => {
@@ -2517,22 +1755,14 @@ function showToast(msg, type = '') {
       const feat = geojsonData.features[idx];
       if (!feat) return;
       if (searchMarker) { searchMarker.remove(); searchMarker = null; }
-      const bbox = geomBbox(feat.geometry);
-      const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
-      selectFeature(idx, center);
-      // For points, fitBounds with same min=max collapses; use flyTo instead.
-      if (bbox[0][0] === bbox[1][0] && bbox[0][1] === bbox[1][1]) {
-        map.flyTo({ center, zoom: 18 });
-      } else {
-        map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
-      }
+      selectFeature(idx);
       input.value = item.querySelector('.search-item-title').textContent;
       clearBtn.style.display = 'flex';
 
     } else if (action === 'location') {
       const lat = +item.dataset.lat, lon = +item.dataset.lon, zoom = +item.dataset.zoom;
       if (searchMarker) searchMarker.remove();
-      searchMarker = new maplibregl.Marker({ color: '#cc0000' })
+      searchMarker = new maplibregl.Marker({ color: TOKENS.red })
         .setLngLat([lon, lat]).addTo(map);
       map.flyTo({ center: [lon, lat], zoom });
       input.value = item.querySelector('.search-item-title').textContent;

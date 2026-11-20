@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// TABLE — widget, filtering, sorting, pagination, export, dropdowns
-// Depends on: config.js (TABLE_COLS), map.js (selectedId, geojsonData, map,
-//              applyMapFilters, selectFeature, clearSelection, tblActiveIds)
+// TABLE — widget, attribute filters, sorting, pagination, export, dropdowns
+// Depends on: config.js (TABLE_COLS, TABLE_COL_DEFAULTS*, FILTER_COLS_DEFAULT),
+//             util.js (escapeHtml, featuresBbox, tableExportAoa, downloads),
+//             map.js (selectedId, geojsonData, map, applyMapFilters, setHover,
+//              selectFeature, clearSelection, tblActiveIds)
 // ═══════════════════════════════════════════════════════════════════════════
 
 let tableRows = [];
@@ -13,7 +15,7 @@ let tblFilterAttrs = {};          // { field: Set<string> }
 // Three tab views over the data:
 //   'sites'   → entity_type === 'site'           (Standorte)
 //   'parcels' → entity_type === 'parcel'         (Grundstücke, Amtliche Vermessung)
-//   'green'   → entity_type in {area, tree_canopy, tree, point}  (Pflegeelemente)
+//   'green'   → entity_type in {area, tree, point}  (Pflegeelemente)
 // site_location features (centroid markers) are hidden from ALL tabs —
 // they're a map-only affordance, not data.
 let tblScope = 'sites';
@@ -37,8 +39,7 @@ const _scopeColMemory = { sites: null, parcels: null, green: null };
 function applyColStateForScope(scope) {
   const saved = _scopeColMemory[scope];
   // Phones get a shorter, name-first default set (see config.js).
-  const defaults = (isCompactLayout() && typeof TABLE_COL_DEFAULTS_COMPACT !== 'undefined')
-    ? TABLE_COL_DEFAULTS_COMPACT : TABLE_COL_DEFAULTS;
+  const defaults = isCompactLayout() ? TABLE_COL_DEFAULTS_COMPACT : TABLE_COL_DEFAULTS;
   const keys = saved || (defaults && defaults[scope]) || [];
   const visible = new Set(keys);
   TABLE_COLS.forEach(c => { c.visible = visible.has(c.key); });
@@ -48,11 +49,11 @@ function rememberColStateForScope(scope) {
   _scopeColMemory[scope] = TABLE_COLS.filter(c => c.visible).map(c => c.key);
 }
 
-// URL-param short keys for filter columns
+// URL-param short keys for filter columns.  (The former ?ent= and ?pr= —
+// Typ and Profil — are legend visibility now; map.js translates old links.)
 const FILTER_URL_KEYS = {
-  entity_type: 'ent', site_lose: 'lo', pflegeklasse: 'pk',
-  eigentuemer: 'eg', fk_profil: 'pr', baumart: 'ba', site_name: 'sn',
-  municipality_name: 'gm',
+  site_name: 'sn', site_lose: 'lo', pflegeklasse: 'pk', eigentuemer: 'eg',
+  pflegeverantwortung: 'pv', municipality_name: 'gm', baumart: 'ba',
 };
 const FILTER_URL_KEYS_REV = Object.fromEntries(Object.entries(FILTER_URL_KEYS).map(([k, v]) => [v, k]));
 let tblPage = 0, tblPageSize = 100;
@@ -76,10 +77,8 @@ function buildTable() {
   renderTable();
 }
 
-// Apply the same search + sidebar filters to an arbitrary row array.  Used
-// twice per render: once on the full set (for the map's tblActiveIds) and
-// once on the scoped set (for the table view).
-function getFilteredRows(rows = tableRows) {
+// Apply the search + sidebar filters to a row array.
+function _applyFilters(rows) {
   if (tblSearch) {
     const q = tblSearch.toLowerCase();
     rows = rows.filter(r =>
@@ -93,6 +92,30 @@ function getFilteredRows(rows = tableRows) {
   return rows;
 }
 
+// Every row that passes the search + sidebar filters, over ALL entity types
+// (the tab is a table view, not a filter).  Computed once per filter state:
+// a render caused by sorting, paging or a selection reuses it.
+let _filterCache = { sig: null, rows: [] };
+function getFilteredRows() {
+  const sig = tblSearch + '\u0000' +
+    JSON.stringify(Object.entries(tblFilterAttrs).map(([k, v]) => [k, [...v]]));
+  if (_filterCache.sig !== sig || _filterCache.all !== tableRows) {
+    _filterCache = { sig, all: tableRows, rows: _applyFilters(tableRows) };
+  }
+  return _filterCache.rows;
+}
+// The rows of the active tab, filtered — what the table shows.
+function getScopedRows() {
+  return getFilteredRows().filter(r => inScope(r, tblScope));
+}
+// The rows an export writes: never the Standort markers (`site_location`),
+// which repeat every Standort as a point.
+function exportableRows(rows) {
+  return rows.filter(r => !SCOPE_HIDDEN_FROM_TABLE.has(r.entity_type));
+}
+
+// German collation, digits compared as numbers («Nr. 9» before «Nr. 10»).
+const _tblCollator = new Intl.Collator('de', { numeric: true });
 function getSortedRows(rows) {
   return [...rows].sort((a, b) => {
     const av = a[tblSortCol], bv = b[tblSortCol];
@@ -100,26 +123,30 @@ function getSortedRows(rows) {
     if (av == null) return 1;
     if (bv == null) return -1;
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * tblSortDir;
-    return String(av).localeCompare(String(bv)) * tblSortDir;
+    return _tblCollator.compare(String(av), String(bv)) * tblSortDir;
   });
 }
 
-function renderTable() {
-  // Step 1: Map filter — applies search + sidebar filters to the FULL set
-  // so the map reflects user intent across all entity types.  The tab is
-  // intentionally NOT applied here: switching tabs shouldn't make features
-  // vanish from the map.
-  const globalFiltered = getFilteredRows(tableRows);
-  tblActiveIds = globalFiltered.length < tableRows.length
-    ? globalFiltered.map(r => r._idx)
-    : null;
+// What the map may draw follows the filter state, not the table view: pushed
+// to the map only when the filtered set actually changed.
+let _mapFilterRows = null;
+function syncMapToFilters() {
+  const filtered = getFilteredRows();
+  if (filtered === _mapFilterRows) return;
+  _mapFilterRows = filtered;
+  tblActiveIds = filtered.length < tableRows.length ? filtered.map(r => r._idx) : null;
   applyMapFilters();
+}
 
-  // Step 2: Table view — apply scope first, then filters.  This is what
-  // ends up rendered into the <tbody>.
-  const scoped = tableRows.filter(r => inScope(r, tblScope));
-  const filtered = getFilteredRows(scoped);
-  const sorted = getSortedRows(filtered);
+function renderTable() {
+  // Step 1: Map filter — search + sidebar filters over the FULL set, so the
+  // map reflects them across all entity types.  The tab is intentionally NOT
+  // applied: switching tabs shouldn't make features vanish from the map.
+  syncMapToFilters();
+
+  // Step 2: Table view — the active tab's rows, sorted.  This is what ends
+  // up rendered into the <tbody>.
+  const sorted = getSortedRows(getScopedRows());
 
   // Clamp page
   const totalPages = Math.max(1, Math.ceil(sorted.length / tblPageSize));
@@ -154,19 +181,13 @@ function renderTable() {
       td.textContent = c.fmt ? c.fmt(row[c.key]) : (row[c.key] ?? '–');
       tr.appendChild(td);
     }
-    // Reuse map.js's setHover so the same Point-only hover-circle filter +
-    // hover-line filter apply.  The old code referenced a layer name
-    // ('features-hover') that hasn't existed since the GDB rewrite.
+    // Row hover outlines the feature on the map (map.js setHover).
     tr.addEventListener('mouseenter', () => { setHover(row._idx); });
     tr.addEventListener('mouseleave', () => { setHover(null); });
     tr.addEventListener('click', () => {
-      const feat = geojsonData.features[row._idx];
-      if (!feat) return;
-      const bbox = geomBbox(feat.geometry);
+      if (!geojsonData.features[row._idx]) return;
       if (row._idx === selectedId) { clearSelection(); return; }
-      const center = [(bbox[0][0] + bbox[1][0]) / 2, (bbox[0][1] + bbox[1][1]) / 2];
-      selectFeature(row._idx, center);
-      map.fitBounds(bbox, { padding: 80, maxZoom: 20 });
+      selectFeature(row._idx);
     });
     tbody.appendChild(tr);
   }
@@ -176,6 +197,11 @@ function renderTable() {
 
   // Keep tab counts in sync with the filter state.
   updateTabCounts();
+}
+
+// Number of pages of the active tab (same basis as renderTable paginates).
+function tablePageCount() {
+  return Math.max(1, Math.ceil(getScopedRows().length / tblPageSize));
 }
 
 function renderPagination(total, totalPages) {
@@ -221,25 +247,6 @@ function pageRange(current, total, window) {
   return pages;
 }
 
-function geomBbox(geom) {
-  let mn = [Infinity, Infinity], mx = [-Infinity, -Infinity];
-  function scan(c) {
-    if (typeof c[0] === 'number') {
-      if (c[0] < mn[0]) mn[0] = c[0]; if (c[0] > mx[0]) mx[0] = c[0];
-      if (c[1] < mn[1]) mn[1] = c[1]; if (c[1] > mx[1]) mx[1] = c[1];
-    } else c.forEach(scan);
-  }
-  if (!geom || !geom.coordinates) return [[0, 0], [0, 0]];
-  scan(geom.coordinates);
-  // Point geometries leave min === max which makes fitBounds collapse.
-  if (mn[0] === mx[0] && mn[1] === mx[1]) {
-    const eps = 0.0001;
-    mn = [mn[0] - eps, mn[1] - eps];
-    mx = [mx[0] + eps, mx[1] + eps];
-  }
-  return [mn, mx];
-}
-
 // ── Column selector ─────────────────────────────────────────────────────────
 function buildColDropdown() {
   const dd = document.getElementById('tbl-col-dd');
@@ -263,16 +270,12 @@ function buildColDropdown() {
   });
 }
 
-// ── Filter dropdown (checkbox-based) ─────────────────────────────────────────
-// FILTER_COLS_DEFAULT comes from config.js; copy here so we keep a stable
-// reference even if config later toggles columns.
-const FILTER_COLS = (typeof FILTER_COLS_DEFAULT !== 'undefined' && FILTER_COLS_DEFAULT)
-  ? FILTER_COLS_DEFAULT.slice()
-  : ['entity_type', 'subtype', 'site_name'];
+// ── Filter sidebar (checkbox groups) ─────────────────────────────────────────
+// The attributes that can be filtered (config.js).
+const FILTER_COLS = FILTER_COLS_DEFAULT;
 
-// Render filter groups into the right-side sidebar.  Replaces the previous
-// dropdown — same data binding (tblFilterAttrs), same change-event flow,
-// just rendered in a permanent panel with collapsible groups.
+// Render the filter groups into the right-side sidebar: collapsible groups
+// of checkboxes bound to tblFilterAttrs.
 function buildFilterSidebar() {
   if (!tableRows.length) return;
   const root = document.getElementById('filter-groups');
@@ -296,7 +299,6 @@ function buildFilterSidebar() {
       return `<div class="filter-group collapsed" data-key="${key}">
         <button class="filter-group-head" type="button">
           <span class="filter-group-name">${label}</span>
-          <span class="filter-group-count">0</span>
           <svg class="filter-group-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="filter-group-body">
@@ -308,13 +310,12 @@ function buildFilterSidebar() {
       <button class="filter-group-head" type="button">
         <span class="filter-group-name">${label}</span>
         ${activeCount ? `<span class="filter-group-active">${activeCount}</span>` : ''}
-        <span class="filter-group-count">${vals.length}</span>
         <svg class="filter-group-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       <div class="filter-group-body">
         ${vals.map(v => `<label class="filter-check-item">
-          <input type="checkbox" data-field="${key}" value="${escapeAttr(v)}"${checked.has(v) ? ' checked' : ''}>
-          <span class="filter-check-text" title="${escapeAttr(v)}">${escapeHtmlSafe(v)}</span>
+          <input type="checkbox" data-field="${key}" value="${escapeHtml(v)}"${checked.has(v) ? ' checked' : ''}>
+          <span class="filter-check-text" title="${escapeHtml(v)}">${escapeHtml(v)}</span>
         </label>`).join('')}
       </div>
     </div>`;
@@ -345,7 +346,7 @@ function buildFilterSidebar() {
         if (!badge) {
           badge = document.createElement('span');
           badge.className = 'filter-group-active';
-          head.querySelector('.filter-group-count').before(badge);
+          head.querySelector('.filter-group-caret').before(badge);
         }
         badge.textContent = n;
       } else if (badge) {
@@ -399,13 +400,6 @@ function filterSidebarSearch(query) {
   });
 }
 
-// Tiny html / attribute escapers.  buildLegend in map.js has its own
-// escapeHtml; we don't import across files so duplicate the bare minimum
-// here.
-const _ESC_TBL = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-function escapeHtmlSafe(v) { return v == null ? '' : String(v).replace(/[&<>"']/g, ch => _ESC_TBL[ch]); }
-function escapeAttr(v) { return escapeHtmlSafe(v); }
-
 function onFilterChange(options = {}) {
   updateFilterBadge();
   renderFilterPills();
@@ -427,25 +421,10 @@ function zoomToFilteredExtent() {
     }
     return;
   }
-  const filtered = getFilteredRows(tableRows);
-  if (!filtered.length) return;
-  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-  for (const r of filtered) {
-    const feat = geojsonData.features[r._idx];
-    if (!feat || !feat.geometry) continue;
-    const bb = geomBbox(feat.geometry);
-    if (bb[0][0] < minLon) minLon = bb[0][0];
-    if (bb[0][1] < minLat) minLat = bb[0][1];
-    if (bb[1][0] > maxLon) maxLon = bb[1][0];
-    if (bb[1][1] > maxLat) maxLat = bb[1][1];
-  }
-  if (!isFinite(minLon)) return;
-  if (minLon === maxLon && minLat === maxLat) {
-    map.flyTo({ center: [minLon, minLat], zoom: 18, duration: 600 });
-  } else {
-    map.fitBounds([[minLon, minLat], [maxLon, maxLat]],
-      { padding: 80, maxZoom: 18, duration: 600 });
-  }
+  // featuresBbox() pads a lone point to a small box, so fitBounds serves
+  // every case.
+  const bounds = featuresBbox(getFilteredRows().map(r => geojsonData.features[r._idx]).filter(Boolean));
+  if (bounds) map.fitBounds(bounds, { padding: 80, maxZoom: 18, duration: 600 });
 }
 
 function countActiveFilters() {
@@ -476,39 +455,49 @@ function updateFilterBadge() {
 }
 
 // ── Filter pills ─────────────────────────────────────────────────────────────
+// The active filters as removable pills, in two places: at the top of the
+// filter sidebar (where they are set) and above the table (which they
+// narrow, also while the sidebar is closed).
 function renderFilterPills() {
-  const bar = document.getElementById('tbl-filter-pills');
-  if (!bar) return;
   const n = countActiveFilters();
-  bar.style.display = n > 0 ? 'flex' : 'none';
-  if (!n) { bar.innerHTML = ''; return; }
-
-  let html = '';
+  let pills = '';
   for (const [field, vals] of Object.entries(tblFilterAttrs)) {
     const col = TABLE_COLS.find(c => c.key === field);
     const label = col ? col.label : field;
     for (const v of vals) {
-      html += `<span class="filter-pill" data-field="${escapeAttr(field)}" data-value="${escapeAttr(v)}">${escapeHtmlSafe(label)}: ${escapeHtmlSafe(v)}<button class="pill-x" aria-label="Entfernen">&times;</button></span>`;
+      pills += `<span class="filter-pill" data-field="${escapeHtml(field)}" data-value="${escapeHtml(v)}">${escapeHtml(label)}: ${escapeHtml(v)}<button type="button" class="pill-x" aria-label="Filter entfernen: ${escapeHtml(label)} ${escapeHtml(v)}">&times;</button></span>`;
     }
   }
-  html += `<button class="filter-reset-link" id="tbl-filter-clear">Filter zurücksetzen</button>`;
-  bar.innerHTML = html;
+  const removePill = (pill) => {
+    const { field, value } = pill.dataset;
+    if (tblFilterAttrs[field]) {
+      tblFilterAttrs[field].delete(value);
+      if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
+    }
+    tblPage = 0;
+    buildFilterSidebar();   // sync checkboxes
+    onFilterChange();
+  };
 
-  bar.querySelectorAll('.pill-x').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const pill = btn.closest('.filter-pill');
-      const { field, value } = pill.dataset;
-      if (tblFilterAttrs[field]) {
-        tblFilterAttrs[field].delete(value);
-        if (!tblFilterAttrs[field].size) delete tblFilterAttrs[field];
-      }
-      tblPage = 0;
-      buildFilterSidebar();   // sync checkboxes
-      onFilterChange();
+  const bar = document.getElementById('tbl-filter-pills');
+  if (bar) {
+    bar.style.display = n > 0 ? 'flex' : 'none';
+    bar.innerHTML = n ? pills + '<button type="button" class="filter-reset-link" id="tbl-filter-clear">Filter zurücksetzen</button>' : '';
+    const clr = bar.querySelector('#tbl-filter-clear');
+    if (clr) clr.addEventListener('click', clearAllFilters);
+  }
+  // Sidebar: pills only — its reset link sits in the sidebar header.
+  const side = document.getElementById('filter-sidebar-pills');
+  if (side) {
+    side.hidden = n === 0;
+    side.innerHTML = pills;
+  }
+  for (const host of [bar, side]) {
+    if (!host) continue;
+    host.querySelectorAll('.pill-x').forEach(btn => {
+      btn.addEventListener('click', () => removePill(btn.closest('.filter-pill')));
     });
-  });
-  const clr = bar.querySelector('#tbl-filter-clear');
-  if (clr) clr.addEventListener('click', clearAllFilters);
+  }
 }
 
 function clearAllFilters() {
@@ -529,7 +518,7 @@ function syncFiltersToUrl() {
       // Percent-encode each value before joining so a value that itself
       // contains a comma (addresses, some labels) survives the round-trip —
       // restoreFiltersFromUrl splits on ',' and decodes each part.
-      if (vals.size) url.searchParams.set(FILTER_URL_KEYS[field], [...vals].map(encodeURIComponent).join(','));
+      if (vals.size && FILTER_URL_KEYS[field]) url.searchParams.set(FILTER_URL_KEYS[field], [...vals].map(encodeURIComponent).join(','));
     }
     history.replaceState(null, '', url);
   } catch (_) { /* file:// or sandboxed */ }
@@ -554,45 +543,34 @@ function restoreFiltersFromUrl() {
 }
 
 // ── Export ──────────────────────────────────────────────────────────────────
+// «Alle Daten» = every row of all three tabs; «Gefilterte Daten» = the rows
+// that pass the search and the sidebar filters, again over all tabs (the tab
+// is a view, not a filter).  Columns and formatters come from tableExportAoa()
+// (js/util.js), which the Standort detail page uses for its Excel export too.
 function exportCSV(rows) {
-  const header = TABLE_COLS.map(c => `"${c.label}"`).join(',');
-  const lines = rows.map(r =>
-    TABLE_COLS.map(c => {
-      const v = c.fmt ? c.fmt(r[c.key]) : (r[c.key] ?? '');
-      return `"${String(v).replace(/"/g, '""')}"`;
-    }).join(',')
-  );
-  downloadBlob(new Blob(['\ufeff' + [header, ...lines].join('\n')],
+  const lines = tableExportAoa(rows).map(cells =>
+    cells.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+  downloadBlob(new Blob(['\ufeff' + lines.join('\n')],
     { type: 'text/csv;charset=utf-8' }), 'features.csv');
 }
 
 function exportGeoJSON(rows) {
   const idxSet = new Set(rows.map(r => r._idx));
-  const fc = {
-    type: 'FeatureCollection',
-    features: geojsonData.features.filter((_, i) => idxSet.has(i))
-  };
-  downloadBlob(new Blob([JSON.stringify(fc, null, 2)], { type: 'application/json' }),
-    'features.geojson');
+  downloadGeoJSON(geojsonData.features.filter((_, i) => idxSet.has(i)), 'features.geojson');
 }
 
 function exportExcel(rows) {
-  const wsData = [
-    TABLE_COLS.map(c => c.label),
-    ...rows.map(r => TABLE_COLS.map(c => c.fmt ? c.fmt(r[c.key]) : (r[c.key] ?? '')))
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  if (typeof XLSX === 'undefined') { showToast('Excel-Bibliothek nicht geladen', 'error'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(tableExportAoa(rows));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Features');
   XLSX.writeFile(wb, 'features.xlsx');
 }
 
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
+// The table panel and the filter sidebar slide in over --t-slow (tokens.css):
+// the map takes its new size once that transition has ended.
+const PANEL_TRANSITION_MS = 280;
+function resizeMapAfterPanel() { setTimeout(() => map.resize(), PANEL_TRANSITION_MS); }
 
 // ── Table toggle ─────────────────────────────────────────────────────────────
 // Default collapsed on first page load; user expands via the toggle.
@@ -610,11 +588,12 @@ _applyTableState();
 document.getElementById('tbl-toggle').addEventListener('click', () => {
   tableOpen = !tableOpen;
   _applyTableState();
-  setTimeout(() => {
-    map.resize();
-    // The map just got shorter/taller: keep an open popup in view.
-    if (typeof revealPopup === 'function') revealPopup();
-  }, 280);
+  // Phones: one bottom sheet at a time — the table replaces the legend sheet
+  // (the feature card steps aside in CSS and returns when the table closes).
+  if (tableOpen && isCompactLayout() && window.legendPanel && window.legendPanel.isOpen()) {
+    window.legendPanel.close({ persist: false });
+  }
+  resizeMapAfterPanel();
 });
 
 // ── Search ────────────────────────────────────────────────────────────────────
@@ -640,11 +619,7 @@ document.getElementById('pg-first').addEventListener('click', () => { tblPage = 
 document.getElementById('pg-prev').addEventListener('click',  () => { tblPage--; renderTable(); });
 document.getElementById('pg-next').addEventListener('click',  () => { tblPage++; renderTable(); });
 document.getElementById('pg-last').addEventListener('click',  () => {
-  // Count over the SAME scoped+filtered set renderTable paginates, otherwise
-  // the last-page math is computed on the wrong basis (the full unscoped set).
-  const scoped = tableRows.filter(r => inScope(r, tblScope));
-  const total = getFilteredRows(scoped).length;
-  tblPage = Math.max(0, Math.ceil(total / tblPageSize) - 1);
+  tblPage = tablePageCount() - 1;
   renderTable();
 });
 document.getElementById('pg-size-select').addEventListener('change', (e) => {
@@ -741,7 +716,7 @@ function updateTabUI() {
 function updateTabCounts() {
   // Counts reflect the filtered row set so the tab number matches what's
   // actually rendered in the table body for that scope.
-  const filtered = getFilteredRows(tableRows);
+  const filtered = getFilteredRows();
   let nSites = 0, nParcels = 0, nGreen = 0;
   for (const r of filtered) {
     if (SCOPE_HIDDEN_FROM_TABLE.has(r.entity_type)) continue;
@@ -779,7 +754,7 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
 
 // ── Filter sidebar open/close ──────────────────────────────────────────
 // Two triggers (header button + table-bar button) toggle the same panel.
-// Mobile mirrors the legend drawer behaviour.
+// Phones: a drawer over the map with a scrim (css, compact tier).
 (function initFilterSidebar() {
   const sidebar       = document.getElementById('filter-sidebar');
   const headerToggle  = document.getElementById('filter-toggle');
@@ -792,9 +767,10 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
       headerToggle.classList.add('active');   // mirror "Bearbeiten"
       headerToggle.setAttribute('aria-expanded', 'true');
     }
-    // Medium / compact layout: one side panel at a time (see map.js).
-    if (!allowsTwoPanels() && window.legendPanel && window.legendPanel.isOpen()) window.legendPanel.close();
-    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
+    // Medium / compact layout: the docked filter and the floating legend do
+    // not fit on the remaining map together (see legendPanel in map.js).
+    if (!allowsTwoPanels() && window.legendPanel && window.legendPanel.isOpen()) window.legendPanel.close({ persist: false });
+    if (!isCompactLayout()) resizeMapAfterPanel();
   }
   function close() {
     sidebar.classList.add('collapsed');
@@ -802,7 +778,7 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
       headerToggle.classList.remove('active');
       headerToggle.setAttribute('aria-expanded', 'false');
     }
-    if (!isCompactLayout()) setTimeout(() => map.resize(), 280);
+    if (!isCompactLayout()) resizeMapAfterPanel();
   }
   function toggle() {
     sidebar.classList.contains('collapsed') ? open() : close();
@@ -825,22 +801,22 @@ document.querySelectorAll('.tbl-tab').forEach(btn => {
 
 // ── Export buttons ────────────────────────────────────────────────────────────
 document.getElementById('exp-csv').addEventListener('click', (e) => {
-  e.stopPropagation(); exportCSV(tableRows); closeExportDd();
+  e.stopPropagation(); exportCSV(exportableRows(tableRows)); closeExportDd();
 });
 document.getElementById('exp-csv-f').addEventListener('click', () => {
-  exportCSV(getSortedRows(getFilteredRows())); closeExportDd();
+  exportCSV(getSortedRows(exportableRows(getFilteredRows()))); closeExportDd();
 });
 document.getElementById('exp-geojson').addEventListener('click', () => {
-  exportGeoJSON(tableRows); closeExportDd();
+  exportGeoJSON(exportableRows(tableRows)); closeExportDd();
 });
 document.getElementById('exp-geojson-f').addEventListener('click', () => {
-  exportGeoJSON(getFilteredRows()); closeExportDd();
+  exportGeoJSON(exportableRows(getFilteredRows())); closeExportDd();
 });
 document.getElementById('exp-xlsx').addEventListener('click', () => {
-  exportExcel(tableRows); closeExportDd();
+  exportExcel(exportableRows(tableRows)); closeExportDd();
 });
 document.getElementById('exp-xlsx-f').addEventListener('click', () => {
-  exportExcel(getSortedRows(getFilteredRows())); closeExportDd();
+  exportExcel(getSortedRows(exportableRows(getFilteredRows()))); closeExportDd();
 });
 function closeExportDd() {
   document.getElementById('export-dd-wrap').classList.remove('open');

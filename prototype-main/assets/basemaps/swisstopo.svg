@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60" role="img" aria-label="Hintergrund Luftbild">
+  <title>Hintergrund Luftbild</title>
+  <rect width="80" height="60" fill="#6c8a3f"/>
+  <path d="M0 0H24L18 20 0 26Z" fill="#8ba44d"/>
+  <path d="M24 0H50L44 14 20 16Z" fill="#a9a35c"/>
+  <path d="M0 26 18 20 22 38 0 44Z" fill="#587a35"/>
+  <path d="M22 38 20 16 44 14 48 32Z" fill="#7d9a45"/>
+  <path d="M0 44 22 38 26 60H0Z" fill="#b59a63"/>
+  <path d="M26 60 22 38 48 32 52 60Z" fill="#628439"/>
+  <path d="M66 0H80V30L70 26Z" fill="#93a853"/>
+  <path d="M70 26 80 30V60H68Z" fill="#74923f"/>
+  <path d="M56 0C50 13 64 25 58 37 54 47 62 54 60 60H69C71 52 63 46 67 36 73 24 59 13 65 0Z" fill="#3c5c68"/>
+  <g fill="#2f4d2a">
+    <circle cx="6" cy="6" r="5"/><circle cx="13" cy="4" r="4.5"/><circle cx="10" cy="12" r="5"/>
+    <circle cx="4" cy="15" r="4"/><circle cx="17" cy="10" r="3.5"/>
+    <circle cx="74" cy="46" r="5"/><circle cx="78" cy="53" r="4.5"/><circle cx="72" cy="55" r="4"/>
+  </g>
+  <g fill="#3d6234">
+    <circle cx="8" cy="8" r="2"/><circle cx="13" cy="6" r="1.8"/><circle cx="11" cy="13" r="2"/><circle cx="75" cy="49" r="2"/>
+  </g>
+  <path d="M-2 33 22 38 48 32 60 34 82 28" fill="none" stroke="#d2ccbf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 60 28 40" fill="none" stroke="#d2ccbf" stroke-width="1.1" stroke-linecap="round"/>
+  <g>
+    <rect x="31" y="41" width="5" height="3.5" fill="#b4523c" transform="rotate(-12 33 43)"/>
+    <rect x="38" y="39" width="4" height="3" fill="#d9d2c4" transform="rotate(-12 40 40)"/>
+    <rect x="33" y="47" width="4" height="3" fill="#b4523c" transform="rotate(-12 35 48)"/>
+    <rect x="40" y="45" width="5" height="3.5" fill="#8f8a80" transform="rotate(-12 42 47)"/>
+    <rect x="43" y="37" width="3.5" height="3" fill="#b4523c" transform="rotate(-12 45 38)"/>
+  </g>
+</svg>

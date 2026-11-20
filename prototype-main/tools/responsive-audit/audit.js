@@ -12,8 +12,7 @@ const devFilter = process.argv[3] ? process.argv[3].split(',') : null;
 const stFilter = process.argv[4] ? process.argv[4].split(',') : null;
 fs.mkdirSync(outDir, { recursive: true });
 
-const isCompact = (page) => page.evaluate(() =>
-  getComputedStyle(document.getElementById('sidebar')).position === 'fixed');
+const isCompact = (page) => page.evaluate(() => isCompactLayout());   // LAYOUT_MQ, js/config.js
 
 async function tapOrClick(page, dev, x, y) {
   if (dev.touch) await page.touchscreen.tap(x, y);
@@ -37,6 +36,15 @@ async function resetUi(page) {
     if (typeof tableOpen !== 'undefined' && tableOpen) document.getElementById('tbl-toggle').click();
     const fsb = document.getElementById('filter-sidebar');
     if (!fsb.classList.contains('collapsed')) document.getElementById('filter-sidebar-close').click();
+  });
+}
+
+// Phones show the legend as a bottom sheet over the map: close it before a
+// state that is about something else.  (Desktop / tablet: the floating card
+// stays as the user would have it.)
+async function closeLegendSheet(page) {
+  await page.evaluate(() => {
+    if (isCompactLayout() && window.legendPanel && window.legendPanel.isOpen()) window.legendPanel.close({ persist: false });
   });
 }
 
@@ -97,30 +105,27 @@ const STATES = {
   },
   async legend(page, dev) {
     await resetUi(page);
-    // Open the legend wherever it starts closed (phones; tablets after the fix).
-    const shown = await page.evaluate(() => getComputedStyle(document.getElementById('legend-toggle')).display !== 'none');
-    if (shown) await tapSel(page, dev, '#legend-toggle');
+    // Open the legend wherever it starts collapsed to its pill (phones, tablets).
+    const closed = await page.evaluate(() => !window.legendPanel.isOpen());
+    if (closed) await tapSel(page, dev, '#legend-toggle');
     await page.waitForTimeout(450);
   },
   async basemap(page, dev) {
     await resetUi(page);
-    await page.evaluate(() => { const sb = document.getElementById('sidebar');
-      if (getComputedStyle(sb).position === 'fixed' && !sb.classList.contains('collapsed')) document.getElementById('sidebar-close').click(); });
+    await closeLegendSheet(page);
     await page.waitForTimeout(300);
     await tapSel(page, dev, '#bm-btn');
     await page.waitForTimeout(300);
   },
   async filter(page, dev) {
     await resetUi(page);
-    await page.evaluate(() => { const sb = document.getElementById('sidebar');
-      if (getComputedStyle(sb).position === 'fixed' && !sb.classList.contains('collapsed')) document.getElementById('sidebar-close').click(); });
+    await closeLegendSheet(page);
     await tapSel(page, dev, '#filter-toggle');
     await page.waitForTimeout(450);
   },
   async search(page, dev) {
     await resetUi(page);
-    await page.evaluate(() => { const sb = document.getElementById('sidebar');
-      if (getComputedStyle(sb).position === 'fixed' && !sb.classList.contains('collapsed')) document.getElementById('sidebar-close').click(); });
+    await closeLegendSheet(page);
     await tapSel(page, dev, '#search-input');
     await page.keyboard.type('Bern', { delay: 20 });
     await page.waitForSelector('#search-results.active', { timeout: 5000 }).catch(() => {});

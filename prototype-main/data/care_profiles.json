@@ -58,7 +58,8 @@
   "geometry_type": "polygon",
   "unit": "m²",
   "style": {
-   "fill": "#97e600"
+   "fill": "#97e600",
+   "swatchClass": "sw-xhatch"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -74,7 +75,7 @@
   "unit": "m²",
   "style": {
    "fill": "#97e600",
-   "swatchClass": "sw-pstripe"
+   "swatchClass": "sw-ostripe"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -380,7 +381,8 @@
   "geometry_type": "polygon",
   "unit": "m²",
   "style": {
-   "fill": "#df73ff"
+   "fill": "#df73ff",
+   "swatchClass": "sw-dots"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -506,7 +508,7 @@
   "unit": "m²",
   "style": {
    "fill": "#a86f00",
-   "swatchClass": "sw-hstripe"
+   "swatchClass": "sw-xhatch"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -844,7 +846,8 @@
   "geometry_type": "polygon",
   "unit": "m²",
   "style": {
-   "fill": "#e8d4a0"
+   "fill": "#e8d4a0",
+   "swatchClass": "sw-vdots"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -1147,7 +1150,8 @@
   "geometry_type": "polygon",
   "unit": "m²",
   "style": {
-   "fill": "#9c9c9c"
+   "fill": "#9c9c9c",
+   "swatchClass": "sw-xhatch"
   },
   "description": null,
   "leaf_clearing_included": null,
@@ -1228,7 +1232,7 @@
   "code_list": "idPP",
   "code": 1,
   "label": "Laubbaum, natürlicher Wuchs, grosskronig",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1251,7 +1255,7 @@
   "code_list": "idPP",
   "code": 2,
   "label": "Laubbaum, natürlicher Wuchs, kleinkronig",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1274,7 +1278,7 @@
   "code_list": "idPP",
   "code": 3,
   "label": "Laubbaum, Kopf- / Formschnitt",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1290,7 +1294,7 @@
   "code_list": "idPP",
   "code": 4,
   "label": "Strassenbaum, Laub, natürlicher Wuchs, grosskronig",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1306,7 +1310,7 @@
   "code_list": "idPP",
   "code": 5,
   "label": "Strassenbaum, Laub, natürlicher Wuchs, kleinkronig",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1322,7 +1326,7 @@
   "code_list": "idPP",
   "code": 6,
   "label": "Strassenbaum, Laub, Kopf- / Formschnitt",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1338,7 +1342,7 @@
   "code_list": "idPP",
   "code": 7,
   "label": "Nadelbaum, natürlicher Wuchs",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1361,7 +1365,7 @@
   "code_list": "idPP",
   "code": 8,
   "label": "Hochstamm-Obstbaum",
-  "category": "Baum",
+  "category": "Bäume",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1377,7 +1381,7 @@
   "code_list": "idPP",
   "code": 9,
   "label": "Schling- und Kletterpflanze",
-  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "category": "Spezielle Bepflanzungsformen",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1412,7 +1416,7 @@
   "code_list": "idPP",
   "code": 10,
   "label": "Mobiles Pflanzgefäss, Dauerbepflanzung",
-  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "category": "Spezielle Bepflanzungsformen",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1453,7 +1457,7 @@
   "code_list": "idPP",
   "code": 11,
   "label": "Mobiles Pflanzgefäss, Wechselflor",
-  "category": "Spezielle Bepflanzungsformen (Punkt)",
+  "category": "Spezielle Bepflanzungsformen",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1533,7 +1537,7 @@
   "code_list": "idPP",
   "code": 17,
   "label": "Anderes",
-  "category": "Anderes (Punkt)",
+  "category": "Anderes",
   "geometry_type": "point",
   "unit": "count",
   "style": {
@@ -1663,7 +1667,7 @@
   "code_list": "idPP",
   "code": 23,
   "label": "Solitärstrauch",
-  "category": "Solitärsträucher",
+  "category": "Spezielle Bepflanzungsformen",
   "geometry_type": "point",
   "unit": "count",
   "style": {
