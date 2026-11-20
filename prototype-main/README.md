@@ -169,7 +169,7 @@ prototype-main/
 ├── docs/
 │   ├── DATAMODEL.md        # Data model: conceptual model, output schema, Care Profiles, terminology
 │   ├── SOURCE-GDB.md       # Source GDB schema, codelists, conversion pipeline
-│   ├── wireframes/         # Design study behind the legend, feature card and detail page
+│   ├── wireframes/         # Design study behind the legend, feature card and detail page; design review
 │   ├── reviews/            # Code reviews (findings, what was fixed, what is open)
 │   └── RESPONSIVE-REVIEW.md # Responsive / mobile design review
 ├── tools/

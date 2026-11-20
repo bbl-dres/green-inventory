@@ -617,8 +617,8 @@ const BASEMAPS = [
 const TABLE_COLS = [
   // ── Identity ────────────────────────────────────────────────────────
   { key: '_idx',                  label: '#',                visible: true  },
-  { key: 'entity_type',           label: 'Typ',              visible: true  },
-  { key: 'feature_type',          label: 'Feature',          visible: false },
+  { key: 'entity_type',           label: 'Typ (Code)',       visible: false },
+  { key: 'feature_type',          label: 'Typ',              visible: true  },
   { key: 'subtype',               label: 'Subtyp',           visible: true  },
 
   // ── Site (mirrored onto site features by the conversion script, so a
@@ -689,9 +689,11 @@ const TABLE_COLS = [
 // corresponding set; once the user toggles columns via the Spalten
 // dropdown, their picks are remembered per scope for the rest of the
 // session (state held in table.js _scopeColMemory).
+// Default columns per tab.  No internal ids (the row number `#` is the array
+// position of a feature) and nothing twice: «Subtyp» repeats the profile or
+// the species, so the Pflegeelemente tab shows those two instead.
 const TABLE_COL_DEFAULTS = {
   sites: [
-    '_idx',
     'site_name',
     'site_objektnummer',
     'site_adresse',
@@ -703,16 +705,13 @@ const TABLE_COL_DEFAULTS = {
     'area_m2',
   ],
   green: [
-    '_idx',
-    'entity_type',
-    'subtype',
-    'site_name',
+    'feature_type',
     'profil_label',
     'baumart',
+    'site_name',
     'area_m2',
   ],
   parcels: [
-    '_idx',
     'egrid',
     'parcel_number',
     'municipality_name',

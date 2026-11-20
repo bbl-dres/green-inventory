@@ -29,7 +29,6 @@
 
   --row-hover:  #eef4fb;
   --row-active: #dceaf8;
-  --pg-hover:   #f0f5ff;
 
   /* Surfaces / borders */
   --scrim-bg:       rgba(0, 0, 0, 0.42);   /* drawer overlays */
@@ -38,11 +37,9 @@
   /* Typography — 11px is the floor: 10px uppercase labels were below
      comfortable legibility at 100% OS scaling. */
   --font-ui:    system-ui, -apple-system, sans-serif;
-  --text-label: 11px;
-  --text-xs:    11px;
+  --text-xs:    11px;       /* uppercase labels, badges, footer */
   --text-sm:    13px;       /* was 12.5 — round to integer for crisper glyphs */
   --text-base:  14px;
-  --text-md:    15px;       /* header app title */
   --text-lg:    18px;       /* popup close, large icon buttons */
   --fw-medium:  500;
   --fw-semibold: 600;
@@ -55,24 +52,21 @@
   --sp4: 12px;
   --sp5: 16px;
   --sp6: 24px;
-  --sp-btn-y: 5px;          /* button vertical padding (between sp2 and sp3) */
 
   /* Border radius */
   --radius-sm:   3px;
   --radius:      5px;
-  --radius-pill: 12px;  /* pills, badges */
-  --radius-full: 20px;  /* fully rounded caps */
+  --radius-full: 999px; /* capsules: pills, badges, chips — at any height */
 
-  /* Shadows */
+  /* Shadows — one elevation ladder:
+     xs  cards on the page · sm  raised chips and tabs · md  controls on the
+     map · lg  floating panels, menus · modal  dialogs */
   --shadow-xs:        0 1px 3px rgba(0,0,0,.08);
   --shadow-sm:        0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
-  --shadow-md:        0 2px 8px rgba(0,0,0,.14);
+  --shadow-md:        0 2px 8px rgba(0,0,0,.16);   /* controls floating on the map */
   --shadow-lg:        0 6px 20px rgba(0,0,0,.13), 0 1px 4px rgba(0,0,0,.07);
   --shadow-focus:     0 0 0 2px var(--primary-a12);
-  --shadow-pill:      0 1px 4px rgba(0,0,0,.12), 0 0 0 1px rgba(0,0,0,.04);
   --shadow-pill-hover:0 2px 8px var(--primary-a18), 0 0 0 1px rgba(0,94,168,.1);
-  --shadow-map-ctrl:  0 2px 8px rgba(0,0,0,.2);
-  --shadow-panel:     0 4px 16px rgba(0,0,0,.18);     /* basemap-panel, sticky filter wrap */
   --shadow-drawer-r: -4px 0 16px rgba(0,0,0,.18);     /* right drawer (filter) */
 
   /* Transitions */
@@ -151,7 +145,7 @@
      cannot read CSS vars directly: read them once via getComputedStyle. */
   --map-selection:  var(--primary);
   --map-parcel:     #5b2d8e;   /* cadastral parcel outline (AV), dashed */
-  --map-perimeter:  #cc1f1f;   /* Standort marker + Pflegeperimeter */
+  --map-perimeter:  var(--red); /* Standort marker + Pflegeperimeter */
   --cal-standard:   var(--success);  /* month stated in the BBL Standard */
   --cal-estimate:   #dcefdc;         /* hatch background: estimated month */
   --cal-empty:      var(--grey-100);

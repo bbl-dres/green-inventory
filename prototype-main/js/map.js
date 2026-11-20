@@ -99,7 +99,11 @@ const map = new maplibregl.Map({
   // blank canvas during print().  ~10-15% rendering cost vs default; an
   // acceptable trade for "print just works".
   preserveDrawingBuffer: true,
+  attributionControl: false,   // added below, compact
 });
+// Credits: MapLibre's compact control — shown at first, folded into its ⓘ
+// button once the map is moved — instead of a permanent bar across the map.
+map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 

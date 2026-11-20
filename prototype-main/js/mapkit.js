@@ -483,12 +483,15 @@ function applyInventoryFilters(m, hiddenKeys, hiddenCodes, extra) {
 // of geometry type — an id-only filter would draw a ring at every vertex of a
 // polygon (looks like edit handles).  They are restricted to Point geometry,
 // so a polygon shows only the fill + line affordance.
+// A selected Standort or parcel is outlined only: a fill over the whole
+// perimeter would tint every area inside it.
 function setSelectionFilter(m, id) {
   const idMatch = id !== null && id !== undefined ? ['==', ['id'], id] : FILTER_NONE;
   const pointOnly = ['all', idMatch, ['==', ['geometry-type'], 'Point']];
+  const elementOnly = ['all', idMatch, ['!', ['in', ['get', 'entity_type'], ['literal', ['site', 'parcel']]]]];
+  const filters = { 'selection-fill': elementOnly, 'selection-circle': pointOnly };
   for (const lyr of MAP_LAYERS.selection) {
-    if (!m.getLayer(lyr)) continue;
-    m.setFilter(lyr, lyr === 'selection-circle' ? pointOnly : idMatch);
+    if (m.getLayer(lyr)) m.setFilter(lyr, filters[lyr] || idMatch);
   }
 }
 function setHoverFilter(m, id) {

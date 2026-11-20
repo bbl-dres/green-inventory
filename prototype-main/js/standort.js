@@ -242,6 +242,7 @@
     maxZoom: 22,
     // Printing captures the WebGL canvas (see index.html's map).
     preserveDrawingBuffer: true,
+    attributionControl: false,   // added below, compact (as on the main map)
     // The map sits in a scrolling page: the wheel and one finger scroll the
     // page; Ctrl/⌘ + wheel or two fingers move the map.
     cooperativeGestures: true,
@@ -253,6 +254,7 @@
   });
   // Same controls as the main map: zoom / north, home (= this Standort), 3D,
   // scale bar, basemap selector.  No fullscreen button.
+  m.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
   m.addControl(new maplibregl.NavigationControl(), 'top-right');
   m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 

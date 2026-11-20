@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 let tableRows = [];
-let tblSortCol = 'entity_type', tblSortDir = 1;
+let tblSortCol = 'site_name', tblSortDir = 1;   // by Standort: meaningful in all three tabs
 let tblSearch = '';
 let tblFilterAttrs = {};          // { field: Set<string> }
 

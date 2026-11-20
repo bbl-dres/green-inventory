@@ -8,21 +8,28 @@ html, body {
   height: 100%;
   font-family: var(--font-ui);
   font-size: var(--text-base);
+  line-height: 1.4;
   color: var(--grey-900);
   /* App shell never scrolls as a page: stop pull-to-refresh / rubber-band
      bounce from hijacking vertical drags (table resize handle, drawers). */
   overscroll-behavior: none;
 }
 
+/* Form controls do not inherit the font family by default: buttons, inputs
+   and selects rendered in the browser's own font (Arial on Windows) next to
+   system-ui text. */
+button, input, select, textarea { font-family: inherit; }
+
 /* ── App shell ─────────────────────────────────────────── */
 #app { display: flex; flex-direction: column; height: 100vh; }
 
 /* ── Shared: uppercase section label ──────────────────── */
-/* grey-500 (4.7:1 on white) — grey-400 measured 2.3–2.4:1, below WCAG AA. */
+/* One look for every uppercase label in the app (menus, table head, card
+   type line, calendar head, legend key): 11 px, bold, .05em, grey-600. */
 .dd-menu-label,
 .search-section-header {
-  font-size: var(--text-label); font-weight: var(--fw-bold);
-  color: var(--grey-500); text-transform: uppercase; letter-spacing: .06em;
+  font-size: var(--text-xs); font-weight: var(--fw-bold);
+  color: var(--grey-600); text-transform: uppercase; letter-spacing: .05em;
 }
 
 /* Hover affordances are gated to devices that can actually hover.  On touch
@@ -90,7 +97,7 @@ html, body {
   font-size: var(--text-xs); color: var(--grey-500);
   font-weight: var(--fw-medium); letter-spacing: .02em;
 }
-.header-app { font-size: var(--text-md); font-weight: var(--fw-bold); color: var(--grey-900); }
+.header-app { font-size: var(--text-title); font-weight: var(--fw-bold); color: var(--grey-900); }
 .header-right { display: flex; align-items: center; gap: var(--sp3); flex-shrink: 0; }
 
 /* Header buttons (Filter / Share / Print / Edit) all reuse .edit-btn.  One
@@ -98,10 +105,13 @@ html, body {
    32 px icon buttons and search field). */
 .edit-btn { height: var(--ctrl-h); padding: 0 var(--sp4); }
 .edit-btn svg { flex-shrink: 0; }
-.edit-btn.active { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+/* Active: blue means "on" (the filter panel is open).  Only the edit mode,
+   which suspends selection, keeps the warning yellow. */
+.edit-btn.active { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
+#edit-toggle.active { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
 @media (hover: hover) {
   .edit-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .edit-btn.active:hover { border-color: var(--warn-border); color: var(--warn-text); }
+  #edit-toggle.active:hover { border-color: var(--warn-border); color: var(--warn-text); }
 }
 
 /* Icon-only variant — square footprint, matches text-button height so the
@@ -261,12 +271,12 @@ html, body {
   display: inline-flex; align-items: center; gap: var(--sp3); flex-shrink: 0;
   height: var(--ctrl-h-md); padding: 0 var(--sp4);
   background: var(--white); border: none; border-radius: var(--radius-full);
-  box-shadow: var(--shadow-pill);
+  box-shadow: var(--shadow-sm);
   font: inherit; font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--grey-900);
   cursor: pointer; white-space: nowrap;
   transition: box-shadow var(--t-fast), color var(--t-fast);
 }
-.legend-pill { box-shadow: var(--shadow-map-ctrl); }
+.legend-pill { box-shadow: var(--shadow-md); }
 .legend-pill-icon { display: none; color: var(--grey-600); }
 .legend-pill-note { font-weight: var(--fw-medium); color: var(--grey-600); }
 .legend-pill-note:empty { display: none; }
@@ -294,7 +304,7 @@ html, body {
   padding: var(--sp4) var(--sp3) var(--sp4) var(--sp5); border-bottom: 1px solid var(--grey-200);
 }
 .legend-head-text { flex: 1; min-width: 0; }
-.legend-sub { margin-top: 1px; font-size: var(--text-label); color: var(--grey-600); }
+.legend-sub { margin-top: 1px; font-size: var(--text-xs); color: var(--grey-600); }
 .legend-sub[hidden] { display: none; }
 .legend-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp2) 0; }
 /* The scale bar would sit under the card: move it next to it. */
@@ -347,7 +357,7 @@ html, body {
 .lg-item.info-active .lg-info { color: var(--primary); }
 .lg-item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp3); transition: opacity var(--t-base); }
 .lg-item-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lg-out-tag { display: none; flex-shrink: 0; font-size: var(--text-label); font-style: italic; }
+.lg-out-tag { display: none; flex-shrink: 0; font-size: var(--text-xs); font-style: italic; }
 /* Switched off, or nothing of it in the map view: greyed (the list order
    never changes while the map moves — only these classes do). */
 .lg-item.off .lg-item-main,
@@ -436,6 +446,26 @@ html, body {
 
 .maplibregl-ctrl-top-right { top: var(--sp3); right: max(var(--sp3), env(safe-area-inset-right, 0px)); }
 
+/* MapLibre's own controls take the look of the app's other map chrome: the
+   same radius, elevation and size (their defaults are 4 px, a 2 px ring and
+   29 px, next to our 5 px, soft shadow and 32 px). */
+.maplibregl-ctrl-group { border-radius: var(--radius); }
+.maplibregl-ctrl-group:not(:empty) { box-shadow: var(--shadow-md); }
+.maplibregl-ctrl-group button { width: var(--ctrl-h); height: var(--ctrl-h); }
+.maplibregl-ctrl-group button:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.maplibregl-ctrl-group button:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.maplibregl-ctrl-group button:only-child { border-radius: var(--radius); }
+.maplibregl-ctrl-scale { font-family: var(--font-ui); }
+/* Credits: while they are unfolded (until the map is first moved) they stay
+   right of the centred «Tabelle» pill instead of running under it.  (The
+   control is content-box with 36 px of padding and a 10 px margin.) */
+@container map (min-width: 640px) {
+  .maplibregl-ctrl-attrib.maplibregl-compact-show { max-width: calc(50cqw - 120px); }
+}
+/* In the app's type, and compact enough that two lines of credits end below
+   the basemap button (which sits 50 px above the map's bottom edge). */
+.maplibregl-ctrl-attrib { font-family: var(--font-ui); font-size: var(--text-xs); line-height: 16px; }
+
 /* Custom IconCtrl buttons (Home, 2D/3D toggle) — match the look of the
    built-in MapLibre nav buttons.  SVG icons centered; text-only buttons
    (the 3D toggle) get a tighter font. */
@@ -447,7 +477,7 @@ html, body {
    via :not([class*=zoom]) is too broad; instead key on a single rule that
    styles letter-content reliably regardless of which IconCtrl uses text. */
 .maplibregl-ctrl-group button {
-  font-family: inherit;
+  font-family: var(--font-ui);
   font-weight: var(--fw-bold);
   font-size: var(--text-xs);
   letter-spacing: 0.02em;
@@ -584,7 +614,7 @@ html, body {
 .fcard-head > .swatch, .fcard-head > .swatch-line { margin-top: 3px; }
 .fcard-titles { flex: 1; min-width: 0; }
 .fcard-type {
-  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
+  font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-600);
   letter-spacing: .05em; text-transform: uppercase;
 }
 .fcard-title { margin-top: var(--sp1); font-size: var(--text-title); font-weight: var(--fw-bold); line-height: 1.25; overflow-wrap: anywhere; }
@@ -640,8 +670,8 @@ html, body {
 }
 .modal-h3 { margin: var(--sp6) 0 var(--sp3); font-size: var(--text-base); font-weight: var(--fw-bold); }
 .modal-group-label {
-  margin-bottom: var(--sp2); font-size: var(--text-label); font-weight: var(--fw-bold);
-  color: var(--grey-600); letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: var(--sp2); font-size: var(--text-xs); font-weight: var(--fw-bold);
+  color: var(--grey-600); letter-spacing: .05em; text-transform: uppercase;
 }
 .modal-legend-row { display: flex; align-items: center; gap: var(--sp4); min-height: 30px; font-size: var(--text-sm); }
 .modal-legend-row .swatch { width: 18px; }
@@ -732,9 +762,9 @@ html, body {
 .bm-btn {
   display: flex; flex-direction: column; align-items: center; gap: var(--sp2);
   background: var(--white); border: 1px solid var(--grey-300);
-  border-radius: var(--radius); padding: var(--sp-btn-y);
+  border-radius: var(--radius); padding: var(--sp2);
   font-size: var(--text-xs); color: var(--grey-700);
-  cursor: pointer; box-shadow: var(--shadow-map-ctrl);
+  cursor: pointer; box-shadow: var(--shadow-md);
   transition: border-color var(--t-fast);
 }
 .bm-btn img {
@@ -746,7 +776,7 @@ html, body {
   position: absolute; bottom: 0; right: calc(100% + var(--sp4));
   background: var(--white); border: 1px solid var(--grey-300);
   border-radius: var(--radius); padding: var(--sp3);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-lg);
   display: flex; gap: var(--sp3);
   opacity: 0; visibility: hidden; transform: translateX(4px);
   transition: opacity var(--t-fast), transform var(--t-fast), visibility var(--t-fast);
@@ -818,21 +848,21 @@ html, body {
   position: absolute; bottom: var(--map-ctrl-bottom); left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-toggle);
+  /* The same pill as «Legende»: height, type, colour and elevation. */
   display: inline-flex; align-items: center; gap: var(--sp3);
-  padding: 11px var(--sp4) 11px var(--sp5);
-  background: var(--white); border: 1px solid var(--grey-300);
+  height: var(--ctrl-h-md); padding: 0 var(--sp4);
+  background: var(--white); border: none;
   border-radius: var(--radius-full);
-  font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--grey-500);
-  cursor: pointer; letter-spacing: .02em; white-space: nowrap;
-  box-shadow: var(--shadow-pill);
-  transition: border-color var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+  font-size: var(--text-sm); font-weight: var(--fw-semibold); color: var(--grey-900);
+  cursor: pointer; white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  transition: color var(--t-fast), box-shadow var(--t-fast);
   user-select: none;
 }
+#tbl-toggle svg { color: var(--grey-600); }
 @media (hover: hover) {
-  #tbl-toggle:hover {
-    border-color: var(--primary); color: var(--primary);
-    box-shadow: var(--shadow-pill-hover);
-  }
+  #tbl-toggle:hover, #tbl-toggle:hover svg { color: var(--primary); }
+  #tbl-toggle:hover { box-shadow: var(--shadow-pill-hover); }
 }
 /* Table icon · label · chevron (points up while the table is closed). */
 #tbl-toggle svg { flex-shrink: 0; }
@@ -1000,7 +1030,7 @@ html, body {
   padding: var(--sp1) var(--sp3) var(--sp1) var(--sp4); font-size: var(--text-meta); line-height: 20px;
   font-weight: var(--fw-semibold);
   background: var(--primary-bg); color: var(--primary-dark);
-  border: none; border-radius: var(--radius-pill);
+  border: none; border-radius: var(--radius-full);
   white-space: nowrap;
 }
 .pill-x {
@@ -1023,7 +1053,7 @@ html, body {
 
 .tbl-badge {
   background: var(--primary); color: var(--white);
-  border-radius: var(--radius-pill); font-size: var(--text-label); padding: 1px var(--sp2);
+  border-radius: var(--radius-full); font-size: var(--text-xs); padding: 1px var(--sp2);
   line-height: 14px; font-weight: var(--fw-semibold);
 }
 
@@ -1035,8 +1065,8 @@ html, body {
    1080p screen with the legend docked (7 of 10 columns visible). */
 #tbl th {
   padding: 7px var(--sp4); text-align: left; background: var(--grey-100);
-  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
-  text-transform: uppercase; letter-spacing: .04em;
+  font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-600);
+  text-transform: uppercase; letter-spacing: .05em;
   border-bottom: 2px solid var(--grey-200);
   cursor: pointer; user-select: none; white-space: nowrap;
   transition: color var(--t-fast);
@@ -1101,7 +1131,7 @@ html, body {
   transition: border-color var(--t-fast);
 }
 @media (hover: hover) {
-  .pg-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: var(--pg-hover); }
+  .pg-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); background: var(--row-hover); }
   .pg-btn.pg-active:hover:not(:disabled) { background: var(--primary); color: var(--white); }
   #pg-size-select:hover { border-color: var(--grey-400); }
 }
@@ -1231,8 +1261,8 @@ html, body {
 .lg-group-external { border-top: 1px solid var(--grey-200); margin-top: var(--sp2); padding-top: var(--sp3); }
 .lg-ext-head {
   padding: 0 var(--sp5) var(--sp2);
-  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
-  letter-spacing: .06em; text-transform: uppercase;
+  font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-600);
+  letter-spacing: .05em; text-transform: uppercase;
 }
 /* Rows: the eye sits in the same column as the group eyes above. */
 .lg-ext-items { padding: 0 0 var(--sp2); }
@@ -1252,7 +1282,7 @@ html, body {
 .lg-ext-attr {
   /* grey-500 gives ~4.6:1 contrast on white, just over WCAG AA at 11 px.
      grey-400 was 3.0:1 — failed AA for non-large text. */
-  font-size: var(--text-label); color: var(--grey-500); margin-top: 1px;
+  font-size: var(--text-xs); color: var(--grey-500); margin-top: 1px;
 }
 .lg-ext-attr a { color: inherit; text-decoration: none; }
 .lg-ext-opacity {
@@ -1286,7 +1316,7 @@ html, body {
   flex-shrink: 0; min-height: 41px;
 }
 #filter-sidebar-header .panel-title { flex: 1; }
-#filter-sidebar-header .tbl-badge { font-size: var(--text-label); }
+#filter-sidebar-header .tbl-badge { font-size: var(--text-xs); }
 /* Reset link sits in the header row.  It used to share a row with the search
    field and was clipped to "Alle zur…" in phone-width drawers. */
 #filter-sidebar-header .filter-reset-link { font-size: var(--text-meta); color: var(--primary); }
@@ -1344,7 +1374,7 @@ html, body {
   min-width: 18px; text-align: center;
   font-size: var(--text-xs); color: var(--white); font-weight: var(--fw-semibold);
   background: var(--primary);
-  border-radius: var(--radius-pill); padding: 1px var(--sp2);
+  border-radius: var(--radius-full); padding: 1px var(--sp2);
 }
 .filter-group-head .filter-group-caret {
   color: var(--grey-500); transition: transform var(--t-base);
@@ -1375,8 +1405,8 @@ html, body {
 .ext-popup { font-size: var(--text-sm); color: var(--grey-800); }
 .ext-popup-block + .ext-popup-block { border-top: 1px solid var(--grey-100); margin-top: var(--sp3); padding-top: var(--sp3); }
 .ext-popup-layer {
-  font-size: var(--text-label); font-weight: var(--fw-bold);
-  color: var(--grey-500); text-transform: uppercase; letter-spacing: .06em;
+  font-size: var(--text-xs); font-weight: var(--fw-bold);
+  color: var(--grey-600); text-transform: uppercase; letter-spacing: .05em;
   margin-bottom: var(--sp2);
 }
 .ext-popup table { width: 100%; border-collapse: collapse; }
@@ -1607,7 +1637,7 @@ html, body {
   .legend .panel-title { font-size: var(--text-title); }
   .when-wide { display: none; }
   .when-compact { display: block; }
-  .lg-group-label { font-size: var(--text-md); }
+  .lg-group-label { font-size: var(--text-base); }
   .lg-item { font-size: var(--text-base); }
 
   /* The pill gets the layers icon and stays put — pressed — while its sheet
@@ -1619,7 +1649,7 @@ html, body {
     overflow-x: auto; scrollbar-width: none;
   }
   .legend-bar::-webkit-scrollbar { display: none; }
-  .legend-pill { box-shadow: var(--shadow-pill); }
+  .legend-pill { box-shadow: var(--shadow-sm); }
   .legend-pill-icon { display: block; }
   .legend-pill .lg-minis, .legend-pill-note { display: none; }
   #map.legend-open .legend-pill { display: inline-flex; background: var(--primary); color: var(--white); }
@@ -1636,9 +1666,9 @@ html, body {
   .fcard-title { font-size: var(--text-lg); }
   .fcard .dl-grid { --dl-label-w: 130px; row-gap: var(--sp3); }
   .fcard .dl-grid dt { font-size: var(--text-sm); }
-  .fcard .dl-grid dd { font-size: var(--text-md); }
+  .fcard .dl-grid dd { font-size: var(--text-base); }
   .fcard-actions { padding-bottom: 0; border-top: none; }
-  .fcard-actions .btn { font-size: var(--text-md); }
+  .fcard-actions .btn { font-size: var(--text-base); }
   /* While the table sheet is open it is the place for details: the card
      steps aside and returns when the table closes (the selection stays). */
   #main-content:not(.tbl-collapsed) .fcard { display: none; }
@@ -1708,6 +1738,8 @@ html, body {
   /* Keep the maplibre attribution control visible — it's required by
      the basemap licence terms. */
   .maplibregl-ctrl-attrib { display: block !important; }
+  .maplibregl-ctrl-attrib-inner { display: block !important; }
+  .maplibregl-ctrl-attrib-button { display: none !important; }
   /* Force colour fidelity for area fills (browsers strip non-essential
      backgrounds in print by default). */
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

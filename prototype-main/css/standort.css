@@ -33,6 +33,9 @@ body.page-standort {
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp4);
   padding-top: var(--sp3); padding-bottom: var(--sp3);
 }
+/* Header controls are 32 px, as in the map app's header; page and card
+   actions below are 36 px. */
+.pg-header .btn { height: var(--ctrl-h); padding: 0 var(--sp4); }
 .pg-titlebar[hidden], .pg-main[hidden], .pg-state[hidden] { display: none; }
 .pg-title-row {
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp5);
@@ -44,6 +47,12 @@ body.page-standort {
 /* The map app's footer (styles.css), here at the end of the page: its links
    only, on every screen size — this page has no ⋯ menu to move them to. */
 .page-standort #footer { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: auto; }
+/* Touch: the links of this page that are plain text get a finger-sized box. */
+@media (pointer: coarse) {
+  .page-standort #footer { height: auto; min-height: calc(var(--ctrl-h) + env(safe-area-inset-bottom, 0px)); }
+  .page-standort #footer-links a { display: inline-flex; align-items: center; min-height: var(--ctrl-h); padding: 0 var(--sp2); }
+  .card-link { display: inline-flex; align-items: center; min-height: var(--ctrl-h); }
+}
 
 /* Loading / not found / error */
 .pg-state {
@@ -139,7 +148,7 @@ body.page-standort {
 .pk-group { break-inside: avoid; padding-bottom: var(--sp4); }
 .pk-cap {
   padding-bottom: var(--sp2);
-  font-size: var(--text-label); font-weight: var(--fw-bold); color: var(--grey-600);
+  font-size: var(--text-xs); font-weight: var(--fw-bold); color: var(--grey-600);
   letter-spacing: .05em; text-transform: uppercase;
 }
 .pk-item { display: flex; align-items: center; gap: var(--sp3); min-height: 22px; }
@@ -165,8 +174,8 @@ body.page-standort {
 .cal { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--text-sm); }
 .cal th {
   padding: var(--sp3); text-align: left; white-space: nowrap;
-  font-size: var(--text-label); font-weight: var(--fw-semibold); color: var(--grey-600);
-  letter-spacing: .04em; text-transform: uppercase;
+  font-size: var(--text-xs); font-weight: var(--fw-semibold); color: var(--grey-600);
+  letter-spacing: .05em; text-transform: uppercase;
 }
 .cal th abbr { text-decoration: none; }
 .cal th.cal-code { width: 72px; padding-left: 0; }
